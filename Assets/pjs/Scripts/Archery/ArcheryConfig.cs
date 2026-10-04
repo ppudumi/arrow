@@ -19,6 +19,10 @@ namespace Archery
         [Tooltip("[명세] 기본 공격력 1")]
         public float playerAttack = 1f;
 
+        [Header("플레이어 이동 (테스트 씬 전용 덮어쓰기)")]
+        [Tooltip("1단 점프력. 프리팹 원래 값 21(최고 높이 약 7.49) → 18.78(약 5.99, 20% 낮춤). 높이는 점프력의 제곱에 비례. 0 이하면 프리팹 값 사용")]
+        public float playerFirstJumpForce = 18.78f;
+
         [Header("활시위 정규화 [잠정]")]
         [Tooltip("[잠정] 활시위(초) ÷ 이 값 = 활시위 배율. 기본 화살(1초)이 배율 1이 되도록 1초로 둔다.")]
         public float referenceDrawSeconds = 1f;

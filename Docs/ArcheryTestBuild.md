@@ -13,7 +13,7 @@
 | 수치 설정 | `Assets/pjs/Resources/ArcheryConfig.asset` |
 | 코드 | `Assets/pjs/Scripts/Archery/`, `Assets/pjs/Editor/ArcheryTestBuilder.cs` |
 
-- 에디터: `Tools > Archery > Create Test Scene`을 실행한 뒤 Play를 누르거나, `Tools > Archery > Build macOS Test Build`로 빌드합니다.
+- 에디터: `Assets/pjs/Scenes/ArcheryTest.unity`를 열고 Play를 누릅니다. `Tools > Archery > Build macOS Test Build`로 빌드합니다. 빌드는 이 씬을 그대로 쓰고, 씬이 없을 때만 새로 만듭니다. `Create Test Scene` 메뉴는 씬을 새로 만들어 덮어씁니다.
 - 명령줄 빌드(에디터를 닫은 상태):
   `Unity -batchmode -quit -projectPath <프로젝트> -executeMethod Procedural2D.Editor.ArcheryTestBuilder.BuildMacFromCommandLine`
 - 자동 검증: 로비의 **자동 검증 실행** 버튼을 누르거나,
@@ -21,6 +21,13 @@
   `-archeryScreenshots <폴더>`를 붙이면 화면 캡처도 저장합니다. 보고서는 앱 persistentDataPath의 `archery_selftest_report.txt`에도 저장됩니다.
   최근 실행 결과는 `Docs/ArcheryTestBuild_SelfTestReport.txt`에 있습니다(100/100 통과).
 - 프로젝트의 Build Settings 씬 목록은 바꾸지 않았습니다. 빌드할 때 테스트 씬만 지정합니다.
+
+## 로비
+
+- 발사 궁술 목록: 아폴론 · 헤르메스 · 아테나 · 오디세우스 · 아레스
+- 회수 궁술 목록: **기본 — 줍기** · 오르페우스 · 아레스(뽑기) · 데메테르 · 하데스 · 제우스
+  (표시 순서는 `ArcheryTestUI.LobbyRetrievalOrder`. 버튼 이름과 적용 궁술은 같은 값에서 나옵니다.)
+- 초기 선택: 아폴론 + 기본 줍기
 
 ## 조작
 
@@ -49,7 +56,17 @@
   - 한 번 비행하는 동안 적중 판정은 1회입니다(`MarkHitResolved`).
   - 매 프레임 화살통 수와 `InQuiver` 상태 수가 같은지, 중복이 없는지 검사하고 HUD에 표시합니다.
 - 기존 코드 변경은 `Procedural2DAim`에 `legacyCombatEnabled` 스위치와 `PlayShotRecoil()`을 추가한 것뿐입니다.
-  테스트 빌드에서는 조준과 자세 연출만 기존 코드를 쓰고, 기존 사격·회수·탄창 HUD는 끕니다. 기존 `PrototypeScene` 동작은 그대로입니다.
+  테스트 빌드에서는 조준과 자세 연출만 기존 코드를 쓰고, 기존 사격·회수·탄창 HUD는 끕니다. (기존 `PrototypeScene`은 삭제되었고, 기존 사격 코드는 스위치를 켜면 그대로 동작합니다.)
+
+## 플레이어 점프 (테스트 씬 전용)
+
+| 항목 | 변경 전 | 변경 후 | 설정 위치 |
+| --- | --- | --- | --- |
+| 1단 점프력 | 21 (최고 높이 약 7.49) | **18.78** (약 5.99, 20% 낮춤) | `ArcheryConfig.asset` → `playerFirstJumpForce` |
+| 2단 점프력 | 17 | 17 (유지) | 프리팹 `ProceduralCharacter` → `secondJumpForce` |
+
+- 높이는 점프력의 제곱에 비례합니다(`높이 = 점프력² ÷ (2 × 9.81 × 중력배율 3)`). 높이를 k배로 하려면 점프력을 `21 × √k`로 둡니다. 예: 0.9 → 19.92, 0.7 → 17.57.
+- 테스트 씬에서 플레이어를 생성할 때만 덮어씁니다. 프리팹 값(21)은 바뀌지 않습니다. 0 이하로 두면 프리팹 값을 사용합니다.
 
 ## 공통 수치와 계산
 

@@ -76,6 +76,8 @@ namespace Archery
             if (Mouse.current == null) InputSystem.AddDevice<Mouse>();
 #endif
             float prevScale = Time.timeScale;
+            var prevLaunch = flow.SelectedLaunch;
+            var prevRetrieval = flow.SelectedRetrieval;
             Time.timeScale = TimeScale;
             lines.Add($"궁술 테스트 빌드 자동 검증 — {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             lines.Add($"Unity {Application.unityVersion} / {(Application.isEditor ? "에디터 Play 모드" : "플레이어")} {Application.platform} / timeScale {TimeScale}");
@@ -87,6 +89,7 @@ namespace Archery
                 Screenshot("lobby");
                 yield return null;
             }
+            LobbyOrderCheck();
             yield return Run("A. 30가지 조합 기본 동작", AllCombinations());
             yield return Run("B. 기존 이동·애니메이션", MovementAndAnimation());
             yield return Run("C. 찌르기 빗나감 시 화살 미소모", AresMissDoesNotConsume());
@@ -110,6 +113,8 @@ namespace Archery
 #endif
             if (flow.Current == ArcheryTestFlow.FlowScreen.Battle) flow.ReturnToLobby();
             flow.LoadoutOverride = null;
+            flow.SelectedLaunch = prevLaunch;
+            flow.SelectedRetrieval = prevRetrieval;
 
             lines.Add("");
             lines.Add($"결과: 통과 {pass} / 실패 {fail} / 전체 {pass + fail}");
@@ -274,6 +279,38 @@ namespace Archery
                 if (best == null || a.LaunchTime > best.LaunchTime) best = a;
             }
             return best;
+        }
+
+        /// <summary>로비 회수 목록: 기본 줍기가 맨 위, 나머지 상대 순서 유지, 표시 이름 = 적용 궁술</summary>
+        private void LobbyOrderCheck()
+        {
+            lines.Add("■ 0. 로비 회수 유형 목록");
+            var order = ArcheryTestUI.LobbyRetrievalOrder;
+            var expected = new[] { RetrievalStyle.Basic, RetrievalStyle.Orpheus, RetrievalStyle.Ares, RetrievalStyle.Demeter, RetrievalStyle.Hades, RetrievalStyle.Zeus };
+            bool same = order.Length == expected.Length;
+            var labels = new StringBuilder();
+            for (int i = 0; i < order.Length; i++)
+            {
+                if (i < expected.Length && order[i] != expected[i]) same = false;
+                labels.Append($"{i + 1}.{ArcheryConfig.RetrievalName(order[i])} ");
+            }
+            Check(same, "기본 — 줍기 맨 위, 나머지 순서 유지, 6종 중복 없음", labels.ToString());
+
+            // 각 버튼이 고르는 값으로 실제 생성되는 회수 궁술이 같은지
+            bool mapped = true;
+            var detail = new StringBuilder();
+            foreach (var st in order)
+            {
+                var b = RetrievalBehaviour.Create(st, null);
+                if (b.Style != st) mapped = false;
+                detail.Append($"{ArcheryConfig.RetrievalName(st)}→{b.GetType().Name} ");
+            }
+            Check(mapped, "표시 유형과 실제 적용 궁술 일치", detail.ToString());
+            if (quitWhenDone) // 앱을 막 실행한 상태에서만 초기 선택값을 확인할 수 있다
+            {
+                Check(flow.SelectedRetrieval == RetrievalStyle.Basic && flow.SelectedLaunch == LaunchStyle.Apollo, "초기 선택값 유지 (아폴론 / 기본 줍기)",
+                    $"{flow.SelectedLaunch} / {flow.SelectedRetrieval}");
+            }
         }
 
         // ───────────── A. 30가지 조합 ─────────────
@@ -477,7 +514,32 @@ namespace Archery
             yield return WaitGame(0.1f);
             Check(player.transform.position.x < xl - 1f, "A 키 왼쪽 이동", $"{player.transform.position.x - xl:0.00}");
 
+            // 1단 점프 최고 높이 (테스트 설정 점프력 적용 확인)
             yield return WaitUntil(() => ctrl.IsGrounded, 2f);
+            yield return WaitGame(0.3f);
+            float cfgJump = flow.Config.playerFirstJumpForce;
+            float g = Mathf.Abs(Physics2D.gravity.y) * rb.gravityScale;
+            float expectedHeight = cfgJump * cfgJump / (2f * g);
+            float y0 = player.transform.position.y, maxY = y0;
+            InputSystem.QueueStateEvent(kb, new KeyboardState(Key.Space));
+            yield return null;
+            InputSystem.QueueStateEvent(kb, new KeyboardState());
+            float jumpEnd = Time.time + 2f;
+            bool rising = true;
+            while (Time.time < jumpEnd && (rising || player.transform.position.y > maxY - 0.5f))
+            {
+                maxY = Mathf.Max(maxY, player.transform.position.y);
+                if (rb.linearVelocity.y < -0.5f) rising = false;
+                yield return null;
+            }
+            float jumpHeight = maxY - y0;
+            Check(Approx(ctrl.firstJumpForce, cfgJump, 0.001f) && Approx(ctrl.secondJumpForce, 17f, 0.001f),
+                "점프력 설정 적용 (1단 테스트 설정값, 2단 프리팹 값 유지)", $"1단 {ctrl.firstJumpForce:0.##} / 2단 {ctrl.secondJumpForce:0.##}");
+            Check(Mathf.Abs(jumpHeight - expectedHeight) < 0.4f && jumpHeight < 7.49f * 0.85f,
+                "1단 점프 최고 높이 약 20% 낮춤 (기존 약 7.49)", $"측정 {jumpHeight:0.00} / 계산 {expectedHeight:0.00} 유닛");
+
+            yield return WaitUntil(() => ctrl.IsGrounded, 3f);
+            yield return WaitGame(0.2f);
             InputSystem.QueueStateEvent(kb, new KeyboardState(Key.Space));
             yield return null;
             yield return null;

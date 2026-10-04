@@ -229,6 +229,8 @@ namespace Archery
                 player = Instantiate(playerPrefab, pos, Quaternion.identity, holder.transform);
                 var aim = player.GetComponent<Procedural2DAim>();
                 if (aim != null) aim.legacyCombatEnabled = false;
+                var move = player.GetComponent<ProceduralCharacterController>();
+                if (move != null && Config.playerFirstJumpForce > 0f) move.firstJumpForce = Config.playerFirstJumpForce;
                 player.transform.SetParent(null, true);
                 Destroy(holder);
             }

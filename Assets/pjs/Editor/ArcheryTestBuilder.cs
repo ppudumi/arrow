@@ -15,7 +15,7 @@ namespace Procedural2D.Editor
     /// <summary>
     /// 궁술 테스트 빌드 도구.
     /// - Tools/Archery/Create Test Scene : 설정 에셋 + 테스트 씬(Assets/pjs/Scenes/ArcheryTest.unity) 생성
-    /// - Tools/Archery/Build macOS Test Build : 씬 생성 후 Builds/ArcheryTest/macOS/ArcheryTest.app 빌드
+    /// - Tools/Archery/Build macOS Test Build : 기존 ArcheryTest 씬으로 Builds/ArcheryTest/macOS/ArcheryTest.app 빌드 (씬이 없을 때만 생성)
     /// - 명령줄: -executeMethod Procedural2D.Editor.ArcheryTestBuilder.BuildMacFromCommandLine
     /// 프로젝트의 Build Settings 씬 목록은 건드리지 않고, 빌드 시 테스트 씬만 지정한다.
     /// </summary>
@@ -57,8 +57,14 @@ namespace Procedural2D.Editor
 
         public static BuildReport BuildMac(string outputPath)
         {
-            CreateOrUpdateAssets();
-            CreateTestScene();
+            // 프로젝트의 ArcheryTest 씬을 그대로 사용 (없을 때만 생성) — 씬을 직접 수정해도 빌드가 덮어쓰지 않는다
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) == null)
+            {
+                CreateOrUpdateAssets();
+                CreateTestScene();
+            }
+            string full = Path.GetFullPath(outputPath);
+            if (Directory.Exists(full)) Directory.Delete(full, true); // 이전 앱 파일이 섞이지 않게
 
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)));
             var options = new BuildPlayerOptions

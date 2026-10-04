@@ -19,6 +19,15 @@ namespace Archery
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() => PointerOverBattleButtons = false;
 
+        /// <summary>
+        /// 로비 회수 유형 표시 순서. 버튼 이름과 선택값은 같은 enum 값에서 나오므로 표시와 실제 적용 궁술이 항상 일치한다.
+        /// </summary>
+        public static readonly RetrievalStyle[] LobbyRetrievalOrder =
+        {
+            RetrievalStyle.Basic, RetrievalStyle.Orpheus, RetrievalStyle.Ares,
+            RetrievalStyle.Demeter, RetrievalStyle.Hades, RetrievalStyle.Zeus,
+        };
+
         private const float RefW = 1920f, RefH = 1080f;
         private ArcheryTestFlow flow;
         private Font font;
@@ -154,9 +163,9 @@ namespace Archery
             }
 
             GUI.Label(new Rect(500, 140, 400, 40), "회수 궁술", header);
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < LobbyRetrievalOrder.Length; i++)
             {
-                var st = (RetrievalStyle)i;
+                var st = LobbyRetrievalOrder[i];
                 if (GUI.Button(new Rect(500, 185 + i * 66, 400, 58), ArcheryConfig.RetrievalName(st), flow.SelectedRetrieval == st ? buttonSel : button))
                     flow.SelectedRetrieval = st;
             }
