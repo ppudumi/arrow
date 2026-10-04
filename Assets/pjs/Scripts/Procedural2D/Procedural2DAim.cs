@@ -87,6 +87,12 @@ namespace Procedural2D
         public static Procedural2DAim Instance { get; private set; }
         private bool justFiredThisFrame = false;
 
+        /// <summary>
+        /// false이면 조준/자세 연출만 담당하고, 사격·드랍·회수·탄창 HUD는 외부 궁술 시스템(Archery)이 담당합니다.
+        /// Awake 이전에 설정해야 HUD 생성이 생략됩니다.
+        /// </summary>
+        [HideInInspector] public bool legacyCombatEnabled = true;
+
         [Header("Aim Targets & Pivots")]
         [Tooltip("활을 쥐고 있는 왼팔의 어깨 회전축")]
         public Transform leftArmPivot;
@@ -199,6 +205,8 @@ namespace Procedural2D
             charCtrl = GetComponent<ProceduralCharacterController>();
             playerRb = GetComponent<Rigidbody2D>();
             currentAmmo = maxAmmo;
+
+            if (!legacyCombatEnabled) return;
 
             SetupRangeCircle();
             SetupOverheadAmmoPips();
@@ -415,8 +423,10 @@ namespace Procedural2D
             bool isFiring = GetFireInput();
             bool isDropping = GetDropInput();
 
-            UpdateInRangeArrowsCount();
             HandleAiming(mouseScreenPos);
+            if (!legacyCombatEnabled) return;
+
+            UpdateInRangeArrowsCount();
             HandleShooting(isFiring);
             HandleDropping(isDropping);
 
@@ -425,8 +435,19 @@ namespace Procedural2D
             justFiredThisFrame = false;
         }
 
+        /// <summary>
+        /// 외부 궁술 시스템에서 발사/찌르기 시 기존 사격 반동 연출을 재생합니다.
+        /// </summary>
+        public void PlayShotRecoil(Vector2 direction)
+        {
+            if (bodyShift != null) bodyShift.ApplyRecoil(direction);
+            currentRecoilAngle = 22f;
+        }
+
         private void LateUpdate()
         {
+            if (!legacyCombatEnabled) return;
+
             // 1. 원형 인디케이터 위치 및 스타일 업데이트
             if (circleObj != null)
             {

@@ -781,11 +781,11 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 2
   windowsGamepadBackendHint: 0
-  cloudProjectId: dd879f87-7f8d-4bf2-ad1f-b7e4f5f84705
+  cloudProjectId: 1d9644d3-d34a-4543-9b9a-727585b70731
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: laurel
-  organizationId: ppudumi
+  projectName: My project 2026-10-04_02-07-09
+  organizationId: jn2fgkxsjg
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}
