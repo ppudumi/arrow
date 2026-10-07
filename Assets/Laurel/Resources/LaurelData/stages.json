@@ -1,0 +1,44 @@
+{
+  "note": "개발상 임시 설계. 노드 지도는 layers 순서대로 층을 만들고 마지막 층은 보스. 층 문자열: C=전투 E=정예 R=보상 S=상점 F=샘(회복) ?=혼합(아래 mixWeights). 한 층의 노드 수는 문자열 길이.",
+  "stages": [
+    {
+      "index": 1, "name": "델포이 숲", "subtitle": "다프네를 쫓는 길",
+      "bg": "#1E2B1E", "bgFar": "#2E4A2C", "terrain": "#4E6B3A", "platform": "#6B8E4E", "accent": "#C5E1A5",
+      "hpMul": 1.0, "dmgMul": 1.0,
+      "layers": ["CC", "C?C", "?E?", "C?R", "SF"],
+      "mixWeights": { "C": 50, "R": 20, "S": 15, "F": 15 },
+      "normal": ["sprout", "boarlet", "crow", "satyr"],
+      "elite": ["boarlet", "satyr"],
+      "enemyCount": [3, 4], "waves": [1, 2],
+      "boss": "boar", "unlockSkill": "double_jump",
+      "goldPerNode": [14, 22], "goldElite": 40, "goldBoss": 70,
+      "nectarCombat": 1, "nectarElite": 2
+    },
+    {
+      "index": 2, "name": "페네이오스 강가", "subtitle": "강으로 달아난 님프",
+      "bg": "#13233A", "bgFar": "#1F3D5C", "terrain": "#3A5A78", "platform": "#5B86A8", "accent": "#81D4FA",
+      "hpMul": 1.55, "dmgMul": 1.3,
+      "layers": ["CC", "C?C", "E?C", "?S?", "FR"],
+      "mixWeights": { "C": 50, "R": 20, "S": 10, "F": 20 },
+      "normal": ["frog", "naiad", "reedshooter", "crow", "boarlet"],
+      "elite": ["frog", "reedshooter", "naiad"],
+      "enemyCount": [4, 5], "waves": [1, 2],
+      "boss": "achelous", "unlockSkill": "dash",
+      "goldPerNode": [18, 28], "goldElite": 50, "goldBoss": 90,
+      "nectarCombat": 1, "nectarElite": 3
+    },
+    {
+      "index": 3, "name": "월계수의 언덕", "subtitle": "에로스의 화살",
+      "bg": "#2A1630", "bgFar": "#4A2850", "terrain": "#6A4A70", "platform": "#9C7AA8", "accent": "#F8BBD0",
+      "hpMul": 2.2, "dmgMul": 1.6,
+      "layers": ["CC", "?C?", "EC?", "C?E", "SF"],
+      "mixWeights": { "C": 50, "R": 25, "S": 10, "F": 15 },
+      "normal": ["cupid", "harpy", "golem", "thorn", "naiad"],
+      "elite": ["golem", "harpy", "thorn"],
+      "enemyCount": [5, 6], "waves": [2, 2],
+      "boss": "eros", "unlockSkill": "triple_jump",
+      "goldPerNode": [22, 34], "goldElite": 60, "goldBoss": 0,
+      "nectarCombat": 2, "nectarElite": 3
+    }
+  ]
+}

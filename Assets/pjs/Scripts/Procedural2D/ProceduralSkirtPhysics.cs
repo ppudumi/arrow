@@ -60,6 +60,12 @@ namespace Procedural2D
             prevPos = transform.position;
         }
 
+        /// <summary>순간이동 직후 이동 속도를 잘못 계산해 치마가 튀지 않도록 기준 위치를 갱신합니다.</summary>
+        public void ResetMotion()
+        {
+            prevPos = transform.position;
+        }
+
         private void LateUpdate()
         {
             if (joint1 == null) return;

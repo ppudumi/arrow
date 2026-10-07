@@ -1,0 +1,55 @@
+{
+  "note": "공통 수치. 엑셀 값: 기본 체력 100, 공격력 1, 궁술별 기본 간격, 헤르메스/오디세우스/회수 수치. 나머지는 개발상 임시값(Docs/Laurel_Design_Decisions.md 참고).",
+
+  "player": { "maxHp": 100, "attack": 1, "defense": 0, "attackSpeed": 0, "moveSpeedMul": 1.0, "iframes": 0.9, "startGold": 30, "startArrows": [0, 0, 0, 0, 0, 0], "quiverMax": 30 },
+  "tutorial": { "maxHp": 300, "attack": 6, "defense": 3, "attackSpeed": 0.5, "moveSpeedMul": 1.1, "arrows": [0, 0, 0, 0, 0, 0, 0, 0], "launch": "Apollo", "retrieval": "Orpheus", "doubleJump": true, "dash": true },
+
+  "archery": {
+    "referenceDrawSeconds": 1.0, "minInterval": 0.1, "arrowSpeed": 26, "straightMaxRange": 32, "fallGravity": 30,
+    "apolloBaseInterval": 1.0,
+    "hermesBaseInterval": 1.25, "hermesAttackSpeedPerStack": 0.10, "hermesMaxStacks": 5, "hermesBuffDuration": 5,
+    "athenaBaseInterval": 0.6, "athenaGravityPerWeight": 18,
+    "odysseusMinCharge": 1.2, "odysseusMaxCharge": 1.5, "odysseusDamageReferenceSeconds": 1.0,
+    "aresThrustBaseInterval": 0.5, "aresThrustRange": 2.4, "aresThrustWidth": 1.0,
+    "autoPickupRadius": 1.3,
+    "orpheusReturnDuration": 5, "returnEaseExponent": 3,
+    "aresPullDelay": 0.5, "aresPullRadius": 1.7,
+    "demeterRadius": 3.6, "demeterAngle": 150, "demeterDamageMultiplier": 2, "demeterIntervalFactor": 0.5,
+    "hadesReturnDuration": 5,
+    "zeusRadius": 3.4, "zeusCooldown": 6, "zeusDamageFactor": 0.5, "zeusLineThickness": 0.35,
+    "discardToss": 3.5, "phantomCap": 160, "phantomLifetime": 3.0
+  },
+
+  "status": {
+    "poisonDuration": 3, "poisonTick": 1.0,
+    "burnDps": 2.0, "burnAttackFactor": 0.5,
+    "midasSlow": 0.2, "midasGoldMin": 2, "midasGoldMax": 3, "midasGoldCooldown": 0.5,
+    "staticPerStack": 3, "staticDelay": 1.2, "staticMaxStacks": 10,
+    "webSlowStart": 0.3, "webSlowPerSecond": 0.12, "webSlowMax": 0.7,
+    "oilBurnMultiplier": 2.0, "oilFireDuration": 4, "oilFireDps": 3,
+    "bossDurationMul": 0.5, "bossCrowdControlMul": 0.5, "bossKnockbackMul": 0.15,
+    "sisyphusVulnerableMul": 2.0, "sisyphusStun": 3, "bossSisyphusMul": 1.5, "bossSisyphusDuration": 6
+  },
+
+  "economy": {
+    "rarityOrder": ["일반", "희귀", "고급", "영웅", "신화", "전설"],
+    "arrowPrice": [25, 40, 60, 90, 130, 170],
+    "relicPrice": [60, 90, 120, 160, 200, 240],
+    "removeBaseCost": 25, "removeCostStep": 25,
+    "rerollGold": 15, "rerollGoldStep": 10, "rerollNectar": 1,
+    "healPotionPrice": 35, "healPotionAmount": 35,
+    "ambrosiaPrice": 70, "ambrosiaMaxHp": 10,
+    "shopArrows": 5, "shopRelics": 3,
+    "rewardArrowChoices": 3, "rewardRelicChoices": 3, "restHealRatio": 0.35, "stageClearHealRatio": 0.3,
+    "rarityWeightsByStage": [
+      [55, 25, 12, 5, 2, 1],
+      [40, 28, 17, 9, 4, 2],
+      [28, 27, 20, 13, 8, 4]
+    ],
+    "enemyGoldMul": 1.0
+  },
+
+  "world": { "arenaSize": 22, "wallThickness": 2, "cameraSize": 7, "bossCameraSize": 9, "lobbyWidth": 30 },
+
+  "nectar": { "tutorialClear": 3, "stageClearBonus": [2, 3, 5] }
+}
