@@ -1,0 +1,15 @@
+{
+  "note": "엑셀 '유물' 시트 6종 + 개발상 임시 유물(temp=true) 4종. effect 키는 RelicEffects 에서 처리.",
+  "relics": [
+    { "id": "sharp_head",   "code": 2, "name": "날카로운 화살촉", "tag": "공격력",      "grade": "희귀", "effect": "attack",      "p1": 2,    "desc": "공격력 +2" },
+    { "id": "pebble_pouch", "code": 4, "name": "조약돌 주머니",   "tag": "화살추가",    "grade": "고급", "effect": "pebbles",     "p1": 50,   "desc": "조약돌 화살(41) 50발 추가. 조약돌은 화살통 맨 앞에 오면 자동 발사되고, 쓰면 그 라운드 동안 부서진다." },
+    { "id": "arrow_poker",  "code": 5, "name": "화살 찌르게",     "tag": "버리기",      "grade": "영웅", "effect": "discardHit",  "p1": 10,   "desc": "버리기 시 근처(10칸)의 무작위 적에게 그 화살을 적중시킴" },
+    { "id": "focus_strike", "code": 6, "name": "일점타격",        "tag": "적중효과",    "grade": "고급", "effect": "focus",       "p1": 1,    "p2": 6, "desc": "같은 적을 연속으로 맞출 때마다 추가 피해 +1 (최대 +6). 다른 적을 맞추면 초기화" },
+    { "id": "dual_shot",    "code": 7, "name": "듀얼샷",          "tag": "공격속도,화살","grade": "영웅", "effect": "dual",        "p1": 4,    "desc": "화살을 두 발씩 사용. 발사 간격은 두 화살의 활시위를 더해서 계산(공격속도 50% 감소에 해당). 버리기 시 첫번째를 버림" },
+    { "id": "sturdy_string","code": 8, "name": "튼튼한 활줄",     "tag": "공격속도",    "grade": "일반", "effect": "attackSpeed", "p1": 0.10, "desc": "공격속도 +10%" },
+    { "id": "laurel_leaf",  "code": 101, "temp": true, "name": "월계수 잎",          "tag": "체력",   "grade": "일반", "effect": "maxHp",     "p1": 15,   "desc": "[임시] 최대 체력 +15" },
+    { "id": "delphi_incense","code": 102, "temp": true, "name": "델포이의 향",       "tag": "이동",   "grade": "희귀", "effect": "moveSpeed", "p1": 0.08, "desc": "[임시] 이동속도 +8%" },
+    { "id": "golden_fleece","code": 103, "temp": true, "name": "황금 양털 조각",     "tag": "재화",   "grade": "고급", "effect": "goldGain",  "p1": 0.25, "desc": "[임시] 골드 획득 +25%" },
+    { "id": "asclepius",    "code": 104, "temp": true, "name": "아스클레피오스의 지팡이","tag": "회복", "grade": "영웅", "effect": "nodeHeal",  "p1": 6,    "desc": "[임시] 전투 노드를 정리할 때마다 체력 6 회복" }
+  ]
+}

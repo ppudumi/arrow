@@ -1,0 +1,30 @@
+{
+  "note": "로비의 넥타르 강화 트리(개미굴 형태). x,y 는 트리 화면 좌표(0~100). requires 는 먼저 구매해야 하는 노드(1레벨 이상). bossUnlock 은 해당 스테이지 보스를 처치해야 구매 가능(처치=구매 자격 해금, 자동 지급 아님). kind: stat / skill / launch / retrieval / quiver. cost 는 레벨별 가격.",
+  "nodes": [
+    { "id": "root",          "name": "아폴론의 잔불",     "kind": "stat",  "stat": "maxHp",       "value": 5,    "cost": [1],                  "x": 50, "y": 8,  "requires": [],                 "desc": "저주 속에서도 꺼지지 않은 신성. 최대 체력 +5" },
+
+    { "id": "hp",            "name": "생명의 뿌리",       "kind": "stat",  "stat": "maxHp",       "value": 10,   "cost": [3, 5, 8, 12, 16],    "x": 18, "y": 26, "requires": ["root"],           "desc": "레벨당 최대 체력 +10" },
+    { "id": "regen",         "name": "샘물의 숨결",       "kind": "stat",  "stat": "regen",       "value": 1,    "cost": [10],                 "x": 8,  "y": 46, "requires": ["hp"],             "desc": "5초마다 체력 1 자동 회복" },
+    { "id": "revive",        "name": "불사조의 깃",       "kind": "stat",  "stat": "revive",      "value": 1,    "cost": [25],                 "x": 18, "y": 66, "requires": ["regen"],          "desc": "도전마다 한 번, 쓰러지면 체력 50%로 부활" },
+    { "id": "defense",       "name": "청동 흉갑",         "kind": "stat",  "stat": "defense",     "value": 1,    "cost": [5, 9, 14],           "x": 28, "y": 46, "requires": ["hp"],             "desc": "레벨당 방어력 +1 (받는 피해 감소, 최소 1)" },
+
+    { "id": "attack",        "name": "태양의 화살촉",     "kind": "stat",  "stat": "attack",      "value": 1,    "cost": [4, 7, 11, 16, 22],   "x": 40, "y": 28, "requires": ["root"],           "desc": "레벨당 공격력 +1" },
+    { "id": "aspd",          "name": "팽팽한 시위",       "kind": "stat",  "stat": "attackSpeed", "value": 0.05, "cost": [4, 7, 11, 16, 22],   "x": 40, "y": 48, "requires": ["attack"],         "desc": "레벨당 공격속도 +5%" },
+    { "id": "quiver",        "name": "넉넉한 화살통",     "kind": "quiver","stat": "startArrows", "value": 1,    "cost": [4, 8, 12],           "x": 32, "y": 66, "requires": ["aspd"],           "desc": "레벨당 시작 화살(기본 화살) +1" },
+    { "id": "move",          "name": "가벼운 발걸음",     "kind": "stat",  "stat": "moveSpeed",   "value": 0.04, "cost": [3, 6, 10],           "x": 50, "y": 66, "requires": ["aspd"],           "desc": "레벨당 이동속도 +4%" },
+
+    { "id": "double_jump",   "name": "더블점프",          "kind": "skill", "skill": "doubleJump",                 "cost": [8],                  "x": 64, "y": 30, "requires": ["root"], "bossUnlock": 1, "desc": "공중에서 한 번 더 뛰어오른다 (Space 두 번)" },
+    { "id": "dash",          "name": "대쉬",              "kind": "skill", "skill": "dash",                       "cost": [12],                 "x": 74, "y": 50, "requires": ["double_jump"], "bossUnlock": 2, "desc": "Shift로 순간 돌진한다" },
+    { "id": "triple_jump",   "name": "에로스의 날개",     "kind": "skill", "skill": "tripleJump",                 "cost": [18],                 "x": 66, "y": 70, "requires": ["double_jump"], "bossUnlock": 3, "desc": "공중 점프를 한 번 더 할 수 있다 (3단 점프)" },
+
+    { "id": "l_hermes",      "name": "궁술: 헤르메스",    "kind": "launch",    "style": "Hermes",    "cost": [5], "x": 86, "y": 18, "requires": ["root"],      "desc": "연사 — 쏠수록 빨라진다" },
+    { "id": "l_athena",      "name": "궁술: 아테나",      "kind": "launch",    "style": "Athena",    "cost": [5], "x": 96, "y": 30, "requires": ["l_hermes"],  "desc": "곡사 — 화살 무게만큼 떨어진다" },
+    { "id": "l_odysseus",    "name": "궁술: 오디세우스",  "kind": "launch",    "style": "Odysseus",  "cost": [6], "x": 86, "y": 38, "requires": ["l_hermes"],  "desc": "차지샷 — 오래 당길수록 강하다" },
+    { "id": "l_ares",        "name": "궁술: 아레스",      "kind": "launch",    "style": "Ares",      "cost": [6], "x": 96, "y": 50, "requires": ["l_athena"],  "desc": "찌르기 — 빗나가면 화살을 쓰지 않는다" },
+    { "id": "r_orpheus",     "name": "회수: 오르페우스",  "kind": "retrieval", "style": "Orpheus",   "cost": [4], "x": 88, "y": 62, "requires": ["l_hermes"],  "desc": "R을 누르고 있으면 5초에 걸쳐 모든 화살을 부른다" },
+    { "id": "r_ares",        "name": "회수: 아레스",      "kind": "retrieval", "style": "Ares",      "cost": [4], "x": 98, "y": 70, "requires": ["r_orpheus"], "desc": "박힌 화살을 뽑으며 한 번 더 적중" },
+    { "id": "r_demeter",     "name": "회수: 데메테르",    "kind": "retrieval", "style": "Demeter",   "cost": [5], "x": 80, "y": 78, "requires": ["r_orpheus"], "desc": "R로 낫을 휘둘러 피해를 주고 화살을 거둔다" },
+    { "id": "r_hades",       "name": "회수: 하데스",      "kind": "retrieval", "style": "Hades",     "cost": [5], "x": 92, "y": 86, "requires": ["r_ares"],    "desc": "땅과 적의 화살이 저절로 돌아온다" },
+    { "id": "r_zeus",        "name": "회수: 제우스",      "kind": "retrieval", "style": "Zeus",      "cost": [6], "x": 76, "y": 94, "requires": ["r_demeter"], "desc": "R로 커서 주변 화살을 번개와 함께 즉시 부른다" }
+  ]
+}

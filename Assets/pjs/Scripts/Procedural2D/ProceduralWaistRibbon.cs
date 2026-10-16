@@ -143,6 +143,28 @@ namespace Procedural2D
             line2 = CreateLineRenderer("Waist_Ribbon_Sub", secondaryColor, ribbonColorEnd, startWidth * 0.85f, endWidth * 0.8f, sortingOrder - 1);
         }
 
+        /// <summary>
+        /// 순간이동(방 이동·부활) 직후 띠가 이전 위치에서 길게 끌려오지 않도록 모든 마디를 허리 매듭 아래로 다시 놓습니다.
+        /// </summary>
+        public void SnapToAnchor()
+        {
+            if (waistAnchor == null) EnsureAnchor();
+            Vector2 startPos = waistAnchor != null ? (Vector2)waistAnchor.position : (Vector2)transform.position;
+            prevPlayerPos = transform.position;
+            if (points1 != null)
+            {
+                float seg = ribbon1TotalLength / (ribbon1Segments - 1);
+                for (int i = 0; i < points1.Length; i++) points1[i] = new RibbonPoint(startPos - new Vector2(0f, i * seg));
+            }
+            if (points2 != null)
+            {
+                float seg = ribbon2TotalLength / (ribbon2Segments - 1);
+                for (int i = 0; i < points2.Length; i++) points2[i] = new RibbonPoint(startPos - new Vector2(0.05f, i * seg));
+            }
+            if (line1 != null) RenderRibbon(line1, points1);
+            if (line2 != null) RenderRibbon(line2, points2);
+        }
+
         private LineRenderer CreateLineRenderer(string name, Color colStart, Color colEnd, float wStart, float wEnd, int order)
         {
             GameObject go = new GameObject(name);

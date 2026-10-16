@@ -75,6 +75,15 @@ namespace Procedural2D
         public float walkCycleSpeed = 10f;
         public float walkBounceAmount = 0.035f;
 
+        [Header("Gameplay Gates (게임 진행 상태에 따른 제어)")]
+        [Tooltip("false이면 이동·점프·대시 입력을 받지 않습니다 (대화·메뉴 중)")]
+        [HideInInspector] public bool inputEnabled = true;
+        [Tooltip("false이면 대시(Shift)를 사용할 수 없습니다 (유니크 스킬 미보유)")]
+        [HideInInspector] public bool dashUnlocked = true;
+
+        /// <summary>값이 있으면 키보드 대신 이 입력을 사용합니다 (자동 검증용). x=좌우, y>0.5=점프 누름, z>0.5=대시 누름</summary>
+        public System.Func<Vector3> InputOverride;
+
         private Rigidbody2D rb;
         private Procedural2DAim aimCtrl;
         private bool isGrounded = true;
@@ -127,6 +136,20 @@ namespace Procedural2D
             float inputX = GetHorizontalInput();
             bool jumpPressed = GetJumpInput();
             bool dashPressed = GetDashInput();
+            if (InputOverride != null)
+            {
+                Vector3 o = InputOverride();
+                inputX = o.x;
+                jumpPressed = o.y > 0.5f;
+                dashPressed = o.z > 0.5f;
+            }
+            if (!inputEnabled)
+            {
+                inputX = 0f;
+                jumpPressed = false;
+                dashPressed = false;
+            }
+            if (!dashUnlocked) dashPressed = false;
 
             // 1. 쉬프트 초고속 대시 트리거
             if (dashPressed && !isDashing && Time.time >= nextDashAllowedTime)
@@ -183,6 +206,18 @@ namespace Procedural2D
                     walkCycleTimer = 0f;
                 }
             }
+        }
+
+        /// <summary>
+        /// 방 이동·부활처럼 플레이어를 순간이동시킬 때 대시·공중제비·속도를 정리합니다.
+        /// </summary>
+        public void ResetMotionState()
+        {
+            isDashing = false;
+            isSpinning = false;
+            remainingJumps = maxJumps;
+            if (visualTransform != null) visualTransform.localRotation = Quaternion.identity;
+            if (rb != null) rb.linearVelocity = Vector2.zero;
         }
 
         #region 초고속 대시 & 잔상 시스템 (Flash Dash & Ghost Trail)
