@@ -194,11 +194,35 @@ namespace Laurel
         /// <summary>보스처럼 함께 비춰야 하는 대상. 플레이어와의 사이를 비춘다.</summary>
         public Transform focus2;
         public float focus2Weight = 0.4f;
+
+        [Header("플레이 카메라 (Inspector 에서 조정)")]
+        [Tooltip("튜토리얼·전투방·로비의 줌 = 화면 세로 절반 (월드 유닛). 클수록 넓게 보이고 캐릭터가 작아진다. 0 이면 balance.json 의 world.cameraSize. 보스전은 world.bossCameraSize")]
+        public float playSize = 7f;
+        [Tooltip("플레이어보다 이만큼 위를 비춘다. 위쪽 발판이 먼저 보이게 (이전 1.2)")]
+        public float lookUp = 2f;
+        [Tooltip("달리는 방향 앞쪽을 미리 비추는 최대 거리 (방이 화면보다 넓을 때만 효과)")]
+        public float lookAhead = 2.5f;
+        [Tooltip("빠르게 떨어질 때 아래쪽 착지점을 미리 비추는 거리")]
+        public float fallLookDown = 2.5f;
+        [Tooltip("이 속도(유닛/초)보다 빨리 떨어지면 아래를 비추기 시작")]
+        public float fallSpeedThreshold = 8f;
+        [Tooltip("앞·아래 미리보기가 바뀌는 빠르기 (클수록 즉각)")]
+        public float lookSmoothing = 3f;
+
+        /// <summary>일반 방에 쓸 줌</summary>
+        public float PlaySize => playSize > 0f ? playSize : DB.Balance.world.cameraSize;
+
         private float shake;
         private Vector3 basePos;
+        private Vector2 look;
+        private Rigidbody2D targetBody;
 
-        private void Awake()
+        private void Awake() => Init();
+
+        /// <summary>씬에 미리 붙어 있으면 GameRoot.Awake 가 먼저 돌 수 있어, GameRoot 가 직접 불러 준다.</summary>
+        public void Init()
         {
+            if (I == this && Cam != null) return;
             I = this;
             Cam = GetComponent<Camera>();
             basePos = transform.position;
@@ -214,7 +238,8 @@ namespace Laurel
 
         public void SnapToTarget()
         {
-            basePos = Clamp(target != null ? target.position : (Vector3)bounds.center);
+            look = Vector2.zero;
+            basePos = Clamp(target != null ? target.position + Vector3.up * lookUp : (Vector3)bounds.center);
             transform.position = basePos;
         }
 
@@ -234,7 +259,20 @@ namespace Laurel
 
         private void LateUpdate()
         {
-            Vector3 want = target != null ? target.position + Vector3.up * 1.2f : (Vector3)bounds.center;
+            // 앞(달리는 방향)·아래(빠른 낙하) 미리보기
+            Vector2 lookWant = Vector2.zero;
+            if (target != null)
+            {
+                if (targetBody == null || targetBody.transform != target) targetBody = target.GetComponent<Rigidbody2D>();
+                if (targetBody != null)
+                {
+                    Vector2 v = targetBody.linearVelocity;
+                    lookWant.x = Mathf.Clamp(v.x / 10f, -1f, 1f) * lookAhead;
+                    if (v.y < -fallSpeedThreshold) lookWant.y = -fallLookDown;
+                }
+            }
+            look = Vector2.Lerp(look, lookWant, 1f - Mathf.Exp(-lookSmoothing * Time.unscaledDeltaTime));
+            Vector3 want = target != null ? target.position + Vector3.up * lookUp + (Vector3)look : (Vector3)bounds.center;
             if (focus2 != null && target != null) want = Vector3.Lerp(want, focus2.position, focus2Weight);
             basePos = Vector3.Lerp(basePos, Clamp(want), 1f - Mathf.Exp(-8f * Time.unscaledDeltaTime));
             Vector3 off = Vector3.zero;

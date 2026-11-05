@@ -1,0 +1,1315 @@
+{
+ "frames": [
+  {
+   "filename": "raurel-recall 0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 1",
+   "frame": {
+    "x": 112,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 2",
+   "frame": {
+    "x": 224,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 3",
+   "frame": {
+    "x": 336,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 4",
+   "frame": {
+    "x": 448,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 5",
+   "frame": {
+    "x": 560,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 6",
+   "frame": {
+    "x": 672,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 7",
+   "frame": {
+    "x": 0,
+    "y": 74,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 8",
+   "frame": {
+    "x": 112,
+    "y": 74,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 9",
+   "frame": {
+    "x": 224,
+    "y": 74,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 10",
+   "frame": {
+    "x": 336,
+    "y": 74,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 11",
+   "frame": {
+    "x": 448,
+    "y": 74,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 12",
+   "frame": {
+    "x": 560,
+    "y": 74,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 13",
+   "frame": {
+    "x": 672,
+    "y": 74,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 14",
+   "frame": {
+    "x": 0,
+    "y": 148,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 15",
+   "frame": {
+    "x": 112,
+    "y": 148,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 16",
+   "frame": {
+    "x": 224,
+    "y": 148,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 17",
+   "frame": {
+    "x": 336,
+    "y": 148,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 18",
+   "frame": {
+    "x": 448,
+    "y": 148,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 19",
+   "frame": {
+    "x": 560,
+    "y": 148,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 20",
+   "frame": {
+    "x": 672,
+    "y": 148,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 21",
+   "frame": {
+    "x": 0,
+    "y": 222,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 22",
+   "frame": {
+    "x": 112,
+    "y": 222,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 23",
+   "frame": {
+    "x": 224,
+    "y": 222,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 24",
+   "frame": {
+    "x": 336,
+    "y": 222,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 25",
+   "frame": {
+    "x": 448,
+    "y": 222,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 26",
+   "frame": {
+    "x": 560,
+    "y": 222,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 27",
+   "frame": {
+    "x": 672,
+    "y": 222,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 28",
+   "frame": {
+    "x": 0,
+    "y": 296,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 29",
+   "frame": {
+    "x": 112,
+    "y": 296,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 30",
+   "frame": {
+    "x": 224,
+    "y": 296,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 31",
+   "frame": {
+    "x": 336,
+    "y": 296,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 32",
+   "frame": {
+    "x": 448,
+    "y": 296,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 33",
+   "frame": {
+    "x": 560,
+    "y": 296,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 34",
+   "frame": {
+    "x": 672,
+    "y": 296,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 35",
+   "frame": {
+    "x": 0,
+    "y": 370,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 36",
+   "frame": {
+    "x": 112,
+    "y": 370,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 37",
+   "frame": {
+    "x": 224,
+    "y": 370,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 38",
+   "frame": {
+    "x": 336,
+    "y": 370,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 39",
+   "frame": {
+    "x": 448,
+    "y": 370,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 40",
+   "frame": {
+    "x": 560,
+    "y": 370,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 41",
+   "frame": {
+    "x": 672,
+    "y": 370,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 42",
+   "frame": {
+    "x": 0,
+    "y": 444,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 43",
+   "frame": {
+    "x": 112,
+    "y": 444,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 44",
+   "frame": {
+    "x": 224,
+    "y": 444,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 45",
+   "frame": {
+    "x": 336,
+    "y": 444,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 46",
+   "frame": {
+    "x": 448,
+    "y": 444,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 47",
+   "frame": {
+    "x": 560,
+    "y": 444,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 48",
+   "frame": {
+    "x": 672,
+    "y": 444,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 49",
+   "frame": {
+    "x": 0,
+    "y": 518,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 50",
+   "frame": {
+    "x": 112,
+    "y": 518,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 51",
+   "frame": {
+    "x": 224,
+    "y": 518,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 52",
+   "frame": {
+    "x": 336,
+    "y": 518,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 53",
+   "frame": {
+    "x": 448,
+    "y": 518,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 54",
+   "frame": {
+    "x": 560,
+    "y": 518,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 55",
+   "frame": {
+    "x": 672,
+    "y": 518,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 56",
+   "frame": {
+    "x": 0,
+    "y": 592,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  },
+  {
+   "filename": "raurel-recall 57",
+   "frame": {
+    "x": 112,
+    "y": 592,
+    "w": 112,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 112,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 112,
+    "h": 74
+   },
+   "duration": 42
+  }
+ ],
+ "meta": {
+  "app": "https://github.com/patch-gg/pixelfx",
+  "version": "1",
+  "image": "raurel-recall.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 784,
+   "h": 666
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "raurel-recall",
+    "from": 0,
+    "to": 57,
+    "direction": "forward"
+   }
+  ],
+  "pixelfx": {
+   "id": "arcane/raurel-recall",
+   "name": "RAUREL Recall",
+   "fps": 24,
+   "loop": true,
+   "frames": 58,
+   "frameSize": [
+    112,
+    74
+   ],
+   "pivot": [
+    56,
+    37
+   ],
+   "columns": 7
+  }
+ }
+}

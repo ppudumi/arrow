@@ -149,6 +149,7 @@ namespace Laurel
             foreach (var b in Bodies) if (b != null) Destroy(b.gameObject);
             Bodies.Clear();
             Launcher = null;
+            Retriever?.Dispose();
             Retriever = null;
             Active = false;
             Room = null;

@@ -6,7 +6,7 @@ namespace Laurel
     /// <summary>
     /// [임시 결정] UI 는 빠른 반복을 위해 IMGUI(1920×1080 기준 비율 스케일)로 그린다. 한글은 OS 폰트를 동적으로 사용.
     /// </summary>
-    public class GameUI : MonoBehaviour
+    public partial class GameUI : MonoBehaviour
     {
         private GameRoot G => GameRoot.I;
         private Font font;
@@ -16,8 +16,11 @@ namespace Laurel
         private float VW => Screen.width / scale;
         private const float VH = 1080f;
         private bool showDeck;
-        private Vector2 deckScroll, logScroll;
-        public bool showLog;
+        /// <summary>
+        /// 적 체력 표시(머리 위 체력바, 화면 위 보스 체력 패널) 여부. 사용자 지시로 꺼 둠: 적 체력은 플레이어 화면에 보이지 않는다.
+        /// 체력 데이터·피해 계산·페이즈 전환·사망 처리, 플레이어 체력 HUD, 타격 피해 숫자는 영향 없음. 다시 보이게 하려면 true.
+        /// </summary>
+        public const bool ShowEnemyHealth = false;
 
         private static readonly string[] FontCandidates = { "Apple SD Gothic Neo", "AppleSDGothicNeo-Regular", "AppleGothic", "Malgun Gothic", "맑은 고딕", "NanumGothic", "Noto Sans CJK KR", "Noto Sans KR", "Arial Unicode MS" };
 
@@ -111,15 +114,15 @@ namespace Laurel
             switch (G.State)
             {
                 case GameState.Title: DrawTitle(); break;
-                case GameState.Tutorial: DrawWorldOverlay(); DrawHud(); DrawTutorial(); break;
-                case GameState.Node: DrawWorldOverlay(); DrawHud(); break;
+                case GameState.Tutorial: DrawWorldOverlay(); DrawCombatHud(); break; // 전투 HUD(공용): GameUI.CombatHud.cs
+                case GameState.Node: DrawWorldOverlay(); DrawCombatHud(); break;
                 case GameState.Map: DrawMap(); break;
                 case GameState.Reward: DrawWorldOverlay(); DrawReward(); break;
                 case GameState.Shop: DrawWorldOverlay(); DrawShop(); break;
                 case GameState.Rest: DrawWorldOverlay(); DrawRest(); break;
                 case GameState.Result: DrawResult(); break;
                 case GameState.Death: DrawDeath(); break;
-                case GameState.Lobby: DrawWorldOverlay(); DrawHud(); DrawLobby(); break;
+                case GameState.Lobby: DrawWorldOverlay(); DrawLobby(); break; // 로비는 중앙 메뉴·안내만 (HUD 패널·화살통 없음)
                 case GameState.NectarTree: DrawNectarTree(); break;
                 case GameState.ArcherySelect: DrawArcherySelect(); break;
                 case GameState.Records: DrawRecords(); break;
@@ -133,7 +136,8 @@ namespace Laurel
         private void DrawStoryBackdrop()
         {
             var back = G.StoryReturnState;
-            if (back == GameState.Node || back == GameState.Tutorial || back == GameState.Lobby) { DrawWorldOverlay(); DrawHud(); }
+            if (back == GameState.Node || back == GameState.Tutorial) { DrawWorldOverlay(); DrawCombatHud(); }
+            else if (back == GameState.Lobby) DrawWorldOverlay();
             else if (back == GameState.Map) DrawMap();
             else Rect(new Rect(0, 0, VW, VH), new Color(0.05f, 0.05f, 0.08f, 1f));
         }
@@ -177,18 +181,7 @@ namespace Laurel
 
         // ───────────── 대화 ─────────────
 
-        private void DrawStory()
-        {
-            if (G.StoryIndex >= G.StoryQueue.Count) return;
-            var line = G.StoryQueue[G.StoryIndex];
-            var r = new Rect(VW * 0.5f - 640, VH - 300, 1280, 230);
-            Panel(r, 0.94f);
-            if (!string.IsNullOrEmpty(line.who)) Text(new Rect(r.x + 30, r.y + 18, 600, 40), $"<b><color=#F5D27A>{line.who}</color></b>", header);
-            Text(new Rect(r.x + 30, r.y + (string.IsNullOrEmpty(line.who) ? 30 : 70), r.width - 60, 140), line.text, label);
-            Text(new Rect(r.x + r.width - 420, r.y + r.height - 40, 400, 34), $"{G.StoryIndex + 1}/{G.StoryQueue.Count}   클릭 · Enter · Space 로 계속", tiny, new Color(0.7f, 0.7f, 0.7f));
-            if (Btn(new Rect(r.x + r.width - 150, r.y - 50, 140, 42), "모두 건너뛰기")) { G.SkipStory(); return; }
-            if (GUI.Button(new Rect(0, 0, VW, VH - 360), GUIContent.none, GUIStyle.none) || GUI.Button(r, GUIContent.none, GUIStyle.none)) G.AdvanceStory();
-        }
+        // 대사창(DrawStory)·안내 메시지(DrawToast)는 GameUI.Dialogue.cs (양피지 공용 대화창)
 
         // ───────────── 월드 오버레이 (적 체력바·피해 숫자) ─────────────
 
@@ -201,7 +194,7 @@ namespace Laurel
                 {
                     if (e == null || !e.IsAlive || e.IsBoss) continue;
                     var p = WorldToGui(e.Center + Vector3.up * (e.HalfSize.y + 0.45f));
-                    Bar(new Rect(p.x - 36, p.y, 72, 7), e.Hp / Mathf.Max(1f, e.MaxHp), e.IsElite ? new Color(1f, 0.5f, 0.2f) : new Color(0.9f, 0.25f, 0.25f), new Color(0, 0, 0, 0.6f));
+                    if (ShowEnemyHealth) Bar(new Rect(p.x - 36, p.y, 72, 7), e.Hp / Mathf.Max(1f, e.MaxHp), e.IsElite ? new Color(1f, 0.5f, 0.2f) : new Color(0.9f, 0.25f, 0.25f), new Color(0, 0, 0, 0.6f));
                     string badges = e.Status.Badges();
                     if (e.IsElite || badges.Length > 0) Text(new Rect(p.x - 120, p.y - 26, 240, 24), (e.IsElite ? "<b>정예</b> " : "") + badges, new GUIStyle(tiny) { alignment = TextAnchor.MiddleCenter }, new Color(1f, 0.9f, 0.7f));
                     if (e.StuckArrows.Count > 0) Text(new Rect(p.x + 38, p.y - 8, 60, 24), "↘" + e.StuckArrows.Count, tiny, new Color(0.8f, 0.9f, 1f));
@@ -222,102 +215,9 @@ namespace Laurel
 
         // ───────────── HUD ─────────────
 
-        private void DrawHud()
-        {
-            var av = G.Avatar;
-            var run = G.State == GameState.Lobby ? G.PracticeRun : G.Run;
-            if (av == null) return;
-            // 체력
-            Panel(new Rect(20, 20, 470, 128));
-            Text(new Rect(36, 26, 300, 30), "<b>아폴론</b>" + (run != null && run.isTutorial ? "  <color=#F5D27A>(신의 힘)</color>" : (G.State == GameState.Lobby ? "  <color=#AAAAAA>(수련장)</color>" : "  <color=#D08080>(저주)</color>")), small);
-            Bar(new Rect(36, 60, 440, 24), av.Hp / Mathf.Max(1f, av.MaxHp), new Color(0.85f, 0.25f, 0.3f), new Color(0.2f, 0.05f, 0.05f, 0.9f));
-            Text(new Rect(36, 58, 440, 28), $"{av.Hp:0} / {av.MaxHp:0}", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
-            var s = av.Stats;
-            string skills = (s.doubleJump ? (s.tripleJump ? "3단점프 " : "더블점프 ") : "") + (s.dash ? "대쉬" : "");
-            Text(new Rect(36, 90, 450, 26), $"공격력 {s.attack:0.#} · 방어 {s.defense:0} · 공속 +{s.attackSpeedBonus * 100:0}% · 이속 ×{s.moveMul:0.00}", tiny);
-            Text(new Rect(36, 114, 450, 26), "유니크 스킬: " + (skills.Length > 0 ? $"<color=#9FE0A0>{skills}</color>" : "<color=#888888>없음 (로비에서 구매)</color>"), tiny);
+        // 로비 전용이던 예전 HUD(DrawHud)는 삭제: 로비는 메뉴·안내만, 전투는 GameUI.CombatHud.cs
 
-            // 재화·진행
-            Panel(new Rect(510, 20, 300, 128));
-            Text(new Rect(526, 26, 280, 30), $"<color=#FFD34A>●</color> 골드  <b>{(G.Run != null ? G.Run.gold : 0)}</b>", small);
-            Text(new Rect(526, 58, 280, 30), $"<color=#C59BFF>◆</color> 넥타르  <b>{G.Profile.nectar}</b>", small);
-            if (G.Run != null && !G.Run.isTutorial)
-            {
-                var node = G.CurrentNode;
-                string nodeTxt = node != null ? $"{MapNode.TypeName(node.type)} · {node.layer + 1}/{G.Run.map.LayerCount}층" : "";
-                Text(new Rect(526, 92, 280, 52), $"{G.Run.stage}스테이지 {DB.Stage(G.Run.stage).name}\n{nodeTxt}", tiny);
-            }
-            else if (G.State == GameState.Lobby) Text(new Rect(526, 92, 280, 52), "로비 — 델포이 성소", tiny);
-            else Text(new Rect(526, 92, 280, 52), "튜토리얼 — 델포이 신전 앞", tiny);
-
-            // 보스
-            var room = G.Room;
-            if (room != null && room.Boss != null && room.Boss.IsAlive)
-            {
-                var b = room.Boss;
-                Panel(new Rect(VW * 0.5f - 420, 160, 840, 64));
-                Text(new Rect(VW * 0.5f - 410, 162, 600, 30), $"<b>{b.DisplayName}</b>  <color=#BBBBBB>{(b.Phase == 2 ? "2페이즈 · " : "")}{b.PatternName}</color>  {b.Status.Badges()}", small);
-                Bar(new Rect(VW * 0.5f - 410, 194, 820, 20), b.Hp / b.MaxHp, new Color(0.9f, 0.3f, 0.35f), new Color(0.15f, 0.05f, 0.05f));
-            }
-            else if (room != null && room.CombatRoom && !room.Cleared && room.WaveCount > 1)
-            {
-                Text(new Rect(VW * 0.5f - 200, 160, 400, 30), $"웨이브 {Mathf.Max(1, room.WaveIndex + 1)}/{room.WaveCount} · 남은 적 {room.AliveCount}", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
-            }
-
-            // 궁술·화살통
-            var c = G.Combat;
-            if (c != null && c.Active && c.Launcher != null)
-            {
-                Panel(new Rect(VW - 560, 20, 540, 150));
-                Text(new Rect(VW - 544, 26, 520, 30), $"<b><color=#9FD4FF>{StyleNames.Launch(c.LaunchType)}</color></b>  +  <b><color=#FFD08A>{StyleNames.Retrieval(c.RetrievalType)}</color></b>", small);
-                Text(new Rect(VW - 544, 58, 520, 60), c.Launcher.StatusText(), tiny);
-                Text(new Rect(VW - 544, 112, 520, 50), c.Retriever.StatusText(), tiny);
-                if (c.Launcher is OdysseusLaunch od && od.Charging) Bar(new Rect(VW * 0.5f - 120, VH * 0.5f - 120, 240, 12), od.ChargeRatio, new Color(1f, 0.85f, 0.3f), new Color(0, 0, 0, 0.6f));
-                DrawQuiver(c);
-            }
-            else if (run != null) DrawDeckStrip(run);
-
-            // 유물
-            if (G.Run != null && G.Run.relics.Count > 0)
-            {
-                float y = 180;
-                Text(new Rect(VW - 300, y, 280, 26), "<b>유물</b>", tiny);
-                foreach (var id in G.Run.relics)
-                {
-                    y += 24;
-                    var r = DB.Relics[id];
-                    Text(new Rect(VW - 300, y, 290, 26), $"<color=#{Hex(DB.RarityColors[r.rarity])}>◆</color> {r.name}", tiny);
-                }
-            }
-
-            if (G.State != GameState.Lobby && Btn(new Rect(20, 160, 120, 36), showLog ? "기록 닫기" : "전투 기록", true, new GUIStyle(button) { fontSize = 16 })) showLog = !showLog;
-            if (showLog && c != null) DrawCombatLog(c);
-        }
-
-        private void DrawQuiver(PlayerCombat c)
-        {
-            var q = c.Quiver;
-            float w = Mathf.Min(1400f, VW - 80f);
-            var r = new Rect(VW * 0.5f - w * 0.5f, VH - 128, w, 108);
-            Panel(r, 0.82f);
-            int field = c.Bodies.Count - q.Count - c.CountState(ArrowState.Consumed);
-            Text(new Rect(r.x + 14, r.y + 6, 900, 28), $"<b>화살통</b> {q.Count}/{c.Bodies.Count}   <color=#AAAAAA>필드 {field} · 소멸 {c.CountState(ArrowState.Consumed)} · 박힘 {c.CountState(ArrowState.Stuck)}</color>   <color=#888888>왼쪽이 다음 화살 · 우클릭/Q 버리기</color>", tiny);
-            float x = r.x + 14;
-            int maxShow = Mathf.Max(1, (int)((w - 28) / 92f));
-            for (int i = 0; i < q.Count && i < maxShow; i++)
-            {
-                var d = q.Order[i].Card.Def;
-                var cell = new Rect(x, r.y + 36, 86, 64);
-                Rect(cell, i == 0 ? new Color(0.25f, 0.22f, 0.12f, 0.95f) : new Color(0.12f, 0.12f, 0.16f, 0.9f));
-                Rect(new Rect(cell.x, cell.y, 6, cell.height), d.tint);
-                Rect(new Rect(cell.x, cell.y + cell.height - 4, cell.width, 4), DB.RarityColors[d.rarity]);
-                Text(new Rect(cell.x + 9, cell.y + 2, 80, 46), d.name, new GUIStyle(tiny) { fontSize = 14 });
-                Text(new Rect(cell.x + 9, cell.y + 40, 80, 22), $"{q.Order[i].Card.Damage:0.#}", new GUIStyle(tiny) { fontSize = 13 }, new Color(1f, 0.85f, 0.6f));
-                x += 92;
-            }
-            if (q.Count > maxShow) Text(new Rect(x, r.y + 50, 80, 30), $"+{q.Count - maxShow}", small);
-            if (q.Count == 0) Text(new Rect(r.x + 14, r.y + 50, 600, 30), "<color=#FF9080>화살통이 비었습니다 — 화살을 회수하세요</color>", small);
-        }
+        // 하단 화살통 HUD(DrawQuiver)는 GameUI.Quiver.cs
 
         private void DrawDeckStrip(RunState run)
         {
@@ -335,110 +235,11 @@ namespace Laurel
             return string.Join(", ", parts);
         }
 
-        private void DrawCombatLog(PlayerCombat c)
-        {
-            var r = new Rect(20, 204, 640, 420);
-            Panel(r, 0.85f);
-            logScroll = GUI.BeginScrollView(new Rect(r.x + 8, r.y + 8, r.width - 16, r.height - 16), logScroll, new Rect(0, 0, r.width - 40, c.LogLines.Count * 24 + 10));
-            for (int i = 0; i < c.LogLines.Count; i++) Text(new Rect(0, i * 24, r.width - 40, 24), c.LogLines[i], new GUIStyle(tiny) { wordWrap = false, fontSize = 14 });
-            GUI.EndScrollView();
-            if (c.Violations.Count > 0) Text(new Rect(r.x, r.yMax + 4, 640, 30), $"<color=#FF6060>무결성 위반 {c.Violations.Count}건</color>", tiny);
-        }
-
         // ───────────── 튜토리얼 ─────────────
-
-        private void DrawTutorial()
-        {
-            var r = new Rect(20, 230, 470, 230);
-            Panel(r);
-            Text(new Rect(r.x + 16, r.y + 8, 440, 34), "<b>튜토리얼</b>", small);
-            string Check(bool b) => b ? "<color=#8FE08F>✔</color>" : "<color=#777777>□</color>";
-            switch (G.TutorialStep)
-            {
-                case 0:
-                    Text(new Rect(r.x + 16, r.y + 44, 440, 180),
-                        $"{Check(G.tutMoved > 6f)} A / D 로 이동\n{Check(G.tutJumped)} Space 로 점프\n{Check(G.tutDoubleJumped)} 공중에서 Space — 더블점프\n{Check(G.tutDashed)} Shift — 대쉬", label);
-                    break;
-                case 1: Text(new Rect(r.x + 16, r.y + 44, 440, 180), $"마우스로 조준하고 좌클릭으로 과녁 3개를 쓰러뜨리세요.\n남은 과녁: {G.Room?.AliveCount}", label); break;
-                case 2: Text(new Rect(r.x + 16, r.y + 44, 440, 180), $"쏜 화살을 모두 회수하세요.\n바닥 화살은 다가가면 줍고, R 을 누르고 있으면 부르기.\n화살통 {G.Combat?.Quiver.Count}/{G.Run?.deck.Count}", label); break;
-                default: Text(new Rect(r.x + 16, r.y + 44, 440, 180), "거대한 뱀 파에톤을 쓰러뜨리세요!\n(튜토리얼에서는 쓰러져도 다시 일어납니다)", label); break;
-            }
-            if (G.TutorialStep < 3 && Btn(new Rect(r.x + 16, r.yMax + 10, 260, 44), "튜토리얼 건너뛰기 (보스로)")) G.SkipTutorialToBoss();
-        }
 
         // ───────────── 지도 ─────────────
 
-        private void DrawMap()
-        {
-            var run = G.Run;
-            Rect(new Rect(0, 0, VW, VH), new Color(0.07f, 0.06f, 0.08f));
-            if (run == null || run.map == null) return;
-            var stage = DB.Stage(run.stage);
-            var accent = DB.Hex(stage.accent);
-            Text(new Rect(60, 30, 1200, 60), $"<b>{run.stage}스테이지 — {stage.name}</b>  <color=#AAAAAA>{stage.subtitle}</color>", header);
-            Text(new Rect(60, 86, 1200, 30), "다음 노드를 고르세요. 빛나는 노드만 갈 수 있습니다. 마지막 층은 보스입니다.", small, new Color(0.8f, 0.8f, 0.8f));
-
-            var map = run.map;
-            float left = 140, right = VW - 600, top = 170, bottom = VH - 120;
-            var pos = new Dictionary<int, Vector2>();
-            for (int L = 0; L < map.LayerCount; L++)
-            {
-                var layer = map.layers[L];
-                float x = Mathf.Lerp(left, right, map.LayerCount == 1 ? 0.5f : L / (map.LayerCount - 1f));
-                for (int i = 0; i < layer.Count; i++)
-                {
-                    float ny = layer.Count == 1 ? (top + bottom) * 0.5f : Mathf.Lerp(top + 60, bottom - 60, i / (layer.Count - 1f));
-                    pos[layer[i]] = new Vector2(x, ny);
-                }
-            }
-            var choices = map.Choices(run.currentNode);
-            foreach (var n in map.nodes)
-                foreach (var nx in n.next)
-                {
-                    bool path = n.id == run.currentNode;
-                    Line(pos[n.id], pos[nx], path ? accent.WithAlpha(0.9f) : new Color(1, 1, 1, n.visited ? 0.35f : 0.15f), path ? 5 : 3);
-                }
-            foreach (var n in map.nodes)
-            {
-                var p = pos[n.id];
-                bool can = choices.Contains(n);
-                bool cur = n.id == run.currentNode;
-                float rad = n.type == NodeType.Boss ? 64 : 44;
-                var col = MapNode.TypeColor(n.type);
-                if (can) Rect(new Rect(p.x - rad - 6, p.y - rad - 6, rad * 2 + 12, rad * 2 + 12), accent.WithAlpha(0.35f + 0.25f * Mathf.Sin(Time.unscaledTime * 4f)));
-                Rect(new Rect(p.x - rad, p.y - rad, rad * 2, rad * 2), n.visited ? col * 0.45f : (can ? col : col * 0.6f));
-                if (cur) Rect(new Rect(p.x - rad, p.y + rad - 6, rad * 2, 6), Color.white);
-                Text(new Rect(p.x - rad, p.y - 18, rad * 2, 36), $"<b>{MapNode.TypeName(n.type)}</b>", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter }, Color.black);
-                if (can && GUI.Button(new Rect(p.x - rad, p.y - rad, rad * 2, rad * 2), GUIContent.none, GUIStyle.none)) { G.EnterNode(n); return; }
-            }
-
-            // 상태 패널
-            var r = new Rect(VW - 470, 160, 440, VH - 240);
-            Panel(r);
-            var av = G.Avatar;
-            Text(new Rect(r.x + 20, r.y + 14, 400, 34), "<b>도전 현황</b>", small);
-            Bar(new Rect(r.x + 20, r.y + 54, 400, 22), av.Hp / av.MaxHp, new Color(0.85f, 0.25f, 0.3f), new Color(0.2f, 0.05f, 0.05f));
-            Text(new Rect(r.x + 20, r.y + 52, 400, 26), $"체력 {av.Hp:0}/{av.MaxHp:0}", new GUIStyle(tiny) { alignment = TextAnchor.MiddleCenter });
-            Text(new Rect(r.x + 20, r.y + 86, 400, 120),
-                $"골드 <b>{run.gold}</b>   넥타르 <b>{G.Profile.nectar}</b>\n발사 {StyleNames.Launch(run.launch)}\n회수 {StyleNames.Retrieval(run.retrieval)}\n처치 {run.kills} · 정리한 노드 {run.nodesCleared}", tiny);
-            Text(new Rect(r.x + 20, r.y + 200, 400, 30), $"<b>덱 {run.deck.Count}장</b>", small);
-            float y = r.y + 234;
-            deckScroll = GUI.BeginScrollView(new Rect(r.x + 14, y, r.width - 24, 330), deckScroll, new Rect(0, 0, r.width - 50, run.deck.Count * 26 + 10));
-            int k = 0;
-            foreach (var uid in run.quiverOrder)
-            {
-                var card = run.Card(uid);
-                if (card == null) continue;
-                Text(new Rect(4, k * 26, r.width - 60, 26), $"{k + 1}. <color=#{Hex(DB.RarityColors[card.Def.rarity])}>{card.Def.name}</color>  <color=#999999>피해 {card.Damage:0.#}{(card.runBonus > 0 ? $" (+{card.runBonus:0})" : "")}</color>", tiny);
-                k++;
-            }
-            GUI.EndScrollView();
-            y += 340;
-            Text(new Rect(r.x + 20, y, 400, 30), "<b>유물</b>", small);
-            foreach (var id in run.relics) { y += 26; var rd = DB.Relics[id]; Text(new Rect(r.x + 20, y, 400, 26), $"◆ {rd.name} — <color=#AAAAAA>{rd.desc}</color>", new GUIStyle(tiny) { wordWrap = false, clipping = TextClipping.Clip }); }
-            if (run.relics.Count == 0) Text(new Rect(r.x + 20, y + 26, 400, 26), "<color=#777777>없음</color>", tiny);
-            if (Btn(new Rect(60, VH - 80, 240, 50), "도전 포기 (로비로)")) G.AbandonRun();
-        }
+        // 노드 선택 맵(DrawMap·MapLayout)은 GameUI.Map.cs
 
         // ───────────── 보상 ─────────────
 
@@ -446,7 +247,8 @@ namespace Laurel
         {
             var rw = G.Reward;
             if (rw == null) return;
-            var r = new Rect(VW * 0.5f - 700, 150, 1400, 780);
+            // 세로형 화살 카드가 들어가도록 패널을 위아래로 넓게 쓴다
+            var r = new Rect(VW * 0.5f - 700, 40, 1400, 1000);
             Panel(r, 0.95f);
             Text(new Rect(r.x + 30, r.y + 20, 1000, 50), $"<b>{rw.title}</b>", header);
             string earned = "";
@@ -470,53 +272,157 @@ namespace Laurel
                     if (Btn(new Rect(cell.x + 14, cell.y + 124, 160, 38), "가져가기", !rw.relicTaken)) G.TakeRewardRelic(rd);
                 }
                 if (!rw.relicTaken && rw.title.StartsWith("보상방") && Btn(new Rect(r.x + 1380 - 280, y - 44, 250, 40), $"대신 골드 {rw.skipGold}")) G.TakeRewardGold();
-                y += 190;
+                y += 180;
             }
             if (rw.arrows.Count > 0)
             {
                 bool full = G.Run.NonRelicCardCount >= DB.Balance.player.quiverMax;
                 Text(new Rect(r.x + 30, y, 1300, 34), rw.arrowTaken ? "<color=#888888>화살 선택 완료</color>" : (full ? "<color=#FF9080>화살통이 가득 차 더 받을 수 없습니다</color>" : "<b>화살 하나를 고르세요</b> <color=#AAAAAA>(덱 = 화살통에 1장 추가)</color>"), small);
                 y += 40;
-                for (int i = 0; i < rw.arrows.Count; i++) DrawArrowCard(new Rect(r.x + 30 + i * 450, y, 430, 220), rw.arrows[i], rw.arrowTaken || full ? null : "가져가기", () => G.TakeRewardArrow(rw.arrows[i]));
-                y += 240;
+                y += 52;
+                cardZoom = rw.relics.Count > 0 ? 4 : 5;
+                float cx = CardRowStart(r.center.x, rw.arrows.Count, 48f);
+                for (int i = 0; i < rw.arrows.Count; i++) DrawArrowCard(new Vector2(cx + i * (CardSize.x + 48f), y), rw.arrows[i], rw.arrowTaken || full ? null : "가져가기", () => G.TakeRewardArrow(rw.arrows[i]));
+                y += CardSize.y + CardButtonH + 16f;
+                cardZoom = 4;
             }
             bool nothingTaken = !rw.arrowTaken && (rw.relics.Count == 0 || !rw.relicTaken) && rw.skipGold > 0;
             if (Btn(new Rect(r.x + r.width - 330, r.y + r.height - 80, 300, 60), nothingTaken ? $"건너뛰기 (골드 +{rw.skipGold})" : "지도로", true, bigButton)) G.FinishReward();
         }
 
-        private void DrawArrowCard(Rect cell, ArrowDef d, string buttonText, System.Func<bool> onClick, string price = null)
+        // ───────────── 화살 선택 카드 ─────────────
+
+        private static readonly Color CardGold = new Color32(244, 230, 186, 255);
+        private static readonly Color CardText = new Color32(230, 220, 203, 255);
+        private static readonly Color CardShadow = new Color32(12, 7, 6, 230);
+
+        /// <summary>카드 아트 확대 배율 (1080p 기준 화면 픽셀). 상점처럼 카드가 많은 화면은 4, 보상 화면은 5.</summary>
+        private int cardZoom = 4;
+        /// <summary>카드 아트 1픽셀이 차지하는 GUI 단위. 화면 픽셀로 정수배가 되게 맞춰 픽셀이 흐려지거나 뭉개지지 않게 한다.</summary>
+        private float CardPixel => Mathf.Max(1f, Mathf.Round(cardZoom * scale)) / scale;
+        private Vector2 CardSize => new Vector2(ArrowCardArt.Width, ArrowCardArt.Height) * CardPixel;
+        private const float CardButtonH = 44f;
+
+        private float Snap(float v) => Mathf.Round(v * scale) / scale;
+
+        private Rect ArtRect(Rect card, RectInt a)
         {
-            Rect(cell, new Color(0.13f, 0.12f, 0.16f));
-            Rect(new Rect(cell.x, cell.y, 6, cell.height), d.tint);
-            Rect(new Rect(cell.x, cell.y, cell.width, 4), DB.RarityColors[d.rarity]);
-            Text(new Rect(cell.x + 16, cell.y + 10, cell.width - 20, 30), $"<b>{d.name}</b>  <color=#{Hex(DB.RarityColors[d.rarity])}>{d.grade}</color>  <color=#777777>#{d.code}</color>", small);
-            Text(new Rect(cell.x + 16, cell.y + 42, cell.width - 20, 26), $"피해 {d.DamageLabel}{(d.damageFilled ? "*" : "")} · 활시위 {d.draw:0.##}초{(d.drawFilled ? "*" : "")} · 무게 {d.weight:0.##}{(d.weightFilled ? "*" : "")}", tiny, new Color(1f, 0.85f, 0.6f));
-            Text(new Rect(cell.x + 16, cell.y + 68, cell.width - 24, 90), d.special, tiny);
-            if (!string.IsNullOrEmpty(d.flavor)) Text(new Rect(cell.x + 16, cell.y + cell.height - 80, cell.width - 24, 30), $"<i><color=#888888>{d.flavor}</color></i>", new GUIStyle(tiny) { fontSize = 13 });
-            if (price != null) Text(new Rect(cell.x + cell.width - 140, cell.y + cell.height - 48, 130, 36), price, small, new Color(1f, 0.85f, 0.3f));
-            if (buttonText != null && Btn(new Rect(cell.x + 16, cell.y + cell.height - 48, 160, 38), buttonText)) onClick();
+            float p = CardPixel;
+            return new Rect(card.x + a.x * p, card.y + a.y * p, a.width * p, a.height * p);
         }
+
+        private void ShadowText(Rect r, string t, GUIStyle st, Color color)
+        {
+            float o = Mathf.Max(1f, CardPixel * 0.5f);
+            Text(new Rect(r.x + o, r.y + o, r.width, r.height), t, st, CardShadow);
+            Text(r, t, st, color);
+        }
+
+        /// <summary>현재 덱(화살통)에 들어 있는 같은 화살 수</summary>
+        private int OwnedCount(ArrowDef d)
+        {
+            var run = G.Run;
+            if (run == null) return 0;
+            int n = 0;
+            foreach (var c in run.deck) if (c.baseCode == d.code) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// 금색 장식 테두리의 세로형 화살 카드. 위: 화살 이름 / 가운데: 능력 설명 / 아래: 보유 수량.
+        /// 카드 전체 또는 아래 버튼을 눌러 선택한다.
+        /// </summary>
+        private void DrawArrowCard(Vector2 pos, ArrowDef d, string buttonText, System.Func<bool> onClick, string price = null)
+        {
+            var size = CardSize;
+            var card = new Rect(Snap(pos.x), Snap(pos.y), size.x, size.y);
+            bool selectable = buttonText != null;
+            bool hover = selectable && card.Contains(Event.current.mousePosition);
+            if (hover) card.y -= CardPixel * 2f; // 살짝 떠오름
+
+            var oldColor = GUI.color;
+            if (!selectable) GUI.color = new Color(0.72f, 0.7f, 0.68f, 1f);
+            if (hover)
+            {
+                // 뒤쪽 은은한 금빛
+                var glow = Art.Soft.texture;
+                GUI.color = new Color(1f, 0.82f, 0.45f, 0.35f);
+                GUI.DrawTexture(new Rect(card.x - size.x * 0.25f, card.y - size.y * 0.15f, size.x * 1.5f, size.y * 1.3f), glow);
+                GUI.color = oldColor;
+            }
+            GUI.DrawTexture(card, ArrowCardArt.Frame);
+            // 윗 장식 화살촉 보석 = 화살 고유색
+            var gc = GUI.color;
+            GUI.color = new Color(d.tint.r, d.tint.g, d.tint.b, 1f) * gc;
+            GUI.DrawTexture(ArtRect(card, ArrowCardArt.GemArea), ArrowCardArt.Gem);
+            GUI.color = gc;
+
+            // 위: 이름 (길면 줄여서 한 줄에)
+            var nameRect = ArtRect(card, ArrowCardArt.NameArea);
+            var nameStyle = new GUIStyle(label) { fontSize = Mathf.RoundToInt(CardPixel * 6f), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+            while (nameStyle.fontSize > 14 && nameStyle.CalcSize(new GUIContent(d.name)).x > nameRect.width) nameStyle.fontSize--;
+            ShadowText(nameRect, d.name, nameStyle, CardGold);
+
+            // 가운데: 능력 설명 + 수치
+            var desc = ArtRect(card, ArrowCardArt.DescArea);
+            float pad = CardPixel * 1.5f;
+            var inner = new Rect(desc.x + pad, desc.y + pad, desc.width - pad * 2f, desc.height - pad * 2f);
+            string ability = string.IsNullOrEmpty(d.special) || d.special == "없음" ? "특수 능력 없음" : d.special;
+            var descStyle = new GUIStyle(label) { fontSize = Mathf.RoundToInt(CardPixel * 4.25f), alignment = TextAnchor.UpperCenter, wordWrap = true };
+            var statStyle = new GUIStyle(tiny) { fontSize = Mathf.RoundToInt(CardPixel * 3.25f), alignment = TextAnchor.LowerCenter, wordWrap = true };
+            float statH = CardPixel * 9f;
+            while (descStyle.fontSize > 12 && descStyle.CalcHeight(new GUIContent(ability), inner.width) > inner.height - statH) descStyle.fontSize--;
+            ShadowText(new Rect(inner.x, inner.y, inner.width, inner.height - statH), ability, descStyle, CardText);
+            string stats = $"<color=#{Hex(DB.RarityColors[d.rarity])}>{d.grade}</color> · 피해 {d.DamageLabel}{(d.damageFilled ? "*" : "")}\n활시위 {d.draw:0.##}초{(d.drawFilled ? "*" : "")} · 무게 {d.weight:0.##}{(d.weightFilled ? "*" : "")}";
+            Text(new Rect(inner.x, inner.yMax - statH, inner.width, statH), stats, statStyle, new Color(0.78f, 0.66f, 0.45f));
+
+            // 아래: 수량 (현재 화살통에 있는 같은 화살 수)
+            var countRect = ArtRect(card, ArrowCardArt.CountArea);
+            int owned = OwnedCount(d);
+            var countStyle = new GUIStyle(label) { fontSize = Mathf.RoundToInt(CardPixel * 7.5f), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+            string countText = $"× {owned}";
+            float countW = countStyle.CalcSize(new GUIContent(countText)).x;
+            var capStyle = new GUIStyle(tiny) { fontSize = 14, alignment = TextAnchor.MiddleRight, wordWrap = false };
+            Text(new Rect(countRect.x, countRect.y + 2f, countRect.width * 0.5f - countW * 0.5f - 6f, countRect.height), "보유", capStyle, new Color32(184, 154, 102, 255));
+            ShadowText(countRect, countText, countStyle, CardGold);
+            GUI.color = oldColor;
+
+            // 카드 아래: 가격·선택 버튼
+            var below = new Rect(card.x, Snap(pos.y) + size.y + 8f, size.x, CardButtonH);
+            if (price != null) Text(new Rect(below.x, below.y - 2f, below.width, 22f), price, new GUIStyle(small) { fontSize = 17, alignment = TextAnchor.UpperCenter }, new Color(1f, 0.85f, 0.3f));
+            if (selectable)
+            {
+                var btnRect = price != null ? new Rect(below.x + 20f, below.y + 20f, below.width - 40f, CardButtonH - 6f) : new Rect(below.x + 20f, below.y, below.width - 40f, CardButtonH);
+                bool clicked = Btn(btnRect, buttonText);
+                if (!clicked && GUI.Button(card, GUIContent.none, GUIStyle.none)) { clicked = true; Sfx.Play("ui", 0.5f); }
+                if (clicked) onClick();
+            }
+        }
+
+        /// <summary>카드 n장을 가로 가운데 정렬로 놓을 때 첫 카드의 x</summary>
+        private float CardRowStart(float centerX, int n, float gap) => centerX - (n * CardSize.x + (n - 1) * gap) * 0.5f;
 
         // ───────────── 상점 ─────────────
 
         private void DrawShop()
         {
-            var r = new Rect(VW * 0.5f - 900, 120, 1800, 860);
+            var r = new Rect(VW * 0.5f - 900, 40, 1800, 1000);
             Panel(r, 0.95f);
             var run = G.Run;
             Text(new Rect(r.x + 30, r.y + 18, 900, 50), "<b>상점 — 떠돌이 대장장이 헤파이스토스의 제자</b>", header);
             Text(new Rect(r.x + 30, r.y + 70, 900, 30), $"골드 <b>{run.gold}</b>   넥타르 <b>{G.Profile.nectar}</b>   덱 {run.deck.Count}장   체력 {G.Avatar.Hp:0}/{G.Avatar.MaxHp:0}", small, new Color(1f, 0.85f, 0.5f));
             if (G.ShopRemoveMode) { DrawRemoveList(r); return; }
-            float y = r.y + 116;
-            int i = 0;
+            float y = r.y + 112;
+            int i = 0, arrowOffers = 0;
+            foreach (var o in G.ShopOffers) if (o.kind == "arrow") arrowOffers++;
+            float ax = CardRowStart(r.center.x, arrowOffers, 36f);
             foreach (var o in G.ShopOffers)
             {
                 if (o.kind != "arrow") continue;
-                var cell = new Rect(r.x + 30 + i * 350, y, 335, 250);
-                DrawArrowCard(cell, DB.Arrow(o.arrowCode), o.sold ? null : "구매", () => G.Buy(o), o.sold ? "판매됨" : $"{o.price} G");
+                DrawArrowCard(new Vector2(ax + i * (CardSize.x + 36f), y + 8f), DB.Arrow(o.arrowCode), o.sold ? null : "구매", () => G.Buy(o), o.sold ? "판매됨" : $"{o.price} G");
                 i++;
             }
-            y += 270;
+            y += CardSize.y + CardButtonH + 30f;
             i = 0;
             foreach (var o in G.ShopOffers)
             {
@@ -756,15 +662,6 @@ namespace Laurel
             bool inRun = G.Run != null && !G.Run.isTutorial;
             if (G.State != GameState.Lobby && Btn(new Rect(r.x + 220, r.y + 410, 400, 60), inRun ? "도전 포기 (사망 처리 → 로비)" : "튜토리얼 그만두기 (타이틀)")) G.AbandonRun();
             if (Btn(new Rect(r.x + 220, r.y + 486, 400, 60), "타이틀로" + (inRun ? " (도전 포기)" : ""))) { if (inRun) G.AbandonRun(); G.GoTitle(); }
-        }
-
-        private void DrawToast()
-        {
-            var t = G.Toast;
-            if (t == null) return;
-            var r = new Rect(VW * 0.5f - 460, 250, 920, 56);
-            Rect(r, new Color(0, 0, 0, 0.7f * G.ToastAlpha));
-            Text(r, t, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold }, new Color(1f, 0.92f, 0.6f, G.ToastAlpha));
         }
     }
 }

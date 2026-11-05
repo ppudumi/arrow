@@ -34,6 +34,25 @@ namespace Laurel
         public GameObject playerPrefab;
         [Tooltip("기존 캐릭터 화살 스프라이트 (Assets/pjs/Sprites/Character/Arrow.png)")]
         public Sprite arrowSprite;
+        [Tooltip("튜토리얼 방 배경 이미지 (씬의 Backdrop_Tutorial 오브젝트). 비우면 코드로 만든 임시 배경을 쓴다")]
+        public RoomBackdrop tutorialBackdrop;
+        [Tooltip("튜토리얼 방 지형 모양 (씬의 TerrainStyle_Tutorial 오브젝트): 발판 두께·색·테두리. 비우면 예전 단색 지형")]
+        public TerrainStyle tutorialTerrainStyle;
+        [Header("전투 HUD")]
+        [Tooltip("퀘스트 패널 배경 (양피지 PNG, 읽기 가능·최대 512px 로 임포트). 비우면 어두운 기본 패널")]
+        public Texture2D questParchment;
+        [Header("대화창")]
+        [Tooltip("모든 대사창·안내 메시지 배경 양피지 (읽기 가능·최대 1024px 로 임포트). 비우면 어두운 기본 패널")]
+        public Texture2D dialogueParchment;
+        [Tooltip("'모두 건너뛰기' 버튼 배경 (읽기 가능·최대 512px). 글자는 코드에서 넣는다")]
+        public Texture2D dialogueSkipButton;
+        [Header("로비 (지하 신전)")]
+        [Tooltip("로비 배경 이미지 (씬의 Backdrop_Lobby). 비우면 임시 배경")]
+        public RoomBackdrop lobbyBackdrop;
+        [Tooltip("로비 지형 모양 (씬의 TerrainStyle_Lobby): 어두운 석재 몸체 + 밝은 착지면. 발판 충돌은 한쪽 통과 그대로")]
+        public TerrainStyle lobbyTerrainStyle;
+        [Tooltip("로비 장식 (씬의 LobbyDecor): 도리아식 기둥·그리스 문양·제단 그림·불빛")]
+        public LobbyDecor lobbyDecor;
 
         public GameState State { get; private set; } = GameState.Boot;
         public GameState ReturnState { get; set; }
@@ -98,7 +117,9 @@ namespace Laurel
             }
             cam.orthographic = true;
             cam.clearFlags = CameraClearFlags.SolidColor;
-            if (cam.GetComponent<CameraRig>() == null) cam.gameObject.AddComponent<CameraRig>();
+            var rig = cam.GetComponent<CameraRig>(); // 씬의 Main Camera 에 붙어 있으면 Inspector 값(줌·따라가기)을 그대로 쓴다
+            if (rig == null) rig = cam.gameObject.AddComponent<CameraRig>();
+            rig.Init();
             if (cam.GetComponent<AudioListener>() == null) cam.gameObject.AddComponent<AudioListener>();
 
             gameObject.AddComponent<Sfx>();
@@ -192,7 +213,7 @@ namespace Laurel
             var b = room.InnerBounds;
             float wall = DB.Balance.world.wallThickness;
             CameraRig.I.focus2 = null;
-            CameraRig.I.Setup(new Rect(b.xMin - wall, b.yMin - wall, b.width + wall * 2f, b.height + wall * 2f), DB.Balance.world.cameraSize, room.Theme.bgFar);
+            CameraRig.I.Setup(new Rect(b.xMin - wall, b.yMin - wall, b.width + wall * 2f, b.height + wall * 2f), CameraRig.I.PlaySize, room.Theme.bgFar);
         }
 
         public void AddNectar(int n, string reason)
@@ -294,8 +315,11 @@ namespace Laurel
             StyleNames.TryParseRetrieval(t.retrieval, out Run.retrieval);
             Avatar.ApplyStats(Run.ComputeStats(Profile), true);
 
-            Room = Room.Create("Tutorial", RoomTheme.Tutorial, DB.Balance.world.arenaSize, 3, 11);
+            var theme = RoomTheme.Tutorial;
+            theme.style = tutorialTerrainStyle;
+            Room = Room.Create("Tutorial", theme, DB.Balance.world.arenaSize, 3, 11);
             PlacePlayer(Room);
+            if (tutorialBackdrop != null) tutorialBackdrop.Attach(Room);
             Combat.BeginRound(Room, Run, Run.launch, Run.retrieval);
             TutorialStep = 0;
             tutMoved = 0f; tutJumped = tutDoubleJumped = tutDashed = false;
@@ -352,14 +376,6 @@ namespace Laurel
             }
         }
 
-        public void SkipTutorialToBoss()
-        {
-            foreach (var e in new List<Enemy>(Room.Enemies)) if (e != null) Destroy(e.gameObject);
-            Room.Enemies.Clear();
-            TutorialStep = 2;
-            AdvanceTutorial();
-        }
-
         private void SpawnPhaeton()
         {
             if (Room == null) return;
@@ -402,9 +418,13 @@ namespace Laurel
 
         // ───────────── 도전(런) ─────────────
 
+        /// <summary>튜토리얼(저주) 직후 시작한 도전에서 아직 첫 전투 방에 들어가지 않았으면 true. 그 방 하나에만 튜토리얼 배경·지형을 쓴다.</summary>
+        public bool PendingTutorialLookCombat { get; private set; }
+
         public void StartRun(bool fromCurse = false)
         {
             DestroyRoom();
+            PendingTutorialLookCombat = fromCurse;
             Profile.runs++;
             SaveStore.Save(Profile);
             Run = new RunState { stage = 1, seed = Random.Range(1, 999999), startTime = Time.time };
@@ -442,8 +462,13 @@ namespace Laurel
                 case NodeType.Combat:
                 case NodeType.Elite:
                     {
+                        // 튜토리얼 직후 첫 전투 방 하나만: 튜토리얼과 같은 숲·유적 배경 + 어두운 흙갈색 지형(막힌 두꺼운 발판, 외벽 바깥 가림)
+                        bool tutorialLook = PendingTutorialLookCombat;
+                        PendingTutorialLookCombat = false;
+                        if (tutorialLook) theme.style = tutorialTerrainStyle;
                         Room = Room.Create($"S{Run.stage}_N{node.id}", theme, DB.Balance.world.arenaSize, rng.Next(0, 4), node.seed);
                         PlacePlayer(Room);
+                        if (tutorialLook && tutorialBackdrop != null) tutorialBackdrop.Attach(Room);
                         Room.SetupCombat(ComposeWaves(stage, node, rng), stage.hpMul, stage.dmgMul);
                         Room.OnGoldCollected = g => AddGold(g, true);
                         Room.OnEnemyKilled = e => { Run.kills++; Profile.kills++; };
@@ -811,8 +836,10 @@ namespace Laurel
             Run = null;
             Paused = false;
             Time.timeScale = 1f;
-            Room = Room.CreateLobby(DB.Balance.world.lobbyWidth);
+            Room = Room.CreateLobby(DB.Balance.world.lobbyWidth, lobbyTerrainStyle);
             PlacePlayer(Room);
+            if (lobbyBackdrop != null) lobbyBackdrop.Attach(Room);
+            if (lobbyDecor != null) lobbyDecor.Apply(Room);
             CameraRig.I.followY = true;
             StartPractice();
             for (int i = 0; i < 2; i++) SpawnDummy(Room, new Vector2(Room.InnerBounds.xMax - 3f - i * 3f, Room.InnerBounds.yMin + 0.9f), true);

@@ -20,6 +20,9 @@ namespace Laurel
 
         public virtual void Tick(CombatInput input, float dt) { AutoPickup(); }
 
+        /// <summary>라운드가 끝나거나 회수 방식이 바뀌어 이 객체를 버릴 때 (이펙트 등 정리)</summary>
+        public virtual void Dispose() { }
+
         protected void AutoPickup()
         {
             Vector2 p = combat.PlayerCenter;
@@ -89,6 +92,24 @@ namespace Laurel
                     if (a.State == ArrowState.Returning && a.ReturnSource == Source) { a.Drop(Vector2.zero); dropped++; }
                 if (dropped > 0) combat.Log($"부르기 중단: {dropped}발이 그 자리에서 떨어짐");
             }
+
+            // 부르기 이펙트: R 을 누르고 있고 '부르기로 실제 돌아오는 화살'이 있을 때만 (이 회수 방식 전용, 하나만)
+            if (Holding && CountReturning(Source) > 0)
+            {
+                if (fx == null) fx = RecallFx.Create(() => combat.PlayerCenter);
+                if (fx != null) fx.Pulse();
+            }
+            else if (fx != null) fx.Hide();
+        }
+
+        private RecallFx fx;
+        /// <summary>검증용: 지금 이펙트가 보이는지</summary>
+        public bool FxVisible => fx != null && fx.Visible;
+
+        public override void Dispose()
+        {
+            if (fx != null) Object.Destroy(fx.gameObject);
+            fx = null;
         }
 
         public override string StatusText() => $"R 누르고 있기: 부르기 (귀환 중 {CountReturning(Source)}발)";

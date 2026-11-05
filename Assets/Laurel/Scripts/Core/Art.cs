@@ -27,6 +27,26 @@ namespace Laurel
             return v <= 1f - Mathf.Abs(u - 0.5f) * 2f ? 1f : 0f;
         }));
 
+        private static Sprite gradient;
+        /// <summary>아래가 불투명하고 위로 갈수록 투명해지는 세로 그라데이션 (1×64 유닛, 피벗 가운데). 높이를 맞추려면 scale.y = 원하는높이/64</summary>
+        public static Sprite Gradient
+        {
+            get
+            {
+                if (gradient != null) return gradient;
+                const int h = 64;
+                var tex = new Texture2D(1, h, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < h; y++)
+                {
+                    float t = 1f - y / (h - 1f);
+                    tex.SetPixel(0, y, new Color(1f, 1f, 1f, t * t * (3f - 2f * t)));
+                }
+                tex.Apply();
+                gradient = Sprite.Create(tex, new Rect(0, 0, 1, h), new Vector2(0.5f, 0.5f), 1f);
+                return gradient;
+            }
+        }
+
         /// <summary>기존 캐릭터 화살 스프라이트 (GameRoot 가 연결). 없으면 도형으로 대체.</summary>
         public static Sprite ArrowSprite;
 

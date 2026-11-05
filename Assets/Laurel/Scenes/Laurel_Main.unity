@@ -119,6 +119,118 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &29199210
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 29199212}
+  - component: {fileID: 29199211}
+  m_Layer: 0
+  m_Name: TerrainStyle_Lobby
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &29199211
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 29199210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11fc2403205cc4263bbe462b01987bb5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.TerrainStyle
+  platformThickness: 0.6
+  solidPlatforms: 0
+  body: {r: 0.16470589, g: 0.11764706, b: 0.16078432, a: 1}
+  border: {r: 0.3529412, g: 0.2509804, b: 0.22745098, a: 1}
+  topBand: {r: 0.9137255, g: 0.6901961, b: 0.41568628, a: 1}
+  borderWidth: 0.05
+  topBandWidth: 0.12
+  innerShade: 0.12
+  innerShadeStrength: 0.5
+  styleOuterBlocks: 1
+  maskOutsideWalls: 1
+  outsideMaskSize: 500
+--- !u!4 &29199212
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 29199210}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &728240990
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 728240992}
+  - component: {fileID: 728240991}
+  m_Layer: 0
+  m_Name: TerrainStyle_Tutorial
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &728240991
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 728240990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11fc2403205cc4263bbe462b01987bb5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.TerrainStyle
+  platformThickness: 1.2
+  solidPlatforms: 1
+  body: {r: 0.07450981, g: 0.043137256, b: 0.015686275, a: 1}
+  border: {r: 0.43137255, g: 0.34117648, b: 0.25490198, a: 1}
+  topBand: {r: 0.47843137, g: 0.4117647, b: 0.34117648, a: 1}
+  borderWidth: 0.05
+  topBandWidth: 0.1
+  innerShade: 0.1
+  innerShadeStrength: 0.55
+  styleOuterBlocks: 1
+  maskOutsideWalls: 1
+  outsideMaskSize: 500
+--- !u!4 &728240992
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 728240990}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &906828447
 GameObject:
   m_ObjectHideFlags: 0
@@ -165,10 +277,201 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Laurel.GameRoot
   playerPrefab: {fileID: 5312333145490642933, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
   arrowSprite: {fileID: 21300000, guid: 93024808b95273a4eb4bdeaeae929462, type: 3}
+  tutorialBackdrop: {fileID: 1682301682}
+  tutorialTerrainStyle: {fileID: 728240991}
+  questParchment: {fileID: 2800000, guid: 7dde01a64d283474c8b365fd59ec10a9, type: 3}
+  dialogueParchment: {fileID: 2800000, guid: 710974e97e58d48c5a1733e59ab10229, type: 3}
+  dialogueSkipButton: {fileID: 2800000, guid: f683feb330a0545ce960d5e0e9c1065d, type: 3}
+  lobbyBackdrop: {fileID: 1380016877}
+  lobbyTerrainStyle: {fileID: 29199211}
+  lobbyDecor: {fileID: 1356495761}
   tutMoved: 0
   tutJumped: 0
   tutDoubleJumped: 0
   tutDashed: 0
+--- !u!115 &1212959541
+MonoScript:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 
+  serializedVersion: 7
+  m_DefaultReferences: {}
+  m_Icon: {fileID: 0}
+  m_Type: 0
+  m_ExecutionOrder: 0
+  m_ClassName: CameraRig
+  m_Namespace: Laurel
+  m_AssemblyName: Assembly-CSharp
+--- !u!1 &1356495760
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1356495762}
+  - component: {fileID: 1356495761}
+  m_Layer: 0
+  m_Name: LobbyDecor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1356495761
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1356495760}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 87935996f7c2246eb9e075616703daf3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.LobbyDecor
+  pillar: {fileID: 21300000, guid: b8652ea2d51dd41dfad8f7fb1771782f, type: 3}
+  pillarX:
+  - -9.733
+  - -1.777
+  - 12.827
+  pillarY: -0.628
+  pillarOrder: -20
+  frieze: {fileID: 21300000, guid: 0584fb7246fa74a3ab8934550a5b0047, type: 3}
+  friezePosition: {x: -1.215, y: 6.389}
+  friezeOrder: -19
+  altar: {fileID: 21300000, guid: 9c02e1c85a76448aeb01d5f62c677258, type: 3}
+  altarPosition: {x: 0, y: -4.845}
+  flameGlow: {r: 1, g: 0.72, b: 0.32, a: 0.5}
+  flameGlowSize: {x: 3.4, y: 3.8}
+  flameGlowPosition: {x: 0, y: -3.7}
+  flicker: 0.12
+--- !u!4 &1356495762
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1356495760}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1380016876
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1380016878}
+  - component: {fileID: 1380016877}
+  m_Layer: 0
+  m_Name: Backdrop_Lobby
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1380016877
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1380016876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fc2c7c8894c54562996efad96fa4928, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.RoomBackdrop
+  image: {fileID: 21300000, guid: 5c45bfc79797f4223ab71d8a393a01b9, type: 3}
+  width: 30.791897
+  offset: {x: 0, y: -0.93185997}
+  parallax: 0
+  tint: {r: 1, g: 1, b: 1, a: 1}
+  skyFill: {r: 0.17254902, g: 0.13725491, b: 0.2, a: 1}
+  groundFill: {r: 0.16470589, g: 0.11764706, b: 0.16078432, a: 1}
+  skyFade: 0
+  groundFade: 0
+  sortingOrder: -30
+--- !u!4 &1380016878
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1380016876}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1682301681
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1682301683}
+  - component: {fileID: 1682301682}
+  m_Layer: 0
+  m_Name: Backdrop_Tutorial
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1682301682
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1682301681}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fc2c7c8894c54562996efad96fa4928, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.RoomBackdrop
+  image: {fileID: 21300000, guid: 2bf90579c24264d16873dd1fea787c52, type: 3}
+  width: 34
+  offset: {x: 0, y: 0}
+  parallax: 0.6
+  tint: {r: 1, g: 1, b: 1, a: 1}
+  skyFill: {r: 0.8509804, g: 0.9254902, b: 0.92156863, a: 1}
+  groundFill: {r: 0.6784314, g: 0.72156864, b: 0.6666667, a: 1}
+  skyFade: 1
+  groundFade: 3
+  sortingOrder: -30
+--- !u!4 &1682301683
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1682301681}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2054295409
 GameObject:
   m_ObjectHideFlags: 0
@@ -179,6 +482,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2054295410}
   - component: {fileID: 2054295411}
+  - component: {fileID: 2054295412}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -252,9 +556,42 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
+--- !u!114 &2054295412
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2054295409}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 1212959541}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.CameraRig
+  target: {fileID: 0}
+  bounds:
+    serializedVersion: 2
+    x: -11
+    y: -11
+    width: 22
+    height: 22
+  followY: 1
+  focus2: {fileID: 0}
+  focus2Weight: 0.4
+  playSize: 7
+  lookUp: 2
+  lookAhead: 2.5
+  fallLookDown: 2.5
+  fallSpeedThreshold: 8
+  lookSmoothing: 3
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 2054295410}
   - {fileID: 906828448}
+  - {fileID: 1682301683}
+  - {fileID: 728240992}
+  - {fileID: 29199212}
+  - {fileID: 1380016878}
+  - {fileID: 1356495762}
