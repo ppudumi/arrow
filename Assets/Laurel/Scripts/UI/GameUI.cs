@@ -127,6 +127,7 @@ namespace Laurel
                 case GameState.ArcherySelect: DrawArcherySelect(); break;
                 case GameState.Records: DrawRecords(); break;
                 case GameState.Story: DrawStoryBackdrop(); DrawStory(); break;
+                case GameState.ArcheryTest: DrawWorldOverlay(); DrawArcheryTestBar(); break; // 궁술 테스트 씬: 궁술 선택 버튼만 (다른 HUD 없음)
             }
             if (G.Paused) DrawPause();
             DrawToast();
@@ -605,7 +606,9 @@ namespace Laurel
             Rect(new Rect(0, 0, VW, VH), new Color(0.06f, 0.07f, 0.1f, 0.97f));
             var p = G.Profile;
             Text(new Rect(60, 30, 1400, 56), "<b>궁술 선택</b>  <color=#AAAAAA>발사 1종 + 회수 1종 — 모든 조합 가능 (5 × 6 = 30)</color>", header);
-            Text(new Rect(60, 90, 1400, 30), "잠긴 궁술은 넥타르 강화(개미굴 오른쪽 가지)에서 해금합니다. 선택은 저장되고 다음 출정에 적용됩니다.", small, new Color(0.8f, 0.8f, 0.8f));
+            Text(new Rect(60, 90, 1400, 30), G.InArcheryTest
+                ? "궁술 테스트 씬: 모든 궁술이 열려 있습니다. 고르면 화살이 화살통으로 돌아오고 바로 적용됩니다. 세이브에는 기록되지 않습니다."
+                : "잠긴 궁술은 넥타르 강화(개미굴 오른쪽 가지)에서 해금합니다. 선택은 저장되고 다음 출정에 적용됩니다.", small, new Color(0.8f, 0.8f, 0.8f));
             float y = 150;
             Text(new Rect(60, y, 600, 40), "<b>발사 궁술</b>", small);
             foreach (var s in StyleNames.AllLaunch)
@@ -631,6 +634,23 @@ namespace Laurel
             foreach (var s in StyleNames.AllRetrieval) if (p.StyleUnlocked("retrieval", s.ToString())) rr++;
             Text(new Rect(60, 700, 1200, 40), $"사용 가능한 조합: {l} × {rr} = <b>{l * rr}</b> / 30", small);
             if (Btn(new Rect(60, VH - 120, 360, 70), "닫기 (Esc)", true, bigButton)) G.ClosePanel();
+        }
+
+        /// <summary>궁술 테스트 씬 화면: 왼쪽 위 '궁술 선택' 버튼(현재 조합 표시) 하나만</summary>
+        private void DrawArcheryTestBar()
+        {
+            var p = G.Profile;
+            StyleNames.TryParseLaunch(p.launch, out var l);
+            StyleNames.TryParseRetrieval(p.retrieval, out var r);
+            // 밝은 숲 배경 위에서도 읽히도록 불투명한 어두운 패널 + 밝은 글자, 그 위에 투명 버튼
+            var r0 = new Rect(24, 24, 640, 64);
+            bool hover = r0.Contains(Event.current.mousePosition);
+            // 불투명 + 선형 보정 (반투명이면 Linear 공간 합성에서 회색으로 바래 밝은 하늘 배경에서 안 읽힘)
+            Rect(r0, ScreenColor(hover ? new Color(0.2f, 0.15f, 0.1f, 1f) : new Color(0.1f, 0.075f, 0.06f, 1f)));
+            Rect(new Rect(r0.x, r0.y, r0.width, 3), ScreenColor(new Color(0.85f, 0.68f, 0.3f, 1f)));
+            Text(new Rect(r0.x + 18, r0.y, r0.width - 24, r0.height), $"<b>궁술 선택</b> <size=17>(Esc / Tab)</size>   <size=19>{StyleNames.Launch(l)} · {StyleNames.Retrieval(r)}</size>",
+                new GUIStyle(label) { alignment = TextAnchor.MiddleLeft, wordWrap = false }, ScreenColor(new Color(1f, 0.93f, 0.78f, 1f)));
+            if (GUI.Button(r0, GUIContent.none, GUIStyle.none)) { Sfx.Play("ui", 0.5f); G.OpenPanel(GameState.ArcherySelect); }
         }
 
         private void DrawRecords()

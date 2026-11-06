@@ -15,6 +15,8 @@ namespace Laurel
         public float MaxHp => Stats.maxHp;
         public bool Dead { get; private set; }
         public bool invulnerable;
+        /// <summary>0 보다 크면 피해를 받아도 체력이 이 값 아래로 내려가지 않는다 (궁술 테스트 씬: 1). 피격 반응·무적시간은 그대로</summary>
+        public float minHp;
         public System.Func<bool> TryRevive;
         public System.Action OnDeath;
         public System.Action<float> OnHurt;
@@ -81,6 +83,7 @@ namespace Laurel
             if (Dead || invulnerable || iframes > 0f || !isActiveAndEnabled) return false;
             float final = Mathf.Max(1f, dmg - Stats.defense);
             Hp -= final;
+            if (minHp > 0f && Hp < minHp) Hp = minHp;
             DamageTakenTotal += final;
             iframes = DB.Balance.player.iframes;
             Fx.Text(transform.position + Vector3.up * 1.4f, "-" + final.ToString("0"), new Color(1f, 0.35f, 0.35f), 30);

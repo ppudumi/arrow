@@ -125,6 +125,22 @@ namespace Laurel
             return room;
         }
 
+        /// <summary>
+        /// 직접 만든 배치의 방 (궁술 테스트 씬). platforms: x·y = 발판 가운데(윗면 = y + 0.3), z = 길이. 좌표는 배율 없이 그대로 쓴다.
+        /// </summary>
+        public static Room CreateArena(string name, RoomTheme theme, float width, float height, IList<Vector3> platforms, Vector2 spawn)
+        {
+            var go = new GameObject("Room_" + name);
+            var room = go.AddComponent<Room>();
+            room.customPlatforms = platforms;
+            room.Build(theme, width, height, CustomLayout, 1);
+            room.PlayerSpawn = spawn;
+            return room;
+        }
+
+        private const int CustomLayout = -2;
+        private IList<Vector3> customPlatforms;
+
         // [임시 결정] 정사각형 방의 발판 배치 템플릿 (방 크기 22 기준 좌표: x, y, 길이)
         private static readonly float[][][] Layouts =
         {
@@ -151,7 +167,7 @@ namespace Laurel
             {
                 float x = Mathf.Lerp(-hw + 1f, hw - 1f, (float)rng.NextDouble());
                 float s = 1.5f + (float)rng.NextDouble() * 3f;
-                var deco = Art.Quad(transform, "Deco", layout < 0 ? Art.Square : (i % 2 == 0 ? Art.Triangle : Art.Circle), theme.bgFar.WithAlpha(0.55f), new Vector2(s * 0.8f, s * 1.6f), -24, new Vector3(x, -hh + s * 0.8f, 3));
+                var deco = Art.Quad(transform, "Deco", layout == -1 ? Art.Square : (i % 2 == 0 ? Art.Triangle : Art.Circle), theme.bgFar.WithAlpha(0.55f), new Vector2(s * 0.8f, s * 1.6f), -24, new Vector3(x, -hh + s * 0.8f, 3));
                 deco.color = Color.Lerp(theme.bg, theme.bgFar, 0.6f);
                 tempBackground.Add(deco.gameObject);
             }
@@ -184,7 +200,11 @@ namespace Laurel
             }
             else Art.Quad(transform, "FloorEdge", Art.Square, theme.accent.WithAlpha(0.6f), new Vector2(width, 0.12f), 7, new Vector3(0, -hh - 0.06f, 0));
 
-            if (layout >= 0)
+            if (layout == CustomLayout)
+            {
+                if (customPlatforms != null) foreach (var p in customPlatforms) Platform(new Vector2(p.x, p.y), p.z, theme);
+            }
+            else if (layout >= 0)
             {
                 var plats = Layouts[Mathf.Clamp(layout, 0, Layouts.Length - 1)];
                 float scale = width / 22f;

@@ -91,6 +91,10 @@ namespace Laurel
         public static string LastError { get; private set; }
         public static string LastLoadSource { get; private set; }
         public static int SaveCount { get; private set; }
+        /// <summary>켜면 Save·DeleteAll 이 파일을 건드리지 않는다 (궁술 테스트 씬: 해금·선택을 세이브에 남기지 않음)</summary>
+        public static bool Disabled;
+        /// <summary>Disabled 때문에 쓰지 않고 넘긴 Save 호출 수 (검증용)</summary>
+        public static int SkippedSaves { get; private set; }
 
         public static string FilePath => !string.IsNullOrEmpty(PathOverride) ? PathOverride : Path.Combine(Application.persistentDataPath, FileName);
         public static string BackupPath => FilePath + ".bak";
@@ -144,6 +148,7 @@ namespace Laurel
 
         public static bool Save(Profile p)
         {
+            if (Disabled) { SkippedSaves++; return true; }
             try
             {
                 p.lastSavedUtc = DateTime.UtcNow.ToString("o");
@@ -171,6 +176,7 @@ namespace Laurel
 
         public static void DeleteAll()
         {
+            if (Disabled) return;
             try
             {
                 if (File.Exists(FilePath)) File.Delete(FilePath);

@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 
 namespace Laurel
 {
-    public enum GameState { Boot, Title, Story, Tutorial, Map, Node, Reward, Shop, Rest, Result, Death, Lobby, NectarTree, ArcherySelect, Records }
+    public enum GameState { Boot, Title, Story, Tutorial, Map, Node, Reward, Shop, Rest, Result, Death, Lobby, NectarTree, ArcherySelect, Records, ArcheryTest }
 
     public class RewardData
     {
@@ -53,6 +53,10 @@ namespace Laurel
         public TerrainStyle lobbyTerrainStyle;
         [Tooltip("로비 장식 (씬의 LobbyDecor): 도리아식 기둥·그리스 문양·제단 그림·불빛")]
         public LobbyDecor lobbyDecor;
+
+        /// <summary>궁술 테스트 씬(Laurel_ArcheryTest)이면 그 씬의 설정. null 이면 일반 게임</summary>
+        public ArcheryTestArena ArcheryTest { get; private set; }
+        public bool InArcheryTest => ArcheryTest != null;
 
         public GameState State { get; private set; } = GameState.Boot;
         public GameState ReturnState { get; set; }
@@ -106,6 +110,9 @@ namespace Laurel
             I = this;
             Application.targetFrameRate = 60;
             DB.Load();
+            // 궁술 테스트 씬: 세이브를 읽지도 쓰지도 않는다 (정적 값이라 일반 씬에서는 반드시 끈다)
+            ArcheryTest = FindAnyObjectByType<ArcheryTestArena>();
+            SaveStore.Disabled = InArcheryTest;
             if (arrowSprite != null) Art.ArrowSprite = arrowSprite;
 
             cam = Camera.main;
@@ -127,7 +134,7 @@ namespace Laurel
             fxGo.AddComponent<Fx>();
             DontDestroyOnLoad(fxGo);
 
-            Profile = SaveStore.Load();
+            Profile = InArcheryTest ? ArcheryTestArena.MakeProfile() : SaveStore.Load();
             Sfx.Volume = Profile.sfxVolume;
 
             if (playerPrefab == null) Debug.LogError("[Laurel] GameRoot.playerPrefab 이 연결되지 않았습니다.");
@@ -138,8 +145,14 @@ namespace Laurel
 
         private void Start()
         {
+            if (InArcheryTest) { StartArcheryTest(); return; }
             if (HasArg("-laurelSelfTest") || ArgValue("-laurelPersistPhase") != null) { gameObject.AddComponent<SelfTest>(); return; }
             GoTitle();
+        }
+
+        private void OnDestroy()
+        {
+            if (I == this && InArcheryTest) SaveStore.Disabled = false;
         }
 
         public static bool HasArg(string a)
@@ -190,7 +203,7 @@ namespace Laurel
         private void SetState(GameState s)
         {
             State = s;
-            bool playable = s == GameState.Node || s == GameState.Lobby || s == GameState.Tutorial;
+            bool playable = s == GameState.Node || s == GameState.Lobby || s == GameState.Tutorial || s == GameState.ArcheryTest;
             if (Avatar != null) Avatar.SetInputEnabled(playable && !Paused);
         }
 
@@ -884,7 +897,7 @@ namespace Laurel
             Profile.launch = s.ToString();
             SaveStore.Save(Profile);
             Sfx.Play("ui");
-            if (State == GameState.ArcherySelect || State == GameState.Lobby) StartPractice();
+            if (State == GameState.ArcherySelect || State == GameState.Lobby || State == GameState.ArcheryTest) StartPractice();
         }
 
         public void SelectRetrieval(RetrievalStyle s)
@@ -893,7 +906,7 @@ namespace Laurel
             Profile.retrieval = s.ToString();
             SaveStore.Save(Profile);
             Sfx.Play("ui");
-            if (State == GameState.ArcherySelect || State == GameState.Lobby) StartPractice();
+            if (State == GameState.ArcherySelect || State == GameState.Lobby || State == GameState.ArcheryTest) StartPractice();
         }
 
         public bool BuyNectarNode(NectarNodeDef n)
@@ -911,7 +924,34 @@ namespace Laurel
             SetState(s);
         }
 
-        public void ClosePanel() { Sfx.Play("ui"); SetState(GameState.Lobby); }
+        public void ClosePanel() { Sfx.Play("ui"); SetState(InArcheryTest ? GameState.ArcheryTest : GameState.Lobby); }
+
+        // ───────────── 궁술 테스트 씬 ─────────────
+
+        /// <summary>
+        /// 궁술 테스트 맵을 열고 곧바로 조작할 수 있게 한다. 1스테이지 배경·지형, 기준 방 폭 × 2.5, 쓰러지지 않는 허수아비 여러 개.
+        /// 화살·능력치는 로비 수련장과 같은 StartPractice(기본 화살 6발, 강화 없음)를 쓰고, 궁술을 바꾸면 다시 시작한다.
+        /// </summary>
+        public void StartArcheryTest()
+        {
+            var t = ArcheryTest;
+            DestroyRoom();
+            Run = null;
+            Paused = false;
+            Time.timeScale = 1f;
+            Room = Room.CreateArena("ArcheryTest", t.MakeTheme(), t.Width, t.Height, t.PlatformList(), t.playerSpawn + Vector2.up * 1.2f);
+            PlacePlayer(Room);
+            if (t.backdrop != null) t.backdrop.Attach(Room);
+            CameraRig.I.followY = true;
+            Avatar.minHp = 1f; // 맞기는 하지만 쓰러지지 않는다
+            StartPractice();
+            foreach (var p in t.dummies)
+            {
+                var d = SpawnDummy(Room, new Vector2(p.x, p.y + 0.9f), true);
+                d.SetHp(t.dummyHp);
+            }
+            SetState(GameState.ArcheryTest);
+        }
 
         // ───────────── 일시정지·입력 ─────────────
 
@@ -934,7 +974,13 @@ namespace Laurel
             if (k.escapeKey.wasPressedThisFrame)
             {
                 if (State == GameState.NectarTree || State == GameState.ArcherySelect || State == GameState.Records) ClosePanel();
+                else if (State == GameState.ArcheryTest) OpenPanel(GameState.ArcherySelect); // 테스트 씬: 일시정지 대신 궁술 선택
                 else SetPaused(!Paused);
+            }
+            if (k.tabKey.wasPressedThisFrame && InArcheryTest)
+            {
+                if (State == GameState.ArcheryTest) OpenPanel(GameState.ArcherySelect);
+                else if (State == GameState.ArcherySelect) ClosePanel();
             }
             if (State == GameState.Story && (k.enterKey.wasPressedThisFrame || k.spaceKey.wasPressedThisFrame || k.eKey.wasPressedThisFrame)) AdvanceStory();
             if (k.f12Key.wasPressedThisFrame) { DevMode = !DevMode; ShowToast(DevMode ? "개발자 모드 켬 (F9 넥타르+20, F10 방 정리, F11 보스 해금 전체)" : "개발자 모드 끔"); }

@@ -81,7 +81,8 @@ laurel -laurelPersistPhase 2 -laurelSelfTestOut p2.txt
 | `Scripts/UI` | 모든 화면(IMGUI) |
 | `Scripts/Tests` | 실제 게임 루프 자동 검증 |
 | `Editor` | 빌드 도구, 플레이어 파츠 시트 임포트·슬라이스(`PlayerPartsImporter`, 메뉴 Tools > Laurel > Slice Player Parts) |
-| `Scenes/Laurel_Main.unity` | 유일한 씬 (Unity MCP 로 GameRoot·카메라 구성, 플레이어 프리팹·화살 스프라이트 연결). 배경·지형·장식 설정 오브젝트도 여기 있음 |
+| `Scenes/Laurel_Main.unity` | 게임 본편 씬 (Unity MCP 로 GameRoot·카메라 구성, 플레이어 프리팹·화살 스프라이트 연결). 배경·지형·장식 설정 오브젝트도 여기 있음 |
+| `Scenes/Laurel_ArcheryTest.unity` | 궁술 테스트 전용 씬 (아래 '궁술 테스트 씬') |
 
 임시로 정한 규칙과 수치는 `Docs/Laurel_Design_Decisions.md`.
 
@@ -216,6 +217,21 @@ laurel -laurelPersistPhase 2 -laurelSelfTestOut p2.txt
 - **1스테이지 시작 나무**(`start`): 맨 왼쪽 열(다른 열과 같은 간격)에 표시용으로 두고 첫 층 노드(항상 전투 2개)에만 점선. 클릭되지 않고, 진행은 기존처럼 첫 전투를 선택.
 - 배치: `MapLayout(map, 화면폭, 1080, 시작나무여부)` — 열 수(층 + 시작 나무)·층별 최대 노드 수로 칸을 나눠 노드 크기·위치 결정. 그리기·연결선·클릭 영역이 같은 결과를 씀. 3스테이지 × 화면 폭 4종 × 생성 맵 200개 = 2,400개에서 잘림·겹침(금색 테두리 포함) 없음.
 
+## 궁술 테스트 씬 (`Assets/Laurel/Scenes/Laurel_ArcheryTest.unity`)
+
+이 씬을 열고 Play 하면 타이틀·튜토리얼 없이 바로 테스트 맵에서 시작한다. 발사 5종 × 회수 6종 조합을 허수아비로 시험하는 용도.
+
+- 구성: `Laurel_Main` 을 복제한 뒤 로비 오브젝트를 빼고 `ArcheryTestArena`(설정) · `Backdrop_ArcheryTest` · `TerrainStyle_ArcheryTest` 를 둠. `GameRoot` 가 씬에서 `ArcheryTestArena` 를 찾으면 `StartArcheryTest()` 로 바로 시작(`GameState.ArcheryTest`)
+- 플레이어: 같은 `ProceduralCharacter` 프리팹·`PlayerAvatar`·`PlayerCombat`. 화살·능력치는 로비 수련장과 같은 `StartPractice`(기본 화살 6발, 공격력 1, 강화 없음). 더블점프·3단 점프·대쉬, 발사 5종·회수 6종 전부 사용 가능
+- 체력: 정상적으로 맞고 피격 반응(숫자·흔들림·무적시간)도 나지만 `PlayerAvatar.minHp = 1` 이라 1 아래로 내려가지 않음
+- 세이브: 이 씬에서는 메모리 전용 프로필(`ArcheryTestArena.MakeProfile`)을 쓰고 `SaveStore.Disabled` 로 파일 쓰기를 막음. 궁술을 고르거나 F9·F11 을 눌러도 세이브 파일은 바뀌지 않음(`Save` 호출만 `SkippedSaves` 로 셈)
+- 화면: 왼쪽 위 '궁술 선택' 버튼(현재 조합 표시)만. Esc 또는 Tab 으로 기존 궁술 선택 화면을 열고 닫음. 고르면 화살이 화살통으로 돌아오며 바로 적용되고, 닫으면 곧바로 조작. 체력·재화·화살통·퀘스트·로비 메뉴·일시정지는 없음. 타격 피해 숫자는 보임
+- 맵: 1스테이지 일반 전투 방(정사각형 22 = `world.arenaSize`, 좌우 외벽 안쪽면 −11~11)을 기준으로 **좌우 충돌 경계 사이 폭 55 (×2.5)**, 높이 22(같음). 발판 두께·캐릭터 크기 그대로
+  - 배경·지형: 1스테이지 첫 전투 방과 같은 델포이 숲 배경(`Tutorial_Backdrop_TEMP.png`)과 어두운 흙갈색 막힌 발판. 배경 폭 56(Parallax 0.6): 카메라가 양 끝까지 가도 4:3~32:9 화면에서 끊기지 않음. 외벽 바깥은 몸체색으로 가림
+  - 발판 11개, 허수아비 10개(체력 99999, 쓰러지지 않고 2.5초 뒤 다시 참). 시작점 x −24.5 기준 가까운 바닥(9.5) · 중간(19.5) · 직사 사거리 경계(33.5) · 먼 바닥(41.5·50.5), 높이 다른 발판 위 5개(왼쪽 높은 곳, 가운데 중간·가장 높은 곳, 오른쪽 중간·높은 곳). 발판 사이를 오가며 회수 중 이동을 시험할 수 있음
+  - 배치·크기·체력은 `ArcheryTestArena` Inspector 에서 바꾼다(Play 를 다시 시작하면 반영)
+- 자동 검증: Play 중 `GameRoot` 에 `ArcheryTestSceneCheck` 를 붙이면 실행(콘솔에 결과). 독립 시작 · 폭 2.5배 · 배경 끊김(화면 비율 4종) · 기본 능력치 · 피격/체력 1 유지 · 궁술 선택 화면 경로로 30조합 선택→발사→적중→회수 · 세이브 쓰기 0회 확인
+
 ## 변경 기록
 
 | 날짜 | 내용 |
@@ -241,3 +257,4 @@ laurel -laurelPersistPhase 2 -laurelSelfTestOut p2.txt
 | 2026-11-06 | 노드 선택 맵 정리: 도전 현황 패널·도전 포기 버튼·안내 줄 제거, 맵 영역 확장과 자동 노드 배치(`MapLayout`) |
 | 2026-11-06 | 노드 선택 맵을 시안 스타일로 완성: 양피지·점선 경로·노드 스프라이트 7종·금색 선택 테두리, 1스테이지 올리브 나무 시작 표시 |
 | 2026-11-06 | 로비 화면: HUD 패널(능력치·재화·로비 이름·궁술)·하단 화살통 숨김, 중앙 메뉴와 수련장 안내만 표시 |
+| 2026-11-06 | 궁술 테스트 씬 `Laurel_ArcheryTest` 추가: 바로 시작, 모든 궁술·이동 스킬, 체력 1 유지, 세이브 미기록, 궁술 선택 UI만, 1스테이지 숲 배경·지형으로 폭 55(기준 방 22 × 2.5) 맵과 허수아비 10개 |
