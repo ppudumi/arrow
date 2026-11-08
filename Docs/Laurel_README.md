@@ -83,6 +83,8 @@ laurel -laurelPersistPhase 2 -laurelSelfTestOut p2.txt
 | `Editor` | 빌드 도구, 플레이어 파츠 시트 임포트·슬라이스(`PlayerPartsImporter`, 메뉴 Tools > Laurel > Slice Player Parts) |
 | `Scenes/Laurel_Main.unity` | 게임 본편 씬 (Unity MCP 로 GameRoot·카메라 구성, 플레이어 프리팹·화살 스프라이트 연결). 배경·지형·장식 설정 오브젝트도 여기 있음 |
 | `Scenes/Laurel_ArcheryTest.unity` | 궁술 테스트 전용 씬 (아래 '궁술 테스트 씬') |
+| `Scenes/TutorialBossMap_Test.unity` | 튜토리얼 보스전 맵 테스트 씬 (Tilemap·Rule Tile, 아래 '튜토리얼 보스전 맵 테스트 씬') |
+| `Art/TutorialBossMap` | 지형 타일셋(32×32 슬라이스)·Rule Tile·마찰 0 재질·배경 채움용 스프라이트 |
 
 임시로 정한 규칙과 수치는 `Docs/Laurel_Design_Decisions.md`.
 
@@ -232,6 +234,31 @@ laurel -laurelPersistPhase 2 -laurelSelfTestOut p2.txt
   - 배치·크기·체력은 `ArcheryTestArena` Inspector 에서 바꾼다(Play 를 다시 시작하면 반영)
 - 자동 검증: Play 중 `GameRoot` 에 `ArcheryTestSceneCheck` 를 붙이면 실행(콘솔에 결과). 독립 시작 · 폭 2.5배 · 배경 끊김(화면 비율 4종) · 기본 능력치 · 피격/체력 1 유지 · 궁술 선택 화면 경로로 30조합 선택→발사→적중→회수 · 세이브 쓰기 0회 확인
 
+## 튜토리얼 보스전 맵 테스트 씬 (`Assets/Laurel/Scenes/TutorialBossMap_Test.unity`)
+
+튜토리얼 보스전 맵과 조작 가능한 플레이어만 있는 씬. GameRoot·HUD·적·보스 없음. 열고 Play 하면 바로 A/D·Space(더블점프)·Shift 로 움직일 수 있다.
+
+- 플레이어: `Assets/pjs/Prefabs/ProceduralCharacter.prefab` 인스턴스 그대로(수정 없음, 프리팹 기본값 = 점프 2회·대쉬). 시작: 아래쪽 공중 지형 왼쪽(발 x 26.8, y 11)
+- 타일셋: `Art/TutorialBossMap/Tilemap.png`(원본 `~/Downloads/Tilemap.png`, 256×256). Sprite Mode Multiple, **Grid By Cell Size 32×32**(오프셋·패딩 0, 빈 칸 제외 → 21조각 `Tilemap_0`~`Tilemap_20`), PPU 32(플레이어 원본 스프라이트·방 1칸 = 1유닛과 같음), Point, 압축 없음, 밉맵 없음, Full Rect. Grid 셀 1×1(틈 0) → 32px 타일 = 1유닛
+- Rule Tile: `Art/TutorialBossMap/TutorialBoss_Terrain_RuleTile.asset` (13규칙, 이웃 8칸 This/NotThis)
+
+  | 규칙 | 조건 | 조각 (타일셋 칸: 위에서 행, 왼쪽에서 열) |
+  | --- | --- | --- |
+  | 바깥 모서리 왼위·오른위·왼아래·오른아래 | 해당 두 방향 비어 있음 | 4 (2행0열) · 8 (2행4열) · 14 (4행0열) · 18 (4행4열) |
+  | 윗변·아랫변·왼변·오른변 | 한 방향 비어 있음 | 7 (2행3열) · 17 (4행3열) · 9 (3행0열) · 13 (3행4열) |
+  | 안쪽 모서리 (대각선 하나만 빔) | 왼위·오른위·왼아래·오른아래 | 5 · 6 · 15 · 16 |
+  | 내부 채움 | 8방향 모두 채움 | 10·11·12 중 무작위 (기본 조각 11) |
+
+  모서리·변 조각은 타일셋에서 서로 붙어 있던 조각끼리 이어지게 골랐다(왼변 9 ↔ 모서리 4·14, 오른변 13 ↔ 8·18, 윗변 7 ↔ 8·6). 두께 1칸짜리 지형용 조각은 타일셋에 없어 모든 지형을 2칸 이상 두께로 둔다. 남는 조각 0·1·2·3·19·20 은 같은 모양의 대체 조각
+- 지형(`Grid/Terrain_Tilemap`, 레이어 Terrain, 정렬 6): TilemapCollider2D(Merge) + CompositeCollider2D(Polygons) + 정적 Rigidbody2D → 지형 3덩어리로 합쳐져 타일 이음새 충돌 없음. 마찰 0 재질(`TutorialBoss_NoFriction`)로 공중에서 벽을 밀어도 붙지 않음(이 씬 전용)
+  - 셀 좌표(셀 x,y = 월드 [x,x+1]×[y,y+1]): 왼쪽 높은 지면 x −16~20 · 윗면 y 6 / 낮은 바닥 x 21~40 · 윗면 2 / 오른쪽 높은 지면 x 41~62 · 윗면 6 / 아래 공중 지형 x 25~35, y 7~10 / 위 공중 지형 x 25~35, y 17~20. 화면 밖까지 이어 그려 가장자리가 보이지 않음
+- 카메라·배경·경계: `TutorialBossMapTest` 컴포넌트(`Scripts/World/TutorialBossMapTest.cs`)
+  - 플레이어를 따라가지 않는 고정 카메라. 전투 공간 `arena` = x −0.1~46.67, y 0.37~21.37 (46.77×21 = 2.227:1)을 항상 전부 보여 준다. 더 좁은 화면(16:9 등)은 가로를 맞추고 위아래를 더, 더 넓은 화면은 세로를 맞추고 좌우를 더 보여 줌. 2.227:1 에서 직교 크기 10.5 → 플레이어 키(콜라이더 0.96) = 화면 높이의 4.6%
+  - 배경: 1스테이지 배경 `Art/Backgrounds/Tutorial_Backdrop_TEMP.png`(폭 56, 고정). 위·아래 바깥은 이미지 가장자리 평균색(#D9ECEB / #A0A99C)으로 채우고 경계는 그라데이션(`GradientUp.png`)으로 섞음
+  - arena 좌우와 위(+2)에 보이지 않는 벽
+- Game 뷰 비교 크기: Standalone 에 `TutorialBoss Ref 2.227:1 (2227x1000)` 추가
+- 참고 화면 대비(게임 화면 높이·폭 대비 %): 왼쪽 지면 끝 44.9 (참고 45.4) · 오른쪽 지면 시작 88.0 (87.5) · 높은 지면 윗면 73.2 (71.8) · 낮은 바닥 92.2 (90.8) · 아래 공중 지형 x 53.7~77.2, y 49.4~68.4 (54.5~77.4, 50.1~69.6) · 위 공중 지형 y 1.8~20.8 (4.5~22.8). 32px 격자 때문에 높은 지면과 위 공중 지형에 0.4~0.6타일 차이
+
 ## 변경 기록
 
 | 날짜 | 내용 |
@@ -258,3 +285,4 @@ laurel -laurelPersistPhase 2 -laurelSelfTestOut p2.txt
 | 2026-11-06 | 노드 선택 맵을 시안 스타일로 완성: 양피지·점선 경로·노드 스프라이트 7종·금색 선택 테두리, 1스테이지 올리브 나무 시작 표시 |
 | 2026-11-06 | 로비 화면: HUD 패널(능력치·재화·로비 이름·궁술)·하단 화살통 숨김, 중앙 메뉴와 수련장 안내만 표시 |
 | 2026-11-06 | 궁술 테스트 씬 `Laurel_ArcheryTest` 추가: 바로 시작, 모든 궁술·이동 스킬, 체력 1 유지, 세이브 미기록, 궁술 선택 UI만, 1스테이지 숲 배경·지형으로 폭 55(기준 방 22 × 2.5) 맵과 허수아비 10개 |
+| 2026-11-08 | 튜토리얼 보스전 맵 테스트 씬 `TutorialBossMap_Test`: 32×32 타일셋 슬라이스 + Rule Tile 지형, 1스테이지 배경, 기존 플레이어 프리팹, 고정 카메라(2.227:1 기준) |
