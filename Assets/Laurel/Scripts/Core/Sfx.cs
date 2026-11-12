@@ -46,6 +46,9 @@ namespace Laurel
             clips["swing"] = Synth(sr, 0.18f, t => Noise() * 0.5f * Mathf.Sin(t / 0.18f * Mathf.PI));
             clips["empty"] = Synth(sr, 0.05f, t => Mathf.Sin(t * 2 * Mathf.PI * 220) * 0.3f * Env(t, 0.05f));
             clips["buy"] = Synth(sr, 0.3f, t => Mathf.Sin(t * 2 * Mathf.PI * (t < 0.1f ? 660 : t < 0.2f ? 880 : 1320)) * 0.3f * Env(t, 0.3f));
+            // 발소리(사각사각): 짧은 잡음 알갱이 + 빠른 감쇠. 두 가지를 번갈아 써서 반복감을 줄인다
+            clips["step"] = Synth(sr, 0.07f, t => Noise() * (Mathf.Abs(Noise()) > 0.7f ? 0.55f : 0.18f) * Mathf.Exp(-t * 48f) * Mathf.Clamp01(t * 600f));
+            clips["step2"] = Synth(sr, 0.06f, t => Noise() * (Mathf.Abs(Noise()) > 0.75f ? 0.5f : 0.15f) * Mathf.Exp(-t * 60f) * Mathf.Clamp01(t * 600f));
             clips["enemyshot"] = Synth(sr, 0.1f, t => Mathf.Sin(t * 2 * Mathf.PI * Mathf.Lerp(500, 200, t / 0.1f)) * 0.3f * Env(t, 0.1f));
         }
 

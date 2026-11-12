@@ -1,0 +1,113 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &7836808693007284706
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 661679225603225168, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3503405321808907703, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: m_Name
+      value: ProceduralCharacter_TutorialWallCling
+      objectReference: {fileID: 0}
+    - target: {fileID: 5269333478279281817, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      propertyPath: wallCling
+      value: 1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3503405321808907703, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7252844073420576653}
+    - targetCorrespondingSourceObject: {fileID: 3503405321808907703, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2440927182523937838}
+  m_SourcePrefab: {fileID: 100100000, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+--- !u!1 &6656170063403840597 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3503405321808907703, guid: f900ac95d1142488b85a82201d76889b, type: 3}
+  m_PrefabInstance: {fileID: 7836808693007284706}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7252844073420576653
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6656170063403840597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be0e61411e88e4559b2afe934923a688, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.LaserBowShooter
+  fireInterval: 0.09
+  range: 40
+  ignoreLayers:
+    serializedVersion: 2
+    m_Bits: 4
+  damage:
+    baseDamage: 22
+    multiplierRange: {x: 0.35, y: 1.3}
+    critChance: 0.12
+    critMultiplier: 3
+    seed: 0
+  drawArmHold: 0.12
+--- !u!114 &2440927182523937838
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6656170063403840597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f242d5f926fb4612ad59f9ab27f389f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.PlayerFootstepSfx
+  interval: 0.14
+  minSpeed: 1
+  volume: 0.45

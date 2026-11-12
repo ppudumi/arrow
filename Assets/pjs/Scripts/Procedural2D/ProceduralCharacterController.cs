@@ -25,6 +25,40 @@ namespace Procedural2D
         [Tooltip("최대 점프 가능 횟수")]
         public int maxJumps = 2;
 
+        [Header("Wall Climb (벽타기) — 기본 꺼짐. 테스트 씬의 프리팹 Variant 에서만 켠다")]
+        [Tooltip("켜면 벽에 닿은 상태에서 W(또는 ↑)를 누르고 있는 동안 벽을 타고 올라간다")]
+        public bool wallClimbEnabled = false;
+        [Tooltip("벽을 오르는 속도 (유닛/초)")]
+        public float climbSpeed = 6f;
+        [Tooltip("벽 꼭대기를 넘었을 때 위로 살짝 올려 주는 속도 (모서리에 걸리지 않고 윗면에 올라서도록). 0 이면 없음")]
+        public float climbTopBoost = 5f;
+        [Tooltip("벽 꼭대기를 넘었을 때 벽 쪽으로 밀어 주는 가로 속도 (윗면 위로 올라서게)")]
+        public float climbTopPush = 4f;
+        [Tooltip("벽 감지 거리 (콜라이더 옆면에서 바깥쪽, 유닛)")]
+        public float wallCheckDistance = 0.08f;
+        [Tooltip("벽으로 인정할 레이어 (트리거·한쪽 통과 발판·자기 자신은 제외)")]
+        public LayerMask climbMask = ~0;
+
+        [Header("Wall Cling (벽 매달리기) — 기본 꺼짐. wallClimbEnabled 와 함께 켠다 (튜토리얼 보스맵 Variant 전용)")]
+        [Tooltip("켜면 W/↑ 벽타기 대신: 공중에서 벽에 닿으면 붙어서 멈추고, 벽 쪽 방향키로 오르고, 반대 방향키로 떨어지고, 반대 방향키+점프로 벽점프")]
+        public bool wallCling = false;
+        [Tooltip("벽점프 세로 속도")]
+        public float wallJumpForce = 11f;
+        [Tooltip("벽점프 가로 속도 (벽 반대쪽)")]
+        public float wallJumpPush = 9f;
+        [Tooltip("벽점프 직후 이 시간 동안은 벽 반대쪽으로 최소 wallJumpPush 만큼 날아간다 (키를 떼도 벽을 차고 나가 보이게)")]
+        public float wallJumpLockTime = 0.15f;
+        [Tooltip("반대 방향키로 떨어질 때 벽에서 살짝 떨어지는 가로 속도")]
+        public float clingDetachPush = 3f;
+        [Tooltip("반대 방향키로 떨어질 때 살짝 떨어지는 시간 (그동안 가로 속도 고정, 이후 일반 이동)")]
+        public float clingDetachTime = 0.12f;
+        [Tooltip("반대 방향키로 먼저 떨어진 뒤 이 시간 안에 점프를 눌러도 벽점프로 친다 (두 키를 동시에 누르기 어렵지 않게)")]
+        public float wallJumpGrace = 0.12f;
+        [Tooltip("붙어 있을 때 반대 방향키 없이 점프: 벽을 따라 위로 짧게 뛰었다가 다시 붙는 세로 속도. 0 이면 점프 무시")]
+        public float clingHopForce = 8f;
+        [Tooltip("벽에서 떨어진 뒤(반대 방향·벽점프) 같은 벽에 다시 붙지 않는 최소 시간 (초). 그 벽과의 접촉이 한 번 끊기거나 착지해야 다시 붙는다")]
+        public float regrabDelay = 0.3f;
+
         [Header("Double Jump 360 Spin (공중 360도 덤블링 회전)")]
         [Tooltip("회전시킬 비주얼 트랜스폼 (콜라이더는 유지하고 비주얼만 덤블링)")]
         public Transform visualTransform;
@@ -83,6 +117,8 @@ namespace Procedural2D
 
         /// <summary>값이 있으면 키보드 대신 이 입력을 사용합니다 (자동 검증용). x=좌우, y>0.5=점프 누름, z>0.5=대시 누름</summary>
         public System.Func<Vector3> InputOverride;
+        /// <summary>값이 있으면 키보드 대신 이 값으로 벽타기(W/↑ 누르고 있음) 입력을 받습니다 (자동 검증용)</summary>
+        public System.Func<bool> ClimbInputOverride;
 
         private Rigidbody2D rb;
         private Procedural2DAim aimCtrl;
@@ -103,6 +139,24 @@ namespace Procedural2D
         private float nextDashAllowedTime = 0f;
         private float nextGhostSpawnTime = 0f;
 
+        // 벽타기 상태 변수
+        private bool isClimbing = false;
+        private int climbSide = 0;           // -1 왼쪽 벽, +1 오른쪽 벽
+        private float topAssistTimer = 0f;   // 꼭대기를 넘은 직후 벽 쪽으로 올라서게 밀어 주는 시간
+        private int topAssistSide = 0;
+        private float baseGravityScale = 1f;
+        private Collider2D bodyCollider;
+        private readonly Collider2D[] wallHits = new Collider2D[8];
+        private int regrabBlockedSide = 0;   // 자동 벽타기: 방금 떨어진 벽 쪽 (접촉이 끊기거나 착지하면 풀림)
+        private float regrabBlockedUntil = 0f;
+        private bool regrabContactLost = false;
+        private float moveLockTimer = 0f;    // 벽에서 떨어질 때·벽점프 직후 가로 속도 고정 시간
+        private float moveLockVx = 0f;
+        private bool moveLockIsMinimum = false;
+        private int detachSide = 0;          // 반대 방향키로 방금 떨어진 벽 (벽점프 유예용)
+        private float detachTime = -1f;
+        private bool hopRising = false;      // 붙은 채 위로 뛴 뒤 올라가는 동안은 다시 붙지 않음
+
         /// <summary>
         /// 현재 공중제비(360도 점프 회전) 중인지 여부
         /// </summary>
@@ -119,6 +173,8 @@ namespace Procedural2D
         public bool IsRolling => isDashing;
 
         public bool IsGrounded => isGrounded;
+        /// <summary>현재 벽을 타고 있는지 여부</summary>
+        public bool IsClimbing => isClimbing;
         public float WalkCycleTimer => walkCycleTimer;
         public bool IsMoving => (Mathf.Abs(rb != null ? rb.linearVelocity.x : 0f) > 0.15f || Mathf.Abs(GetHorizontalInput()) > 0.05f) && isGrounded;
 
@@ -129,6 +185,8 @@ namespace Procedural2D
             if (visualTransform == null) visualTransform = transform.Find("Visual");
             if (bodyTransform != null) initialBodyLocalPos = bodyTransform.localPosition;
             remainingJumps = maxJumps;
+            baseGravityScale = rb.gravityScale;
+            bodyCollider = GetComponent<Collider2D>();
         }
 
         private void Update()
@@ -164,6 +222,14 @@ namespace Procedural2D
                 return; // 대시 중에는 기본 이동/점프를 덮어씀
             }
 
+            // 2.5 벽타기: 벽에 닿아 있고 W/↑ 를 누르고 있는 동안만 위로 오른다 (점프 입력은 무시 → 벽점프 없음)
+            if (wallClimbEnabled && UpdateWallClimb(inputX, ref jumpPressed))
+            {
+                UpdateLegsAnimation(0f, false);
+                walkCycleTimer = 0f;
+                return;
+            }
+
             // 3. 2단 점프 및 공중제비 처리
             if (jumpPressed)
             {
@@ -185,7 +251,24 @@ namespace Procedural2D
             }
 
             // 4. 일반 좌우 이동 속도 적용
-            rb.linearVelocity = new Vector2(inputX * moveSpeed, rb.linearVelocity.y);
+            float vx = inputX * moveSpeed;
+            if (moveLockTimer > 0f)
+            {
+                // 벽에서 떨어지는 중(살짝만 이동) 또는 벽점프 직후(최소 이만큼은 벽 반대쪽으로)
+                moveLockTimer -= Time.deltaTime;
+                float dir = Mathf.Sign(moveLockVx);
+                if (moveLockIsMinimum) vx = dir * Mathf.Max(Mathf.Abs(moveLockVx), inputX * dir * moveSpeed);
+                else vx = moveLockVx;
+                if (isGrounded) moveLockTimer = 0f;
+            }
+            if (topAssistTimer > 0f)
+            {
+                // 벽 꼭대기를 막 넘었으면 반대쪽 입력이 없는 한 윗면 쪽으로 계속 밀어 준다 (W 만 누르고 있어도 올라선다)
+                topAssistTimer -= Time.deltaTime;
+                if (inputX * topAssistSide >= 0f && Mathf.Abs(vx) < climbTopPush) vx = topAssistSide * climbTopPush;
+                if (isGrounded) topAssistTimer = 0f;
+            }
+            rb.linearVelocity = new Vector2(vx, rb.linearVelocity.y);
 
             // 5. 공중 점프 360도 덤블링 애니메이션
             UpdateSpinAnimation();
@@ -213,6 +296,12 @@ namespace Procedural2D
         /// </summary>
         public void ResetMotionState()
         {
+            if (isClimbing) StopClimb(false);
+            topAssistTimer = 0f;
+            regrabBlockedSide = 0;
+            moveLockTimer = 0f;
+            detachSide = 0;
+            hopRising = false;
             isDashing = false;
             isSpinning = false;
             remainingJumps = maxJumps;
@@ -224,6 +313,7 @@ namespace Procedural2D
 
         private void StartDash(float inputX)
         {
+            if (isClimbing) StopClimb(false);
             isDashing = true;
             dashTimer = 0f;
             nextDashAllowedTime = Time.time + dashCooldown;
@@ -343,6 +433,214 @@ namespace Procedural2D
             {
                 Destroy(ghost);
             }
+        }
+
+        #endregion
+
+        #region 벽타기 (Wall Climb)
+
+        /// <summary>
+        /// 벽타기 상태를 갱신한다. 벽에 붙어 있으면 true (이번 프레임의 일반 이동·점프를 대신함).
+        /// W/↑ 모드(기본): 벽에 닿은 채 W/↑ 를 누르고 있는 동안 오른다. 떼거나 반대 방향키·꼭대기에서 끝. 점프 무시
+        /// 매달리기 모드(wallCling): UpdateWallCling 참고
+        /// </summary>
+        private bool UpdateWallClimb(float inputX, ref bool jumpPressed)
+        {
+            if (wallCling) return UpdateWallCling(inputX, ref jumpPressed);
+            bool held = inputEnabled && GetClimbInput();
+            int side = DetectWall();
+            if (isClimbing)
+            {
+                bool away = climbSide != 0 && inputX * climbSide < -0.1f;
+                if (!held || away) { StopClimb(false); return false; }
+                if (side != climbSide) { StopClimb(true); return false; } // 벽이 끝남 = 꼭대기를 넘음
+            }
+            else
+            {
+                if (!held || side == 0 || inputX * side < -0.1f) return false;
+                StartClimb(side);
+            }
+            // 벽 쪽으로 살짝 밀어 접촉을 유지하며 일정한 속도로 오른다 (중력 없음)
+            rb.linearVelocity = new Vector2(climbSide * 0.5f, climbSpeed);
+            return true;
+        }
+
+        /// <summary>
+        /// 벽 매달리기:
+        /// - 붙기: 공중에서 벽 옆면에 닿으면 붙어서 멈춘다(미끄러지지 않음). 땅에 서 있거나 반대 방향키를 누르고 있으면 붙지 않는다
+        /// - 오르기: 벽 쪽 방향키를 누르고 있는 동안 climbSpeed 로 오른다. 꼭대기를 넘으면 윗면으로 올려 준다. 천장에 막히면 그 자리에 붙어 있다
+        /// - 떨어지기: 반대 방향키 → 벽에서 살짝 떨어진 뒤(clingDetachPush × clingDetachTime) 바로 떨어진다
+        /// - 벽점프: 반대 방향키 + 점프 (반대 방향키로 막 떨어진 직후 wallJumpGrace 안의 점프도 포함) → 벽 반대쪽 위로 뛴다. 공중 점프 1회가 다시 생긴다
+        /// - 붙은 채 점프(반대 방향키 없이) → 벽을 따라 위로 짧게 뛰었다가 내려오기 시작하면 다시 붙는다
+        /// - 떨어지거나 벽점프한 벽에는 그 벽과 접촉이 끊기거나 착지한 뒤 regrabDelay 가 지나야 다시 붙는다
+        /// </summary>
+        private bool UpdateWallCling(float inputX, ref bool jumpPressed)
+        {
+            int side = DetectWall();
+            if (regrabBlockedSide != 0)
+            {
+                if (side != regrabBlockedSide || isGrounded) regrabContactLost = true;
+                if (regrabContactLost && Time.time >= regrabBlockedUntil) regrabBlockedSide = 0;
+            }
+            if (hopRising && (rb.linearVelocity.y <= 0f || side == 0 || isGrounded)) hopRising = false;
+
+            // 반대 방향키로 막 떨어진 직후의 점프 = 벽점프
+            if (!isClimbing && jumpPressed && detachSide != 0 && Time.time - detachTime <= wallJumpGrace && !IsStandingOnGround())
+            {
+                WallJump(-detachSide);
+                detachSide = 0;
+                jumpPressed = false;
+                return false;
+            }
+
+            if (isClimbing)
+            {
+                int s = climbSide;
+                if (!inputEnabled) { StopClimb(false); return false; }
+                bool away = inputX * s < -0.1f;
+                bool toward = inputX * s > 0.1f;
+                if (jumpPressed)
+                {
+                    jumpPressed = false;
+                    if (away) { BlockRegrab(s); StopClimb(false); WallJump(-s); return false; }
+                    if (clingHopForce > 0f)
+                    {
+                        StopClimb(false);
+                        rb.linearVelocity = new Vector2(s * 0.5f, clingHopForce);
+                        hopRising = true;
+                        return false;
+                    }
+                }
+                if (away)
+                {
+                    BlockRegrab(s);
+                    StopClimb(false);
+                    rb.linearVelocity = new Vector2(-s * clingDetachPush, 0f);
+                    moveLockTimer = clingDetachTime; moveLockVx = -s * clingDetachPush; moveLockIsMinimum = false;
+                    detachSide = s; detachTime = Time.time;
+                    return false;
+                }
+                if (side != s) { StopClimb(toward); return false; } // 오르다 벽이 끝남 = 꼭대기
+                float vy = toward && !HitsCeiling() ? climbSpeed : 0f;
+                rb.linearVelocity = new Vector2(s * 0.5f, vy);
+                return true;
+            }
+
+            if (!inputEnabled || side == 0 || hopRising) return false;
+            if (inputX * side < -0.1f) return false;          // 벽 반대쪽으로 가는 중에는 붙지 않는다
+            if (side == regrabBlockedSide) return false;
+            if (IsStandingOnGround()) return false;            // 지상에서 벽 옆에 서 있기만 한 경우는 아님 (발밑 직접 검사)
+            StartClimb(side);
+            rb.linearVelocity = new Vector2(side * 0.5f, 0f);
+            return true;
+        }
+
+        private void WallJump(int dir)
+        {
+            rb.gravityScale = baseGravityScale;
+            rb.linearVelocity = new Vector2(dir * wallJumpPush, wallJumpForce);
+            moveLockTimer = wallJumpLockTime; moveLockVx = dir * wallJumpPush; moveLockIsMinimum = true;
+            isGrounded = false;
+            remainingJumps = maxJumps - 1;
+            topAssistTimer = 0f;
+        }
+
+        private void BlockRegrab(int side)
+        {
+            if (!wallCling || side == 0) return;
+            regrabBlockedSide = side;
+            regrabContactLost = false;
+            regrabBlockedUntil = Time.time + regrabDelay;
+        }
+
+        /// <summary>발 바로 아래에 디딜 곳이 있는지 (벽 매달리기가 지상에서 시작되지 않게)</summary>
+        private bool IsStandingOnGround()
+        {
+            if (bodyCollider == null) return false;
+            var b = bodyCollider.bounds;
+            return ProbeSolid(new Vector2(b.center.x, b.min.y - wallCheckDistance * 0.5f), new Vector2(b.size.x * 0.8f, wallCheckDistance));
+        }
+
+        /// <summary>머리 바로 위가 막혀 있는지 (천장)</summary>
+        private bool HitsCeiling()
+        {
+            if (bodyCollider == null) return false;
+            var b = bodyCollider.bounds;
+            return ProbeSolid(new Vector2(b.center.x, b.max.y + wallCheckDistance * 0.5f), new Vector2(b.size.x * 0.6f, wallCheckDistance));
+        }
+
+        private bool ProbeSolid(Vector2 center, Vector2 size)
+        {
+            int n = Physics2D.OverlapBoxNonAlloc(center, size, 0f, wallHits, climbMask);
+            for (int i = 0; i < n; i++)
+            {
+                var c = wallHits[i];
+                if (c == null || c.isTrigger) continue;
+                if (c.attachedRigidbody == rb || c.transform.IsChildOf(transform)) continue;
+                return true;
+            }
+            return false;
+        }
+
+        private void StartClimb(int side)
+        {
+            isClimbing = true;
+            climbSide = side;
+            isGrounded = false;
+            remainingJumps = Mathf.Min(remainingJumps, maxJumps - 1); // 땅에서 뛰어오른 것과 같게 (벽타기로 공중 점프 횟수가 늘지 않음)
+            isSpinning = false;
+            if (visualTransform != null) visualTransform.localRotation = Quaternion.identity;
+            rb.gravityScale = 0f;
+        }
+
+        private void StopClimb(bool reachedTop)
+        {
+            isClimbing = false;
+            rb.gravityScale = baseGravityScale;
+            if (reachedTop && rb != null)
+            {
+                // 꼭대기: 모서리에 걸리지 않게 위·벽 쪽으로 살짝 올려 윗면에 올라서게 한다
+                rb.linearVelocity = new Vector2(climbSide * climbTopPush, Mathf.Max(rb.linearVelocity.y, climbTopBoost));
+                topAssistTimer = 0.25f;
+                topAssistSide = climbSide;
+            }
+            climbSide = 0;
+        }
+
+        /// <summary>몸 옆에 벽이 닿아 있으면 그 방향(-1 왼쪽, +1 오른쪽), 없으면 0</summary>
+        private int DetectWall()
+        {
+            if (bodyCollider == null) return 0;
+            var b = bodyCollider.bounds;
+            // 발끝·머리 끝은 빼고 몸통 높이만 본다 (바닥·천장 모서리를 벽으로 오인하지 않게)
+            float h = b.size.y * 0.7f;
+            var size = new Vector2(wallCheckDistance, h);
+            float cy = b.center.y;
+            for (int s = -1; s <= 1; s += 2)
+            {
+                if (climbSide != 0 && s != climbSide && isClimbing) continue;
+                var center = new Vector2(s < 0 ? b.min.x - wallCheckDistance * 0.5f : b.max.x + wallCheckDistance * 0.5f, cy);
+                int n = Physics2D.OverlapBoxNonAlloc(center, size, 0f, wallHits, climbMask);
+                for (int i = 0; i < n; i++)
+                {
+                    var c = wallHits[i];
+                    if (c == null || c.isTrigger || c.usedByEffector) continue;
+                    if (c.attachedRigidbody == rb || c.transform.IsChildOf(transform)) continue;
+                    return s;
+                }
+            }
+            return 0;
+        }
+
+        private bool GetClimbInput()
+        {
+            if (ClimbInputOverride != null) return ClimbInputOverride();
+#if ENABLE_INPUT_SYSTEM
+            var k = Keyboard.current;
+            return k != null && (k.wKey.isPressed || k.upArrowKey.isPressed);
+#else
+            return Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow);
+#endif
         }
 
         #endregion

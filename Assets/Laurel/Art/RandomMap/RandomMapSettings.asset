@@ -20,17 +20,18 @@ MonoBehaviour:
   groundMin: 3
   groundMax: 12
   segmentWidth: {x: 4, y: 10}
-  maxStepUp: 3
-  maxStepDown: 4
+  maxStepUp: 5
+  maxStepDown: 5
   spawnFlatWidth: 8
   platformCount: {x: 6, y: 11}
   platformWidth: {x: 4, y: 9}
   platformThickness: 2
-  platformClearance: 4
+  platformClearance: 3
   platformMargin: 2
   platformAttempts: 200
-  reachUp: 6
-  reachAcross: 6
+  reachUp: 2
+  reachAcross: 5
+  allowWallClimb: 1
   headroom: 2
   minPortalDistance: 30
   maxRetries: 20

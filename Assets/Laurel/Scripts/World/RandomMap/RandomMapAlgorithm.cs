@@ -32,7 +32,8 @@ namespace Laurel
     /// 옆에서 보는 2D 플랫포머용 랜덤 맵 생성.
     /// 1) 지면: 좌→우로 폭이 정해진 구간마다 높이를 랜덤 워크 (오르막은 한 번 점프로 오를 수 있는 높이까지만)
     /// 2) 공중 발판: 아래 지형에서 점프로 닿는 높이에 무작위 배치, 다른 지형과 여백을 둔다 (Rule Tile 모서리가 서로 붙지 않게)
-    /// 3) 도달 판정: '설 수 있는 칸'을 노드로 걷기·점프(위로 reachUp, 옆으로 reachAcross)·낙하 간선을 이은 그래프에서 BFS.
+    /// 3) 도달 판정: '설 수 있는 칸'을 노드로 걷기·점프(위로 reachUp, 옆으로 reachAcross)·낙하·벽타기 간선을 이은 그래프에서 BFS.
+    ///    벽타기: 바로 옆 벽이 제자리 점프로 닿는 높이에서 시작하면 그 벽 꼭대기까지 오를 수 있다 (높이 제한 없음).
     ///    점프는 '제자리에서 올라간 뒤 옆으로', 낙하는 '옆으로 나간 뒤 내려가기' 경로가 막히지 않을 때만 인정 (보수적).
     ///    시작 지점에서 닿지 않는 발판은 지운다 → 남은 모든 지형 위는 시작 지점에서 갈 수 있다.
     /// 4) 복귀 포탈: 시작 지점에서 갈 수 있고 포탈에서 시작 지점으로도 돌아올 수 있는 칸 중 가장 먼 평지.
@@ -203,6 +204,7 @@ namespace Laurel
             int step = dx > 0 ? 1 : -1;
             int hr = s.headroom;
             if (dy == 0 && Mathf.Abs(dx) == 1) return true; // 옆 칸으로 걷기 (둘 다 설 수 있는 칸)
+            if (dy > 0 && s.allowWallClimb && Mathf.Abs(dx) == 1 && CanClimb(d, s, a, b)) return true;
             if (dy > 0)
             {
                 if (dy > s.reachUp) return false;
@@ -216,6 +218,22 @@ namespace Laurel
             int jumpY = dy == 0 ? 1 : 0; // 같은 높이 사이 틈은 살짝 뛰어 넘는다 (1칸 위로)
             for (int x = a.x; x != b.x + step; x += step) for (int y = a.y; y < a.y + hr + jumpY; y++) if (d.Solid(x, y)) return false;
             for (int y = b.y; y < a.y; y++) if (d.Solid(b.x, y)) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// 벽타기: a 바로 옆 열(b.x)의 벽을 타고 올라 그 꼭대기 b 에 선다.
+        /// 벽은 a 에서 제자리 점프로 몸이 닿는 높이(a.y ~ a.y+reachUp+1) 안에서 시작해 b 바로 아래까지 끊김 없이 이어져야 하고,
+        /// a 의 머리 위 열은 b 높이 + 머리 공간까지 비어 있어야 한다.
+        /// </summary>
+        public static bool CanClimb(RandomMapData d, RandomMapSettings s, Vector2Int a, Vector2Int b)
+        {
+            int touchTop = a.y + s.reachUp + 1;
+            int y0 = -1;
+            for (int y = a.y; y <= touchTop && y < b.y; y++) if (d.Solid(b.x, y)) { y0 = y; break; }
+            if (y0 < 0) return false;
+            for (int y = y0; y < b.y; y++) if (!d.Solid(b.x, y)) return false;
+            for (int y = a.y; y < b.y + s.headroom; y++) if (d.Solid(a.x, y)) return false;
             return true;
         }
 
