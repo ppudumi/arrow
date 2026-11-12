@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 718c0413d0d7543d5bd5c23281089f0e, type: 3}
+  m_Name: RandomMapSettings
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.RandomMapSettings
+  useFixedSeed: 0
+  fixedSeed: 12345
+  width: 96
+  height: 32
+  wallThickness: 2
+  groundMin: 3
+  groundMax: 12
+  segmentWidth: {x: 4, y: 10}
+  maxStepUp: 3
+  maxStepDown: 4
+  spawnFlatWidth: 8
+  platformCount: {x: 6, y: 11}
+  platformWidth: {x: 4, y: 9}
+  platformThickness: 2
+  platformClearance: 4
+  platformMargin: 2
+  platformAttempts: 200
+  reachUp: 6
+  reachAcross: 6
+  headroom: 2
+  minPortalDistance: 30
+  maxRetries: 20

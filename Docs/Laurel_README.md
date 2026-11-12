@@ -84,6 +84,8 @@ laurel -laurelPersistPhase 2 -laurelSelfTestOut p2.txt
 | `Scenes/Laurel_Main.unity` | 게임 본편 씬 (Unity MCP 로 GameRoot·카메라 구성, 플레이어 프리팹·화살 스프라이트 연결). 배경·지형·장식 설정 오브젝트도 여기 있음 |
 | `Scenes/Laurel_ArcheryTest.unity` | 궁술 테스트 전용 씬 (아래 '궁술 테스트 씬') |
 | `Scenes/TutorialBossMap_Test.unity` | 튜토리얼 보스전 맵 테스트 씬 (Tilemap·Rule Tile, 아래 '튜토리얼 보스전 맵 테스트 씬') |
+| `Scenes/RandomMap_Test.unity` | 포탈로 들어가는 랜덤 맵 씬 (아래 '포탈 · 랜덤 맵 테스트') |
+| `Scripts/World/RandomMap` | 포탈·씬 이동(`ScenePortal`, `PortalTravel`), 맵 생성 알고리즘·생성기·설정 |
 | `Art/TutorialBossMap` | 지형 타일셋(32×32 슬라이스)·Rule Tile·마찰 0 재질·배경 채움용 스프라이트 |
 
 임시로 정한 규칙과 수치는 `Docs/Laurel_Design_Decisions.md`.
@@ -259,6 +261,27 @@ laurel -laurelPersistPhase 2 -laurelSelfTestOut p2.txt
 - Game 뷰 비교 크기: Standalone 에 `TutorialBoss Ref 2.227:1 (2227x1000)` 추가
 - 참고 화면 대비(게임 화면 높이·폭 대비 %): 왼쪽 지면 끝 44.9 (참고 45.4) · 오른쪽 지면 시작 88.0 (87.5) · 높은 지면 윗면 73.2 (71.8) · 낮은 바닥 92.2 (90.8) · 아래 공중 지형 x 53.7~77.2, y 49.4~68.4 (54.5~77.4, 50.1~69.6) · 위 공중 지형 y 1.8~20.8 (4.5~22.8). 32px 격자 때문에 높은 지면과 위 공중 지형에 0.4~0.6타일 차이
 
+## 포탈 · 랜덤 맵 테스트 (`TutorialBossMap_Test` ↔ `RandomMap_Test`)
+
+튜토리얼 보스맵 테스트 씬의 문으로 들어갈 때마다 새 랜덤 맵을 만들고, 랜덤 맵의 복귀 문으로 돌아온다. 전투·아이템·적 없음.
+
+- 흐름: `TutorialBossMap_Test` 왼쪽 높은 지면의 문(`Portal_RandomMap`, x 8) → 가까이 가면 'W키로 입장' → W → `RandomMap_Test` 를 열고 새 시드로 맵 생성 → 맵 끝의 복귀 문(`Portal_Return`, 'W키로 돌아가기') → W → 튜토리얼 씬의 문 오른쪽에 도착 → 다시 입장하면 새 시드
+- 씬 방식: 두 씬은 각자 플레이어(기존 프리팹 인스턴스)·카메라를 하나씩 가지고 `LoadSceneMode.Single` 로 바뀐다. 씬이 바뀌면 이전 씬의 맵·플레이어가 함께 사라져 중복이 생기지 않는다. 씬 사이에 남는 것은 `PortalTravel`(정적: 이동 중 여부·다음 시드·도착 포탈 id)뿐
+- 에디터에서는 `EditorSceneManager.LoadSceneAsyncInPlayMode` 로 경로를 바로 열어 Build Settings 를 바꾸지 않았다. 빌드에서 쓰려면 두 씬을 Build Settings 에 넣어야 한다(본편 `LaurelBuilder` 는 `Laurel_Main` 만 빌드하므로 영향 없음)
+- 포탈(`Scripts/World/RandomMap/ScenePortal.cs`): 범위 = 문 바닥 기준 위 1.2 중심 ±1.4×±1.6. 범위 밖이면 W 무시, 누르면 `PortalTravel.Loading` 이 켜져 씬이 바뀔 때까지 추가 입력 무시(키 한 번 = 이동 한 번), 이동 중 조작 정지. 그림은 런타임 도형(아치 + 빛), 안내 글자는 IMGUI(검정 외곽선). W 는 기존 조작에 쓰지 않는 키
+- 생성(`RandomMapAlgorithm.cs`, 옆에서 보는 플랫포머용):
+  1. 지면: 좌→우 구간(폭 4~10칸)마다 높이 랜덤 워크. 오르막은 최대 3칸(한 번 점프로 오름), 내리막 최대 4칸, 시작 구간은 8칸 평지
+  2. 공중 발판(두께 2): 아래 지형에서 점프로 닿는 높이에 무작위로 놓고, 아래 4칸·좌우 2칸·위 4칸을 비워 둠(Rule Tile 모서리가 붙지 않게)
+  3. 도달 판정: 설 수 있는 칸(아래가 지형, 위 2칸 빔)을 노드로, 걷기·점프(위 6칸·옆 6칸 이내, '제자리 상승 후 옆 이동' 경로가 비어 있을 때)·낙하('옆 이동 후 하강') 간선으로 BFS. 실제 점프(한 번 ≈ 7.5칸, 2단 ≈ 12칸)보다 보수적. 시작 지점에서 못 가는 발판은 지움
+  4. 복귀 포탈: 시작 → 포탈, 포탈 → 시작 모두 갈 수 있는 칸 중 가장 먼 평지(좌우 1칸도 평지, 머리 위 3칸 빔)
+  5. 조건을 못 맞추면 시드에서 유도한 다음 시드로 재시도(같은 시드 → 같은 결과)
+- 타일: 튜토리얼 보스맵과 같은 32px Rule Tile, 같은 Tilemap 설정(Composite 충돌, 마찰 0). 맵 바깥(바닥 아래·좌우 벽 바깥)도 6칸 더 칠해 가장자리 조각이 화면에 안 보임. 다시 만들 때 `ClearAllTiles` 후 새로 칠함
+- 카메라: 기존 `CameraRig` 로 플레이어를 따라가고 맵 밖은 비추지 않음(직교 10.5 = 튜토리얼 보스맵과 같은 크기). `CameraRig` 는 `Fx.cs` 안에 있어 씬에 저장되지 않으므로(파일명≠클래스명) 본편 `GameRoot` 처럼 생성기가 실행 중에 붙인다
+- 배경: 1스테이지 배경을 카메라의 80% 만큼 따라가게(원경) 두고, 맵 끝까지 가도 끊기지 않을 폭으로 자동 확대
+- 설정: `Assets/Laurel/Art/RandomMap/RandomMapSettings.asset` (Inspector). 맵 크기(기본 96×32칸), 지면 높이·구간 폭·오르내림, 발판 수·폭·두께·여백, 도달 판정 값, 포탈 최소 거리, 재시도 횟수, **고정 시드**(`Use Fixed Seed` 켜면 포탈로 들어갈 때마다 `Fixed Seed` 맵). 끄면 입장마다 새 시드. 생성된 시드는 `RandomMapGenerator` Inspector 의 `Last Seed` 와 콘솔 `[RandomMap]` 로그에 나옴
+- Play 중 `RandomMapGenerator` 컴포넌트 메뉴: '새 시드로 다시 생성' / '같은 시드로 다시 생성'
+- 검증(2026-11-12): 시드 300개 — 두께 1칸 지형 0, 포탈 없음 0, 시작 칸 불량 0, 시작↔포탈 왕복 불가 0, 같은 시드 재현 30/30, 평균 0.9ms. Play: W 두 번에 이동 1회, 범위 밖 W 무시, 입장·복귀·재입장 시 플레이어 1명·카메라 1개, 재입장 시드 변경, 같은 씬에서 다시 생성해도 타일 수 누적 없음, 시작 지점·포탈이 지형과 겹치지 않음, 걷기 시 카메라 추적
+
 ## 변경 기록
 
 | 날짜 | 내용 |
@@ -286,3 +309,4 @@ laurel -laurelPersistPhase 2 -laurelSelfTestOut p2.txt
 | 2026-11-06 | 로비 화면: HUD 패널(능력치·재화·로비 이름·궁술)·하단 화살통 숨김, 중앙 메뉴와 수련장 안내만 표시 |
 | 2026-11-06 | 궁술 테스트 씬 `Laurel_ArcheryTest` 추가: 바로 시작, 모든 궁술·이동 스킬, 체력 1 유지, 세이브 미기록, 궁술 선택 UI만, 1스테이지 숲 배경·지형으로 폭 55(기준 방 22 × 2.5) 맵과 허수아비 10개 |
 | 2026-11-08 | 튜토리얼 보스전 맵 테스트 씬 `TutorialBossMap_Test`: 32×32 타일셋 슬라이스 + Rule Tile 지형, 1스테이지 배경, 기존 플레이어 프리팹, 고정 카메라(2.227:1 기준) |
+| 2026-11-12 | 튜토리얼 보스맵 테스트 씬에 문(W키 입장) 추가, 입장마다 새 시드로 만드는 랜덤 맵 씬 `RandomMap_Test`(지면 랜덤 워크 + 공중 발판 + 도달 BFS)와 복귀 문 |

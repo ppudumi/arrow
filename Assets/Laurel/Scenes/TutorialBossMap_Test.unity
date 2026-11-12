@@ -376,6 +376,61 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!1 &739044204
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 739044206}
+  - component: {fileID: 739044205}
+  m_Layer: 0
+  m_Name: Portal_RandomMap
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &739044205
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 739044204}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 754a00f8bcb634749a934609239197fd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.ScenePortal
+  portalId: tutorial_portal
+  targetScene: Assets/Laurel/Scenes/RandomMap_Test.unity
+  arrivalId: 
+  rollRandomMapSeed: 1
+  seedSettings: {fileID: 11400000, guid: dff7343c3999f45829002b5756ea0aea, type: 2}
+  prompt: "W\uD0A4\uB85C \uC785\uC7A5"
+  rangeHalfSize: {x: 1.4, y: 1.6}
+  rangeOffset: {x: 0, y: 1.2}
+  size: {x: 1.8, y: 2.6}
+  frameColor: {r: 0.16470589, g: 0.11764706, b: 0.078431375, a: 1}
+  glowColor: {r: 1, g: 0.82, b: 0.45, a: 1}
+--- !u!4 &739044206
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 739044204}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 8, y: 6, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &776834398
 GameObject:
   m_ObjectHideFlags: 0
@@ -15775,3 +15830,4 @@ SceneRoots:
   - {fileID: 860350394}
   - {fileID: 613964039}
   - {fileID: 36439489}
+  - {fileID: 739044206}
