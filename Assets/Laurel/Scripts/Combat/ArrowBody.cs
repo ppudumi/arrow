@@ -16,6 +16,7 @@ namespace Laurel
         public int bounces;            // 볼링 남은 꺾임
         public int redirects;          // 망령 남은 방향 전환
         public bool isEcho;
+        public bool isDashAttack;
         public float launchY;
     }
 
@@ -54,6 +55,7 @@ namespace Laurel
         private int formChanges;
         private float waxPeakY;
         private float oilAccum;
+        private float dashGhostTimer;
         private readonly HashSet<Enemy> grazed = new HashSet<Enemy>();
 
         public void Setup(PlayerCombat combat, ArrowCard card)
@@ -76,6 +78,7 @@ namespace Laurel
         {
             sr.color = def.tint;
             float s = Mathf.Lerp(0.85f, 1.25f, Mathf.InverseLerp(0.5f, 1.5f, def.weight));
+            if (Shot != null && Shot.isDashAttack) s *= 1.85f;
             if (Art.ArrowSprite == null) transform.localScale = new Vector3(0.9f * s, 0.25f * s, 1f);
             else transform.localScale = new Vector3(s, s, 1f);
         }
@@ -123,6 +126,7 @@ namespace Laurel
             StuckEnemy = null;
             formChanges = 0;
             oilAccum = 0f;
+            dashGhostTimer = 0f;
         }
 
         /// <summary>찌르기·즉발(헤르메스 화살)처럼 날아가지 않고 바로 적중 지점에 놓일 때</summary>
@@ -349,6 +353,16 @@ namespace Laurel
             velocity.y -= gravity * dt;
             Vector2 next = pos + velocity * dt;
 
+            if (Shot != null && Shot.isDashAttack)
+            {
+                dashGhostTimer -= dt;
+                if (dashGhostTimer <= 0f)
+                {
+                    dashGhostTimer = 0.022f;
+                    SpawnDashGhost();
+                }
+            }
+
             // 기름 화살: 적에게 맞기 전까지 기름을 남김
             if (form.effect == "oil" && !AnyEnemyHitThisFlight)
             {
@@ -387,7 +401,19 @@ namespace Laurel
                 }
                 else
                 {
-                    LandOnTerrain(hit.point - velocity.normalized * 0.05f, hit.normal, true);
+                    var target = hit.collider.GetComponentInParent<ILaserTarget>();
+                    if (target != null)
+                    {
+                        transform.position = hit.point;
+                        LastDirection = velocity.normalized;
+                        int dmg = Mathf.Max(1, Mathf.RoundToInt(Shot != null ? Shot.damage : Card.Damage));
+                        target.TakeLaserHit(dmg, Shot != null && Shot.isDashAttack, hit.point, LastDirection);
+                        Drop(new Vector2(-LastDirection.x * 2.5f, 5f));
+                    }
+                    else
+                    {
+                        LandOnTerrain(hit.point - velocity.normalized * 0.05f, hit.normal, true);
+                    }
                 }
                 return;
             }
@@ -433,6 +459,51 @@ namespace Laurel
             if (dir.sqrMagnitude < 0.0001f) return;
             float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
             transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        }
+
+        private void SpawnDashGhost()
+        {
+            if (sr == null || sr.sprite == null) return;
+            var go = new GameObject("ArrowDashGhost");
+            go.transform.position = transform.position;
+            go.transform.rotation = transform.rotation;
+            go.transform.localScale = transform.localScale;
+            var gsr = go.AddComponent<SpriteRenderer>();
+            gsr.sprite = sr.sprite;
+            gsr.sortingOrder = sr.sortingOrder - 1;
+            Color c = sr.color;
+            c.a = 0.6f;
+            gsr.color = c;
+            go.AddComponent<ArrowDashGhost>().Init(gsr, 0.22f);
+        }
+    }
+
+    /// <summary>대시 공격 화살이 비행 중 남기는 잔상 페이드 아웃</summary>
+    public class ArrowDashGhost : MonoBehaviour
+    {
+        private SpriteRenderer sr;
+        private float duration = 0.22f;
+        private float elapsed;
+        private float startAlpha = 0.6f;
+
+        public void Init(SpriteRenderer renderer, float fadeDuration)
+        {
+            sr = renderer;
+            duration = Mathf.Max(0.02f, fadeDuration);
+            startAlpha = sr != null ? sr.color.a : 0.6f;
+        }
+
+        private void Update()
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            if (sr != null)
+            {
+                Color c = sr.color;
+                c.a = startAlpha * (1f - t);
+                sr.color = c;
+            }
+            if (t >= 1f) Destroy(gameObject);
         }
     }
 

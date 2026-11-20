@@ -55,7 +55,7 @@ namespace Laurel
         public int TotalRecoveries { get; private set; }
 
         public float Attack => Avatar != null ? Avatar.Stats.attack : 1f;
-        public float AttackSpeedMultiplier => Mathf.Max(0.25f, 1f + (Avatar != null ? Avatar.Stats.attackSpeedBonus : 0f) + (Launcher != null ? Launcher.AttackSpeedBonus : 0f));
+        public float AttackSpeedMultiplier => Mathf.Max(0.25f, (1f + (Avatar != null ? Avatar.Stats.attackSpeedBonus : 0f) + (Launcher != null ? Launcher.AttackSpeedBonus : 0f)) * 2f);
         public bool DualShot => Run != null && Run.HasRelic("dual_shot");
         public Vector2 PlayerCenter => (Vector2)transform.position + Vector2.up * 0.1f;
         public Vector2 MuzzlePosition => Aim != null && Aim.muzzlePoint != null ? (Vector2)Aim.muzzlePoint.position : PlayerCenter + Vector2.up * 0.2f;
@@ -307,7 +307,8 @@ namespace Laurel
                 if (form.effect == "echo") form = DB.Arrow(0);
             }
             float cardDamage = isEcho ? form.damage : card.Damage;
-            var shot = new ShotInfo { form = form, isEcho = isEcho };
+            bool isDashing = Avatar != null && Avatar.Controller != null && Avatar.Controller.IsDashing;
+            var shot = new ShotInfo { form = form, isEcho = isEcho, isDashAttack = isDashing };
             shot.damage = dmgFn != null ? dmgFn(cardDamage) : HitResolver.NormalDamage(cardDamage, Attack);
             switch (form.effect)
             {
@@ -657,6 +658,10 @@ namespace Laurel
                 if (e != null)
                 {
                     if (!includeEnemies || !e.IsAlive || (exclude != null && exclude.Contains(e))) continue;
+                }
+                else if (includeEnemies && h.collider.GetComponentInParent<ILaserTarget>() != null)
+                {
+                    // ILaserTarget (예: MinotourEnemy) 은 트리거라도 화살 적중 대상으로 허용
                 }
                 else if (h.collider.isTrigger) continue;
                 else if (h.collider.usedByEffector && to.y > from.y + 0.0001f) continue; // 한쪽 통과 발판: 아래→위는 통과
