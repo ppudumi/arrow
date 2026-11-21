@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
@@ -16,6 +16,8 @@ namespace Procedural2D
     {
         [Header("Movement Settings")]
         public float moveSpeed = 11.66f;
+        [Tooltip("공격(사격/시위 당김) 중 이동속도 배율")]
+        [Range(0.05f, 1f)] public float attackMoveSpeedMultiplier = 0.28f;
 
         [Header("Jump & Double Jump Settings (2단 점프)")]
         [Tooltip("1단 점프력")]
@@ -24,6 +26,30 @@ namespace Procedural2D
         public float secondJumpForce = 17.0f;
         [Tooltip("최대 점프 가능 횟수")]
         public int maxJumps = 2;
+
+        [Header("Jump Game Feel (맛있는 점프 6대 메커니즘)")]
+        [Tooltip("코요테 타임: 발판 끝을 벗어난 뒤에도 점프를 허용하는 시간 (초, 권장 0.1~0.12)")]
+        public float coyoteTime = 0.11f;
+        [Tooltip("점프 버퍼링: 착지 직전 미리 누른 점프 입력을 기억하는 시간 (초, 권장 0.1)")]
+        public float jumpBufferTime = 0.1f;
+        [Tooltip("기본 중력 가속도 (유닛/초²) — 상승 시 적용")]
+        public float baseGravity = 40f;
+        [Tooltip("비대칭 중력: 하강 시 기본 중력에 곱할 배수 (권장 1.8~2.2)")]
+        [Range(1f, 4f)] public float fallGravityMultiplier = 2.0f;
+        [Tooltip("가변 점프 높이(Jump Cut): 상승 중 점프 키를 뗄 때 수직 속도에 곱할 감쇠 계수 (권장 0.35~0.5)")]
+        [Range(0.1f, 0.8f)] public float jumpCutMultiplier = 0.45f;
+        [Tooltip("정점 체공 보정: |vy|가 이 값 이하일 때 정점 구간으로 판정")]
+        public float apexVelocityThreshold = 2.5f;
+        [Tooltip("정점 구간 중력 배수 (약 0.5배로 체공감 부여)")]
+        [Range(0.1f, 1f)] public float apexGravityMultiplier = 0.5f;
+        [Tooltip("정점 구간 좌우 공중 제어 가속도 배수 (정밀 착지용)")]
+        [Range(1f, 2.5f)] public float apexAirControlMultiplier = 1.4f;
+        [Tooltip("지상 가속도 (유닛/초²)")]
+        public float groundAcceleration = 95f;
+        [Tooltip("공중 가속도 (유닛/초²)")]
+        public float airAcceleration = 65f;
+        [Tooltip("최대 낙하 속도 상한 (유닛/초, Terminal Velocity)")]
+        public float maxFallSpeed = 24f;
 
         [Header("Wall Climb (벽타기) — 기본 꺼짐. 테스트 씬의 프리팹 Variant 에서만 켠다")]
         [Tooltip("켜면 벽에 닿은 상태에서 W(또는 ↑)를 누르고 있는 동안 벽을 타고 올라간다")]
@@ -67,9 +93,9 @@ namespace Procedural2D
 
         [Header("Flash Dash Settings (쉬프트 초고속 대시 & 잔상)")]
         [Tooltip("대시 돌진 속도 (구르지 않고 초고속 순간 돌진!)")]
-        public float dashSpeed = 28.5f;
+        public float dashSpeed = 26f;
         [Tooltip("대시 지속 시간 (초)")]
-        public float dashDuration = 0.18f;
+        public float dashDuration = 0.24f;
         [Tooltip("대시 재사용 쿨타임 (초)")]
         public float dashCooldown = 0.45f;
         [Tooltip("대시 돌진 시 공기역학적 전방 기울기 각도 (도 단위)")]
@@ -122,6 +148,7 @@ namespace Procedural2D
 
         private Rigidbody2D rb;
         private Procedural2DAim aimCtrl;
+        private Laurel.PlayerCombat combat;
         private bool isGrounded = true;
         private int remainingJumps = 2;
         private float walkCycleTimer;
@@ -157,6 +184,13 @@ namespace Procedural2D
         private float detachTime = -1f;
         private bool hopRising = false;      // 붙은 채 위로 뛴 뒤 올라가는 동안은 다시 붙지 않음
 
+        // 맛있는 점프(Game Feel) 상태 변수 — 입력(Update)과 물리(FixedUpdate) 분리
+        private float coyoteTimer = 0f;
+        private float jumpBufferTimer = 0f;
+        private bool jumpCutQueued = false;
+        private float cachedInputX = 0f;
+        private bool prevJumpHeld = false;
+
         /// <summary>
         /// 현재 공중제비(360도 점프 회전) 중인지 여부
         /// </summary>
@@ -186,6 +220,7 @@ namespace Procedural2D
             if (bodyTransform != null) initialBodyLocalPos = bodyTransform.localPosition;
             remainingJumps = maxJumps;
             baseGravityScale = rb.gravityScale;
+            rb.gravityScale = 0f; // 비대칭 중력/정점 보정/종단 속도를 FixedUpdate에서 직접 적분
             bodyCollider = GetComponent<Collider2D>();
         }
 
@@ -193,21 +228,28 @@ namespace Procedural2D
         {
             float inputX = GetHorizontalInput();
             bool jumpPressed = GetJumpInput();
+            bool jumpReleased = GetJumpReleasedInput();
             bool dashPressed = GetDashInput();
             if (InputOverride != null)
             {
                 Vector3 o = InputOverride();
                 inputX = o.x;
-                jumpPressed = o.y > 0.5f;
+                bool jumpHeldOverride = o.y > 0.5f;
+                jumpPressed = jumpHeldOverride && !prevJumpHeld;
+                jumpReleased = !jumpHeldOverride && prevJumpHeld;
+                prevJumpHeld = jumpHeldOverride;
                 dashPressed = o.z > 0.5f;
             }
             if (!inputEnabled)
             {
                 inputX = 0f;
                 jumpPressed = false;
+                jumpReleased = false;
                 dashPressed = false;
             }
             if (!dashUnlocked) dashPressed = false;
+
+            cachedInputX = inputX;
 
             // 1. 쉬프트 초고속 대시 트리거
             if (dashPressed && !isDashing && Time.time >= nextDashAllowedTime)
@@ -222,73 +264,152 @@ namespace Procedural2D
                 return; // 대시 중에는 기본 이동/점프를 덮어씀
             }
 
-            // 2.5 벽타기: 벽에 닿아 있고 W/↑ 를 누르고 있는 동안만 위로 오른다 (점프 입력은 무시 → 벽점프 없음)
+            // 2.5 벽타기: 벽에 닿아 있고 W/↑ 를 누르고 있는 동안만 위로 오른다
             if (wallClimbEnabled && UpdateWallClimb(inputX, ref jumpPressed))
             {
+                jumpBufferTimer = 0f;
+                jumpCutQueued = false;
                 UpdateLegsAnimation(0f, false);
                 walkCycleTimer = 0f;
                 return;
             }
 
-            // 3. 2단 점프 및 공중제비 처리
+            // 3. 점프 입력 버퍼링 및 가변 점프 컷 큐잉 (Update에서 입력만 캡처, FixedUpdate에서 실행)
             if (jumpPressed)
             {
-                if (isGrounded)
+                jumpBufferTimer = jumpBufferTime;
+                jumpCutQueued = false;
+            }
+            if (jumpReleased)
+            {
+                jumpCutQueued = true;
+            }
+
+            // 4. 공중 점프 360도 덤블링 애니메이션 & 다리 애니메이션
+            UpdateSpinAnimation();
+            bool isMovingNow = Mathf.Abs(inputX) > 0.05f && isGrounded;
+            UpdateLegsAnimation(inputX, isMovingNow);
+
+            if (!isSpinning && !isDashing)
+            {
+                if (isMovingNow) walkCycleTimer += Time.deltaTime * walkCycleSpeed;
+                else walkCycleTimer = 0f;
+            }
+        }
+
+        private void FixedUpdate()
+        {
+            if (rb == null || isDashing || isClimbing) return;
+
+            float dt = Time.fixedDeltaTime;
+            Vector2 vel = rb.linearVelocity;
+
+            // 1. 지면 판정 (BoxCast 기반 — 발판 끝 이탈·착지 즉시 감지)
+            bool wasGrounded = isGrounded;
+            bool groundNow = vel.y <= 0.05f && IsStandingOnGround();
+            isGrounded = groundNow;
+
+            if (isGrounded)
+            {
+                coyoteTimer = coyoteTime;
+                remainingJumps = maxJumps;
+                jumpCutQueued = false;
+                if (!wasGrounded && isSpinning)
                 {
-                    // 1단 점프
-                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, firstJumpForce);
+                    isSpinning = false;
+                    if (visualTransform != null) visualTransform.localRotation = Quaternion.identity;
+                }
+            }
+            else
+            {
+                coyoteTimer = Mathf.Max(0f, coyoteTimer - dt);
+            }
+
+            // 2. 점프 버퍼 타이머 감소 및 실행 (코요테 타임 + 2단 점프 통합)
+            if (jumpBufferTimer > 0f)
+            {
+                jumpBufferTimer -= dt;
+                if (coyoteTimer > 0f)
+                {
+                    vel.y = firstJumpForce;
                     isGrounded = false;
+                    coyoteTimer = 0f;
+                    jumpBufferTimer = 0f;
                     remainingJumps = maxJumps - 1;
                 }
                 else if (remainingJumps > 0)
                 {
-                    // 2단 공중 점프 + 360도 공중제비 발동!
-                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, secondJumpForce);
+                    vel.y = secondJumpForce;
+                    jumpBufferTimer = 0f;
                     remainingJumps--;
-
-                    StartDoubleJumpSpin(inputX);
+                    StartDoubleJumpSpin(cachedInputX);
                 }
             }
 
-            // 4. 일반 좌우 이동 속도 적용
-            float vx = inputX * moveSpeed;
+            // 3. 가변 점프 높이 (Jump Cut): 상승 중 버튼을 떼면 수직 속도 즉시 감쇠
+            if (jumpCutQueued)
+            {
+                if (vel.y > 0f) vel.y *= jumpCutMultiplier;
+                jumpCutQueued = false;
+            }
+
+            // 4. 비대칭 중력 + 정점 체공 보정 + 최대 낙하 속도 제한
+            bool isApex = !isGrounded && Mathf.Abs(vel.y) <= apexVelocityThreshold;
+            if (!isGrounded)
+            {
+                float gravMult = isApex
+                    ? apexGravityMultiplier
+                    : (vel.y < 0f ? fallGravityMultiplier : 1f);
+                vel.y -= baseGravity * gravMult * dt;
+                if (vel.y < -maxFallSpeed) vel.y = -maxFallSpeed;
+            }
+            else if (vel.y < 0f)
+            {
+                vel.y = 0f;
+            }
+
+            // 5. 좌우 이동 (공격 중 이동속도 대폭 감소, 정점 부근에서는 공중 제어 가속도 상향)
+            if (combat == null) combat = GetComponent<Laurel.PlayerCombat>();
+            bool isAttacking = combat != null && combat.Active && combat.inputEnabled
+                && (combat.CurrentInput.fireHeld || combat.CurrentInput.fireDown);
+            float effectiveMoveSpeed = moveSpeed * (isAttacking ? attackMoveSpeedMultiplier : 1f);
+            float targetVx = cachedInputX * effectiveMoveSpeed;
+            float accel = isGrounded
+                ? groundAcceleration
+                : airAcceleration * (isApex ? apexAirControlMultiplier : 1f);
+            float vx = Mathf.MoveTowards(vel.x, targetVx, accel * dt);
+
             if (moveLockTimer > 0f)
             {
-                // 벽에서 떨어지는 중(살짝만 이동) 또는 벽점프 직후(최소 이만큼은 벽 반대쪽으로)
-                moveLockTimer -= Time.deltaTime;
+                moveLockTimer -= dt;
                 float dir = Mathf.Sign(moveLockVx);
-                if (moveLockIsMinimum) vx = dir * Mathf.Max(Mathf.Abs(moveLockVx), inputX * dir * moveSpeed);
+                if (moveLockIsMinimum) vx = dir * Mathf.Max(Mathf.Abs(moveLockVx), cachedInputX * dir * moveSpeed);
                 else vx = moveLockVx;
                 if (isGrounded) moveLockTimer = 0f;
             }
             if (topAssistTimer > 0f)
             {
-                // 벽 꼭대기를 막 넘었으면 반대쪽 입력이 없는 한 윗면 쪽으로 계속 밀어 준다 (W 만 누르고 있어도 올라선다)
-                topAssistTimer -= Time.deltaTime;
-                if (inputX * topAssistSide >= 0f && Mathf.Abs(vx) < climbTopPush) vx = topAssistSide * climbTopPush;
+                topAssistTimer -= dt;
+                if (cachedInputX * topAssistSide >= 0f && Mathf.Abs(vx) < climbTopPush) vx = topAssistSide * climbTopPush;
                 if (isGrounded) topAssistTimer = 0f;
             }
-            rb.linearVelocity = new Vector2(vx, rb.linearVelocity.y);
 
-            // 5. 공중 점프 360도 덤블링 애니메이션
-            UpdateSpinAnimation();
+            rb.linearVelocity = new Vector2(vx, vel.y);
+        }
 
-            // 다리 애니메이션 업데이트 (보행, 점프, 대시)
-            bool isMovingNow = Mathf.Abs(inputX) > 0.05f && isGrounded;
-            UpdateLegsAnimation(inputX, isMovingNow);
-
-            // 6. 절차적 바운스/호흡 모션 (회전/대시 중이 아닐 때만 적용)
-            if (!isSpinning && !isDashing)
-            {
-                if (isMovingNow)
-                {
-                    walkCycleTimer += Time.deltaTime * walkCycleSpeed;
-                }
-                else
-                {
-                    walkCycleTimer = 0f;
-                }
-            }
+        /// <summary>
+        /// 피격 시 넉백 속도를 적용하고 일정 시간 동안 수평 입력 덮어쓰기를 잠급니다.
+        /// </summary>
+        public void ApplyKnockback(Vector2 knockbackVelocity, float lockDuration = 0.26f)
+        {
+            if (isClimbing) StopClimb(false);
+            if (isDashing) isDashing = false;
+            isGrounded = false;
+            coyoteTimer = 0f;
+            moveLockVx = knockbackVelocity.x;
+            moveLockTimer = lockDuration;
+            moveLockIsMinimum = false;
+            if (rb != null) rb.linearVelocity = knockbackVelocity;
         }
 
         /// <summary>
@@ -302,6 +423,9 @@ namespace Procedural2D
             moveLockTimer = 0f;
             detachSide = 0;
             hopRising = false;
+            coyoteTimer = 0f;
+            jumpBufferTimer = 0f;
+            jumpCutQueued = false;
             isDashing = false;
             isSpinning = false;
             remainingJumps = maxJumps;
@@ -721,6 +845,20 @@ namespace Procedural2D
 #endif
         }
 
+        private bool GetJumpReleasedInput()
+        {
+#if ENABLE_INPUT_SYSTEM
+            var k = Keyboard.current;
+            if (k != null)
+            {
+                return k.spaceKey.wasReleasedThisFrame;
+            }
+            return false;
+#else
+            return Input.GetButtonUp("Jump");
+#endif
+        }
+
         private bool GetDashInput()
         {
 #if ENABLE_INPUT_SYSTEM
@@ -820,3 +958,33 @@ namespace Procedural2D
         }
     }
 }
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * [맛있는 점프(Game Feel) 인스펙터 튜닝 가이드]
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 1. coyoteTime (기본 0.11s)
+ *    - 높이면: 발판 끝을 지나친 뒤에도 점프가 잘 나가 낙사 스트레스가 줄어듭니다.
+ *    - 낮추면: 낭떠러지 끝에서 엄격하게 점프해야 합니다. (0.10~0.12s 권장)
+ *
+ * 2. jumpBufferTime (기본 0.10s)
+ *    - 높이면: 착지 직전 미리 연타해도 닿자마자 바로 튀어올라 반응성이 좋아집니다.
+ *    - 너무 높으면(>0.18s): 의도치 않은 연속 점프가 나갈 수 있습니다.
+ *
+ * 3. baseGravity (기본 40) & fallGravityMultiplier (기본 2.0)
+ *    - baseGravity↑: 전체 점프가 빠르고 찰지게 변합니다 (높이가 줄면 firstJumpForce도 같이↑).
+ *    - fallGravityMultiplier↑ (1.8~2.2): 올라갈 땐 경쾌하고 내려올 땐 묵직하게 꽂힙니다.
+ *
+ * 4. jumpCutMultiplier (기본 0.45)
+ *    - 낮출수록(0.25~0.4): 버튼을 짧게 톡 누를 때 낮고 예민한 소점프가 가능해집니다.
+ *    - 높일수록(0.6~0.8): 짧게 눌러도 꽤 높이 올라가 조절 폭이 좁아집니다.
+ *
+ * 5. apexVelocityThreshold (기본 2.5), apexGravityMultiplier (0.5), apexAirControlMultiplier (1.4)
+ *    - threshold↑ & gravityMultiplier↓: 정점에서 공중에 살짝 머무는 느낌(Hang Time)이 강해집니다.
+ *    - apexAirControlMultiplier↑: 정점 부근에서 좌우 방향 전환이 날카로워져 정밀 착지가 쉬워집니다.
+ *
+ * 6. maxFallSpeed (기본 24)
+ *    - 낮추면: 높은 곳에서 떨어질 때 시야 확보와 착지 제어가 쉬워집니다.
+ *    - 높이면: 긴 낙하 구간에서 속도감이 살아납니다.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */

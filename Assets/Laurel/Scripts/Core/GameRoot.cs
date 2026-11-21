@@ -929,27 +929,30 @@ namespace Laurel
         // ───────────── 궁술 테스트 씬 ─────────────
 
         /// <summary>
-        /// 궁술 테스트 맵을 열고 곧바로 조작할 수 있게 한다. 1스테이지 배경·지형, 기준 방 폭 × 2.5, 쓰러지지 않는 허수아비 여러 개.
-        /// 화살·능력치는 로비 수련장과 같은 StartPractice(기본 화살 6발, 강화 없음)를 쓰고, 궁술을 바꾸면 다시 시작한다.
+        /// 정적으로 씬에 배치된 궁술 테스트 맵을 초기화한다.
+        /// (지형·발판·배경·허수아비는 Laurel_ArcheryTest.unity 에 정적 배치되어 있으므로 런타임 생성하지 않는다.)
         /// </summary>
         public void StartArcheryTest()
         {
             var t = ArcheryTest;
-            DestroyRoom();
             Run = null;
             Paused = false;
             Time.timeScale = 1f;
-            Room = Room.CreateArena("ArcheryTest", t.MakeTheme(), t.Width, t.Height, t.PlatformList(), t.playerSpawn + Vector2.up * 1.2f);
+
+            Room = FindAnyObjectByType<Room>();
+            if (Room == null)
+            {
+                Debug.LogError("[Laurel] Laurel_ArcheryTest 씬에 Room 컴포넌트가 없습니다.");
+                return;
+            }
+            Vector2 spawn = t.playerSpawnPoint != null ? (Vector2)t.playerSpawnPoint.position : t.playerSpawn + Vector2.up * 1.2f;
+            Room.InitStaticArena(t.MakeTheme(), t.Width, t.Height, spawn);
+            Room.Enemies.Clear();
+
             PlacePlayer(Room);
-            if (t.backdrop != null) t.backdrop.Attach(Room);
             CameraRig.I.followY = true;
             Avatar.minHp = 1f; // 맞기는 하지만 쓰러지지 않는다
             StartPractice();
-            foreach (var p in t.dummies)
-            {
-                var d = SpawnDummy(Room, new Vector2(p.x, p.y + 0.9f), true);
-                d.SetHp(t.dummyHp);
-            }
             SetState(GameState.ArcheryTest);
         }
 

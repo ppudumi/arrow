@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Laurel
@@ -8,8 +9,8 @@ namespace Laurel
     /// </summary>
     public class DamagePopup : MonoBehaviour
     {
-        [Tooltip("글꼴 1픽셀의 크기 (유닛). 튜토리얼 보스맵 화면(세로 1080, 직교 10.5)에서 화면 2픽셀")]
-        public static float PixelSize = 2f / (1080f / 21f);
+        [Tooltip("글꼴 1픽셀의 크기 (유닛).")]
+        public static float PixelSize = 4f / (1080f / 21f);
         public static Color BoxColor = new Color(0.10f, 0.08f, 0.08f, 0.88f);
         public static Color BorderColor = new Color(0.55f, 0.52f, 0.5f, 0.9f);
         public static Color NormalColor = new Color(0.95f, 0.95f, 0.92f, 1f);
@@ -23,8 +24,16 @@ namespace Laurel
             "111100111001111", "111100111101111", "111001001001001", "111101111101111", "111101111001111",
         };
         private static readonly string Bang = "11101"; // 1×5 '!'
+        private static readonly Dictionary<char, string> LetterGlyphs = new Dictionary<char, string>
+        {
+            ['D'] = "110101101101110",
+            ['O'] = "111101101101111",
+            ['G'] = "111100101101111",
+            ['E'] = "111100111100111",
+        };
         private static Sprite[] digitSprites;
         private static Sprite bangSprite;
+        private static Dictionary<char, Sprite> letterSprites;
 
         private float t;
         private Vector3 start;
@@ -33,7 +42,7 @@ namespace Laurel
         private SpriteRenderer[] renderers;
         private Color[] baseColors;
 
-        public static void Spawn(Vector2 pos, int value, bool critical)
+        public static void Spawn(Vector2 pos, int value, bool critical, Color? overrideColor = null)
         {
             Build();
             var go = new GameObject("DamagePopup");
@@ -46,7 +55,7 @@ namespace Laurel
             var root = go.transform;
             Art.Quad(root, "Border", Art.Square, BorderColor, new Vector2(boxW * px, boxH * px), Order);
             Art.Quad(root, "Box", Art.Square, BoxColor, new Vector2((boxW - 2) * px, (boxH - 2) * px), Order + 1);
-            var col = critical ? CritColor : NormalColor;
+            var col = overrideColor ?? (critical ? CritColor : NormalColor);
             float x = -textW * px * 0.5f;
             foreach (char ch in s)
             {
@@ -58,6 +67,55 @@ namespace Laurel
 
             p.start = (Vector3)pos;
             p.drift = new Vector3(Random.Range(-0.25f, 0.25f), Random.Range(0.45f, 0.65f), 0f);
+            go.transform.position = p.start;
+            p.renderers = go.GetComponentsInChildren<SpriteRenderer>();
+            p.baseColors = new Color[p.renderers.Length];
+            for (int i = 0; i < p.renderers.Length; i++) p.baseColors[i] = p.renderers[i].color;
+        }
+
+        /// <summary>데미지 숫자와 동일한 박스 팝업 형태로 짧은 영문 텍스트(예: "DODGE!")를 띄운다.</summary>
+        public static void SpawnText(Vector2 pos, string text, Color color)
+        {
+            Build();
+            string upper = (text ?? "").ToUpperInvariant();
+            if (upper.Length == 0) return;
+
+            var go = new GameObject("DamagePopup_Text");
+            var p = go.AddComponent<DamagePopup>();
+            float px = PixelSize;
+            int glyphW = 3, gap = 1, pad = 1;
+            int textW = 0;
+            for (int i = 0; i < upper.Length; i++)
+            {
+                if (i > 0) textW += gap;
+                textW += upper[i] == '!' ? 1 : glyphW;
+            }
+            int boxW = textW + pad * 2 + 2, boxH = 5 + pad * 2 + 2;
+            var root = go.transform;
+            Art.Quad(root, "Border", Art.Square, BorderColor, new Vector2(boxW * px, boxH * px), Order);
+            Art.Quad(root, "Box", Art.Square, BoxColor, new Vector2((boxW - 2) * px, (boxH - 2) * px), Order + 1);
+
+            float x = -textW * px * 0.5f;
+            foreach (char ch in upper)
+            {
+                if (ch == '!')
+                {
+                    Glyph(root, bangSprite, color, new Vector3(x + px * 0.5f, 0f, 0f));
+                    x += (1 + gap) * px;
+                }
+                else
+                {
+                    Sprite sp = null;
+                    if (ch >= '0' && ch <= '9') sp = digitSprites[ch - '0'];
+                    else letterSprites.TryGetValue(ch, out sp);
+                    if (sp != null) Glyph(root, sp, color, new Vector3(x + glyphW * px * 0.5f, 0f, 0f));
+                    x += (glyphW + gap) * px;
+                }
+            }
+
+            p.baseScale = 1.15f;
+            p.start = (Vector3)pos;
+            p.drift = new Vector3(Random.Range(-0.2f, 0.2f), Random.Range(0.45f, 0.65f), 0f);
             go.transform.position = p.start;
             p.renderers = go.GetComponentsInChildren<SpriteRenderer>();
             p.baseColors = new Color[p.renderers.Length];
@@ -81,6 +139,8 @@ namespace Laurel
             digitSprites = new Sprite[10];
             for (int d = 0; d < 10; d++) digitSprites[d] = Make(Glyphs[d], 3);
             bangSprite = Make(Bang, 1);
+            letterSprites = new Dictionary<char, Sprite>();
+            foreach (var kv in LetterGlyphs) letterSprites[kv.Key] = Make(kv.Value, 3);
         }
 
         private static Sprite Make(string bits, int w)

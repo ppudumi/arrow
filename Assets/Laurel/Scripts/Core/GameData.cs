@@ -134,13 +134,13 @@ namespace Laurel
     [Serializable]
     public class ArcheryTuning
     {
-        public float referenceDrawSeconds = 1f, minInterval = 0.1f, arrowSpeed = 26f, straightMaxRange = 32f, fallGravity = 30f;
-        public float apolloBaseInterval = 1f;
-        public float hermesBaseInterval = 1.25f, hermesAttackSpeedPerStack = 0.1f, hermesBuffDuration = 5f;
+        public float referenceDrawSeconds = 1f, minInterval = 0.1f, arrowSpeed = 41.6f, straightMaxRange = 32f, fallGravity = 30f;
+        public float apolloBaseInterval = 0.7f;
+        public float hermesBaseInterval = 0.875f, hermesAttackSpeedPerStack = 0.1f, hermesBuffDuration = 5f;
         public int hermesMaxStacks = 5;
-        public float athenaBaseInterval = 0.6f, athenaGravityPerWeight = 18f;
+        public float athenaBaseInterval = 0.42f, athenaGravityPerWeight = 18f;
         public float odysseusMinCharge = 1.2f, odysseusMaxCharge = 1.5f, odysseusDamageReferenceSeconds = 1f;
-        public float aresThrustBaseInterval = 0.5f, aresThrustRange = 2.4f, aresThrustWidth = 1f;
+        public float aresThrustBaseInterval = 0.35f, aresThrustRange = 2.4f, aresThrustWidth = 1f;
         public float autoPickupRadius = 1.3f;
         public float orpheusReturnDuration = 5f, returnEaseExponent = 3f;
         public float aresPullDelay = 0.5f, aresPullRadius = 1.7f;

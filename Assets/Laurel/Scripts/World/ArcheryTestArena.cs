@@ -28,7 +28,9 @@ namespace Laurel
         public float height = 0f;
 
         [Header("배치 (방 중심 기준, 바닥 윗면 y = -높이/2)")]
-        [Tooltip("플레이어 시작 위치 (발 위치)")]
+        [Tooltip("씬에서 직접 드래그해서 옮기는 플레이어 시작 위치 오브젝트 (연결되면 playerSpawn 대신 이 위치를 사용)")]
+        public Transform playerSpawnPoint;
+        [Tooltip("playerSpawnPoint 가 없을 때 쓰는 기본 시작 위치 (발 위치)")]
         public Vector2 playerSpawn = new Vector2(-24.5f, -11f);
         [Tooltip("발판: x = 가운데, y = 가운데(윗면 = y + 0.3), z = 길이. 막힌 발판이라 아래에서 뚫고 올라갈 수 없다")]
         public Vector3[] platforms =
@@ -84,5 +86,14 @@ namespace Laurel
         }
 
         public List<Vector3> PlatformList() => new List<Vector3>(platforms);
+
+        private void OnDrawGizmos()
+        {
+            Vector3 pos = playerSpawnPoint != null ? playerSpawnPoint.position : (Vector3)(playerSpawn + Vector2.up * 1.2f);
+            Gizmos.color = new Color(0.2f, 0.95f, 1f, 0.9f);
+            Gizmos.DrawWireSphere(pos, 0.45f);
+            Gizmos.DrawLine(pos + Vector3.left * 0.6f, pos + Vector3.right * 0.6f);
+            Gizmos.DrawLine(pos + Vector3.down * 1.2f, pos + Vector3.up * 0.6f);
+        }
     }
 }

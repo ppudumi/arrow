@@ -1,5 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 namespace Laurel
 {
@@ -109,6 +112,26 @@ namespace Laurel
             Polyline(pts, color, width, life);
         }
 
+        /// <summary>중심에서 바깥으로 퍼지며 사라지는 원형 파동 이펙트를 생성합니다.</summary>
+        public static void WaveRing(Vector2 center, float scaleMul = 1f, float duration = 0.45f, Color? color = null)
+        {
+            var go = new GameObject("WaveRing");
+            go.transform.position = new Vector3(center.x, center.y, 0f);
+            var lr = go.AddComponent<LineRenderer>();
+            lr.useWorldSpace = false;
+            lr.loop = true;
+            const int segs = 40;
+            lr.positionCount = segs;
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.sortingOrder = 35;
+            for (int i = 0; i < segs; i++)
+            {
+                float a = (i / (float)segs) * Mathf.PI * 2f;
+                lr.SetPosition(i, new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f));
+            }
+            go.AddComponent<WaveRingFade>().Init(lr, scaleMul, duration, color ?? new Color(0.75f, 1f, 1f, 1f));
+        }
+
         public static void Sector(Vector2 o, Vector2 dir, float r, float angle, Color color, float width, float life)
         {
             var pts = new List<Vector3> { o };
@@ -208,6 +231,12 @@ namespace Laurel
         public float fallSpeedThreshold = 8f;
         [Tooltip("앞·아래 미리보기가 바뀌는 빠르기 (클수록 즉각)")]
         public float lookSmoothing = 3f;
+        [Tooltip("플레이어 기준 커서 방향으로 카메라가 더 나아가는 최대 거리 (월드 유닛)")]
+        public float cursorLookAhead = 4.5f;
+        [Tooltip("커서가 플레이어에서 이 거리 이상 떨어지면 최대 cursorLookAhead 적용")]
+        public float cursorLookRange = 12f;
+        [Tooltip("커서 상하(Y) 방향 추적 비율 (0=가로만, 1=가로와 동일)")]
+        [Range(0f, 1f)] public float cursorLookVerticalWeight = 1f;
 
         /// <summary>일반 방에 쓸 줌</summary>
         public float PlaySize => playSize > 0f ? playSize : DB.Balance.world.cameraSize;
@@ -270,6 +299,19 @@ namespace Laurel
                     lookWant.x = Mathf.Clamp(v.x / 10f, -1f, 1f) * lookAhead;
                     if (v.y < -fallSpeedThreshold) lookWant.y = -fallLookDown;
                 }
+                if (Cam != null && cursorLookAhead > 0f)
+                {
+                    Vector2 mouseScreen = GetMouseScreenPos();
+                    Vector3 cursorWorld = Cam.ScreenToWorldPoint(new Vector3(mouseScreen.x, mouseScreen.y, Mathf.Abs(Cam.transform.position.z - target.position.z)));
+                    Vector2 toCursor = (Vector2)(cursorWorld - target.position);
+                    float dist = toCursor.magnitude;
+                    if (dist > 0.01f)
+                    {
+                        float t = Mathf.Clamp01(dist / Mathf.Max(0.1f, cursorLookRange));
+                        Vector2 dir = toCursor / dist;
+                        lookWant += new Vector2(dir.x, dir.y * cursorLookVerticalWeight) * (cursorLookAhead * t);
+                    }
+                }
             }
             look = Vector2.Lerp(look, lookWant, 1f - Mathf.Exp(-lookSmoothing * Time.unscaledDeltaTime));
             Vector3 want = target != null ? target.position + Vector3.up * lookUp + (Vector3)look : (Vector3)bounds.center;
@@ -282,6 +324,53 @@ namespace Laurel
                 shake = Mathf.Max(0f, shake - Time.unscaledDeltaTime * 2.5f);
             }
             transform.position = new Vector3(basePos.x, basePos.y, -10f) + off;
+        }
+
+        private static Vector2 GetMouseScreenPos()
+        {
+#if ENABLE_INPUT_SYSTEM
+            return Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+#else
+            return Input.mousePosition;
+#endif
+        }
+    }
+
+    /// <summary>중심에서 바깥으로 퍼져나가는 원형 파동 이펙트</summary>
+    public class WaveRingFade : MonoBehaviour
+    {
+        private LineRenderer lr;
+        private Color baseColor = new Color(0.75f, 1f, 1f, 1f);
+        private float elapsed;
+        private float duration = 0.45f;
+        private float maxRadius = 3.8f;
+
+        public void Init(LineRenderer renderer, float scaleMul, float life, Color color)
+        {
+            lr = renderer;
+            baseColor = color;
+            maxRadius = 3.8f * scaleMul;
+            duration = Mathf.Max(0.05f, life);
+            transform.localScale = Vector3.one * 0.35f;
+        }
+
+        private void Update()
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float ease = 1f - Mathf.Pow(1f - t, 3f);
+            float r = Mathf.Lerp(0.35f, maxRadius, ease);
+            transform.localScale = new Vector3(r, r, 1f);
+            if (lr != null)
+            {
+                float w = Mathf.Lerp(0.14f, 0.01f, t);
+                lr.startWidth = w;
+                lr.endWidth = w;
+                Color c = new Color(baseColor.r, baseColor.g, baseColor.b, baseColor.a * (1f - t));
+                lr.startColor = c;
+                lr.endColor = c;
+            }
+            if (t >= 1f) Destroy(gameObject);
         }
     }
 }

@@ -29,7 +29,7 @@ namespace Laurel
         public List<NodeLevel> purchases = new List<NodeLevel>();
         public List<int> bossesDefeated = new List<int>();
         public string launch = "Apollo";
-        public string retrieval = "Basic";
+        public string retrieval = "Orpheus";
         public int runs, deaths, clears, bestStage, kills;
         public float sfxVolume = 0.6f;
         public string lastSavedUtc;
@@ -142,7 +142,7 @@ namespace Laurel
             if (p.bossesDefeated == null) p.bossesDefeated = new List<int>();
             if (p.nectar < 0) p.nectar = 0;
             if (string.IsNullOrEmpty(p.launch)) p.launch = "Apollo";
-            if (string.IsNullOrEmpty(p.retrieval)) p.retrieval = "Basic";
+            if (string.IsNullOrEmpty(p.retrieval)) p.retrieval = "Orpheus";
             return p;
         }
 

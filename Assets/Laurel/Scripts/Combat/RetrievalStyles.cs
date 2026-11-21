@@ -66,10 +66,11 @@ namespace Laurel
         public override string StatusText() => "바닥의 화살 근처로 가면 자동으로 줍기";
     }
 
-    /// <summary>오르페우스 — 부르기: R을 누르고 있는 동안 필드의 모든 화살이 5초에 걸쳐 돌아온다. 놓으면 그 자리에서 떨어진다.</summary>
+    /// <summary>오르페우스 — 부르기: R을 누르고 있는 동안 필드의 모든 화살이 고정된 빠른 속도로 Slerp 호를 그리며 돌아온다.</summary>
     public class OrpheusCall : RetrievalBehaviour
     {
         public const string Source = "부르기";
+        public const float FixedReturnSpeed = 28f;
         public bool Holding { get; private set; }
         public OrpheusCall(PlayerCombat c) : base(c) { }
         public override RetrievalStyle Style => RetrievalStyle.Orpheus;
@@ -77,24 +78,28 @@ namespace Laurel
         public override void Tick(CombatInput input, float dt)
         {
             base.Tick(input, dt);
-            Holding = input.recallHeld;
-            if (input.recallHeld)
+            Holding = input.recallDown || input.recallHeld;
+            if (input.recallDown)
             {
                 int started = 0;
                 foreach (var a in combat.Bodies)
-                    if (a.IsOnField && a.BeginReturn(combat.PlayerCenter, Cfg.orpheusReturnDuration, Cfg.returnEaseExponent, Source)) started++;
-                if (started > 0) { combat.Log($"부르기: {started}발 귀환 시작"); Sfx.Play("recall", 0.5f); }
-            }
-            else if (CountReturning(Source) > 0)
-            {
-                int dropped = 0;
-                foreach (var a in combat.Bodies)
-                    if (a.State == ArrowState.Returning && a.ReturnSource == Source) { a.Drop(Vector2.zero); dropped++; }
-                if (dropped > 0) combat.Log($"부르기 중단: {dropped}발이 그 자리에서 떨어짐");
+                {
+                    if (!a.IsOnField) continue;
+                    float dist = Vector2.Distance(a.transform.position, combat.PlayerCenter + Vector2.up * 0.2f);
+                    float dur = Mathf.Max(0.05f, dist / FixedReturnSpeed);
+                    if (a.BeginReturn(combat.PlayerCenter, dur, 1f, Source, useSlerp: true)) started++;
+                }
+                if (started > 0)
+                {
+                    combat.Log($"부르기: {started}발 귀환 시작");
+                    Sfx.Play("recall", 0.5f);
+                    Fx.WaveRing(combat.PlayerCenter, 1f, 0.45f);
+                    Fx.WaveRing(combat.PlayerCenter, 0.65f, 0.35f);
+                }
             }
 
-            // 부르기 이펙트: R 을 누르고 있고 '부르기로 실제 돌아오는 화살'이 있을 때만 (이 회수 방식 전용, 하나만)
-            if (Holding && CountReturning(Source) > 0)
+            // 부르기 이펙트: 부르기로 돌아오는 화살이 있는 동안 표시
+            if (CountReturning(Source) > 0)
             {
                 if (fx == null) fx = RecallFx.Create(() => combat.PlayerCenter);
                 if (fx != null) fx.Pulse();
@@ -112,7 +117,7 @@ namespace Laurel
             fx = null;
         }
 
-        public override string StatusText() => $"R 누르고 있기: 부르기 (귀환 중 {CountReturning(Source)}발)";
+        public override string StatusText() => $"R 누르기: 부르기 (귀환 중 {CountReturning(Source)}발)";
     }
 
     /// <summary>아레스 — 뽑기: 박힌 지 0.5초 지난 화살이 있는 적에게 다가가면 모두 뽑으며 적중 판정을 한 번 더 한다.</summary>

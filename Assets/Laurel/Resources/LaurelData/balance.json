@@ -5,12 +5,12 @@
   "tutorial": { "maxHp": 300, "attack": 6, "defense": 3, "attackSpeed": 0.5, "moveSpeedMul": 1.1, "arrows": [0, 0, 0, 0, 0, 0, 0, 0], "launch": "Apollo", "retrieval": "Orpheus", "doubleJump": true, "dash": true },
 
   "archery": {
-    "referenceDrawSeconds": 1.0, "minInterval": 0.1, "arrowSpeed": 26, "straightMaxRange": 32, "fallGravity": 30,
-    "apolloBaseInterval": 1.0,
-    "hermesBaseInterval": 1.25, "hermesAttackSpeedPerStack": 0.10, "hermesMaxStacks": 5, "hermesBuffDuration": 5,
-    "athenaBaseInterval": 0.6, "athenaGravityPerWeight": 18,
+    "referenceDrawSeconds": 1.0, "minInterval": 0.1, "arrowSpeed": 41.6, "straightMaxRange": 32, "fallGravity": 30,
+    "apolloBaseInterval": 0.7,
+    "hermesBaseInterval": 0.875, "hermesAttackSpeedPerStack": 0.10, "hermesMaxStacks": 5, "hermesBuffDuration": 5,
+    "athenaBaseInterval": 0.42, "athenaGravityPerWeight": 18,
     "odysseusMinCharge": 1.2, "odysseusMaxCharge": 1.5, "odysseusDamageReferenceSeconds": 1.0,
-    "aresThrustBaseInterval": 0.5, "aresThrustRange": 2.4, "aresThrustWidth": 1.0,
+    "aresThrustBaseInterval": 0.35, "aresThrustRange": 2.4, "aresThrustWidth": 1.0,
     "autoPickupRadius": 1.3,
     "orpheusReturnDuration": 5, "returnEaseExponent": 3,
     "aresPullDelay": 0.5, "aresPullRadius": 1.7,

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace Procedural2D
 {
@@ -16,13 +16,13 @@ namespace Procedural2D
 
         [Header("Fine-Tuning Offsets (부위별 미세 기본 오프셋)")]
         [Tooltip("머리 기본 추가 위치 오프셋")]
-        public Vector3 headOffset = new Vector3(0f, 0.15f, 0f);
+        public Vector3 headOffset = new Vector3(0f, 0.3f, 0f);
         [Tooltip("상체 기본 추가 위치 오프셋")]
         public Vector3 bodyOffset = Vector3.zero;
 
         [Header("Run Posture & Head Dip (달리기 시 자세 및 머리 높이)")]
-        [Tooltip("뛸 때(이동 시) 머리가 아래로 낮아지는 높이 (0.12f = 약 4픽셀 하강)")]
-        public float runHeadDipAmount = 0.12f;
+        [Tooltip("뛸 때(이동 시) 머리가 아래로 낮아지는 높이 (0.125f = 32 PPU 기준 약 4픽셀 하강)")]
+        public float runHeadDipAmount = 0.125f;
         [Tooltip("머리 높이 전환 추적 속도")]
         public float headDipSpeed = 14f;
 
@@ -36,7 +36,7 @@ namespace Procedural2D
         [Tooltip("머리 탄성 지연 추적 속도")]
         public float headLagSpeed = 18f;
         [Tooltip("정지 대기 중 가슴/머리 호흡 모션 강도")]
-        public float idleBreatheAmount = 0.02f;
+        public float idleBreatheAmount = 0.04f;
 
         [Header("Aim Lean Settings (조준 자세 보정)")]
         [Tooltip("조준 각도에 따른 상체 회전량")]
@@ -44,11 +44,11 @@ namespace Procedural2D
         [Tooltip("조준 각도에 따른 머리 회전량")]
         public float headLookFactor = 0.25f;
         [Tooltip("상체가 숙여지거나 젖혀질 때의 위치 오프셋 강도")]
-        public float bodyShiftAmount = 0.04f;
+        public float bodyShiftAmount = 0.08f;
 
         [Header("Recoil (사격 반동)")]
         [Tooltip("반동 넉백 강도")]
-        public float recoilKickbackForce = 0.18f;
+        public float recoilKickbackForce = 0.36f;
         [Tooltip("반동 복원 스프링 속도")]
         public float recoilRecoverySpeed = 16f;
 

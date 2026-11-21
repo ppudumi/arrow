@@ -138,6 +138,15 @@ namespace Laurel
             return room;
         }
 
+        /// <summary>씬에 정적으로 배치된 아레나(지형·발판·배경)를 런타임 생성 없이 초기화한다.</summary>
+        public void InitStaticArena(RoomTheme theme, float width, float height, Vector2 spawn)
+        {
+            Theme = theme;
+            float hw = width * 0.5f, hh = height * 0.5f;
+            InnerBounds = new Rect(-hw, -hh, width, height);
+            PlayerSpawn = spawn;
+        }
+
         private const int CustomLayout = -2;
         private IList<Vector3> customPlatforms;
 

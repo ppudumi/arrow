@@ -18,7 +18,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3460951084905408219, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
       propertyPath: climbMask.m_Bits
-      value: 4294967291
+      value: 819
       objectReference: {fileID: 0}
     - target: {fileID: 3460951084905408219, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
       propertyPath: wallClimbEnabled
@@ -27,6 +27,26 @@ PrefabInstance:
     - target: {fileID: 5312333145490642933, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
       propertyPath: m_Name
       value: ProceduralCharacter_TestMovement
+      objectReference: {fileID: 0}
+    - target: {fileID: 5877962725248044078, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
+      propertyPath: m_SortingOrder
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6713706433334077654, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.207
+      objectReference: {fileID: 0}
+    - target: {fileID: 6713706433334077654, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.123
+      objectReference: {fileID: 0}
+    - target: {fileID: 7985565304676919742, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.025
+      objectReference: {fileID: 0}
+    - target: {fileID: 7985565304676919742, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.168
       objectReference: {fileID: 0}
     - target: {fileID: 8073102495816559634, guid: 3ef23e8766928144a9ea7afea8668308, type: 3}
       propertyPath: m_LocalPosition.x

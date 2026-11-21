@@ -86,7 +86,7 @@ namespace Laurel
             if (minHp > 0f && Hp < minHp) Hp = minHp;
             DamageTakenTotal += final;
             iframes = DB.Balance.player.iframes;
-            Fx.Text(transform.position + Vector3.up * 1.4f, "-" + final.ToString("0"), new Color(1f, 0.35f, 0.35f), 30);
+            DamagePopup.Spawn(transform.position + Vector3.up * 1.4f, Mathf.Max(1, Mathf.RoundToInt(final)), false, new Color(1f, 0.35f, 0.35f, 1f));
             Fx.Burst(transform.position, new Color(1f, 0.3f, 0.3f), 8, 5f, 0.15f, 0.35f);
             Sfx.Play("hurt", 0.8f);
             CameraRig.Shake(0.18f);

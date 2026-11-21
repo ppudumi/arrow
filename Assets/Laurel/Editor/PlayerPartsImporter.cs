@@ -20,7 +20,7 @@ namespace Laurel.EditorTools
         /// 이 시트는 기존 캐릭터 스프라이트(32 PPU)를 2배 해상도로 다시 그린 것이다 (상의 16×18 = 기존 Body 8×9 의 2배).
         /// 64 PPU 로 두면 월드 크기와 충돌 판정이 기존 캐릭터와 같다.
         /// </summary>
-        public const float PixelsPerUnit = 64f;
+        public const float PixelsPerUnit = 32f;
 
         /// <summary>
         /// (이름, x 최소, x 최대, y 최소, y 최대, 피벗 x, 피벗 y)

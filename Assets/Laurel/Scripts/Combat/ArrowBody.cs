@@ -41,6 +41,7 @@ namespace Laurel
 
         private PlayerCombat owner;
         private SpriteRenderer sr;
+        private TrailRenderer trail;
         private Vector2 velocity;
         private float gravity;
         private float traveled, maxRange;
@@ -49,6 +50,7 @@ namespace Laurel
         private float stuckLocalAngle;
         private Vector2 returnStartOffset;
         private float returnDuration, returnElapsed, returnExponent = 3f;
+        private bool returnUseSlerp;
         private float delayTimer;
         private Vector2 delayedDir;
         private float delayedSpeed;
@@ -65,6 +67,17 @@ namespace Laurel
             sr = gameObject.AddComponent<SpriteRenderer>();
             sr.sprite = Art.ArrowSprite != null ? Art.ArrowSprite : Art.Diamond;
             sr.sortingOrder = 20;
+
+            trail = gameObject.AddComponent<TrailRenderer>();
+            trail.material = new Material(Shader.Find("Sprites/Default"));
+            trail.sortingOrder = 19;
+            trail.time = 0.16f;
+            trail.minVertexDistance = 0.05f;
+            trail.startWidth = 0.12f;
+            trail.endWidth = 0f;
+            trail.numCapVertices = 2;
+            trail.emitting = false;
+
             ApplyLook(card.Def);
             gameObject.name = "Arrow_" + card.Label;
             SetState(ArrowState.InQuiver);
@@ -78,9 +91,18 @@ namespace Laurel
         {
             sr.color = def.tint;
             float s = Mathf.Lerp(0.85f, 1.25f, Mathf.InverseLerp(0.5f, 1.5f, def.weight));
-            if (Shot != null && Shot.isDashAttack) s *= 1.85f;
+            bool dash = Shot != null && Shot.isDashAttack;
+            if (dash) s *= 1.85f;
             if (Art.ArrowSprite == null) transform.localScale = new Vector3(0.9f * s, 0.25f * s, 1f);
             else transform.localScale = new Vector3(s, s, 1f);
+            if (trail != null)
+            {
+                Color cStart = def.tint; cStart.a = 0.85f;
+                Color cEnd = def.tint; cEnd.a = 0f;
+                trail.startColor = cStart;
+                trail.endColor = cEnd;
+                trail.widthMultiplier = dash ? 1.85f : 1f;
+            }
         }
 
         private void SetState(ArrowState s)
@@ -88,6 +110,11 @@ namespace Laurel
             State = s;
             StateTime = 0f;
             if (sr != null) sr.enabled = s != ArrowState.InQuiver && s != ArrowState.Consumed;
+            if (trail != null)
+            {
+                trail.emitting = s == ArrowState.Flying || s == ArrowState.Returning;
+                if (s == ArrowState.InQuiver || s == ArrowState.Consumed) trail.Clear();
+            }
         }
 
         // ───────────── 화살통 ↔ 필드 ─────────────
@@ -96,6 +123,7 @@ namespace Laurel
         {
             if (State != ArrowState.InQuiver) { owner.ReportViolation($"{Label}: {State} 상태에서 발사 시도"); return; }
             transform.position = origin;
+            if (trail != null) trail.Clear();
             Shot = shot;
             ApplyLook(shot.form);
             velocity = dir.normalized * speed;
@@ -228,7 +256,7 @@ namespace Laurel
             if (wasFlight) owner.OnFlightEndedOnTerrain(this, point);
         }
 
-        public bool BeginReturn(Vector2 playerPos, float duration, float exponent, string source)
+        public bool BeginReturn(Vector2 playerPos, float duration, float exponent, string source, bool useSlerp = false)
         {
             if (State != ArrowState.Grounded && State != ArrowState.Stuck && State != ArrowState.Falling) return false;
             Detach();
@@ -236,6 +264,7 @@ namespace Laurel
             returnDuration = Mathf.Max(0.01f, duration);
             returnElapsed = 0f;
             returnExponent = Mathf.Max(1f, exponent);
+            returnUseSlerp = useSlerp;
             ReturnSource = source;
             SetState(ArrowState.Returning);
             return true;
@@ -291,9 +320,21 @@ namespace Laurel
                 case ArrowState.Returning:
                     returnElapsed += dt;
                     float t = Mathf.Clamp01(returnElapsed / returnDuration);
-                    float remain = Mathf.Pow(1f - t, returnExponent);
                     Vector2 target = playerPos + Vector2.up * 0.2f;
-                    Vector2 newPos = target + returnStartOffset * remain;
+                    Vector2 newPos;
+                    if (returnUseSlerp)
+                    {
+                        // 고정 등속(선형 t) + Vector3.Slerp 호를 그리며 귀환
+                        Vector3 arcCenter = (Vector3)(returnStartOffset * 0.5f) + Vector3.down * Mathf.Max(1.2f, returnStartOffset.magnitude * 0.35f);
+                        Vector3 startRel = (Vector3)returnStartOffset - arcCenter;
+                        Vector3 endRel = Vector3.zero - arcCenter;
+                        newPos = target + (Vector2)(arcCenter + Vector3.Slerp(startRel, endRel, t));
+                    }
+                    else
+                    {
+                        float remain = Mathf.Pow(1f - t, returnExponent);
+                        newPos = target + returnStartOffset * remain;
+                    }
                     Vector2 move = newPos - (Vector2)transform.position;
                     transform.position = newPos;
                     if (move.sqrMagnitude > 0.000001f) AlignTo(move);

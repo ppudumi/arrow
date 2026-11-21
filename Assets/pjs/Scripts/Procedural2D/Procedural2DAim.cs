@@ -50,9 +50,9 @@ namespace Procedural2D
         [Header("Dynamic Sorting (레이어 순서)")]
         public SpriteRenderer leftArmBowRenderer;
         [Tooltip("위를 쏠 때 왼팔의 Sorting Order")]
-        public int armOrderHigh = 5;
+        public int armOrderHigh = -1;
         [Tooltip("아래를 쏠 때 왼팔의 Sorting Order")]
-        public int armOrderLow = 4;
+        public int armOrderLow = -1;
 
         /// <summary>false이면 마우스 조준을 갱신하지 않고 마지막 자세를 유지합니다 (대화·메뉴 중).</summary>
         [HideInInspector] public bool inputEnabled = true;
@@ -164,7 +164,10 @@ namespace Procedural2D
             currentArmAngle = Mathf.LerpAngle(currentArmAngle, rawAngle, Time.deltaTime * aimSmoothSpeed);
             if (leftArmPivot != null)
             {
-                leftArmPivot.localRotation = Quaternion.Euler(0f, 0f, currentArmAngle);
+                float parentZ = (leftArmPivot.parent != null && leftArmPivot.parent != visualRoot)
+                    ? Mathf.DeltaAngle(0f, leftArmPivot.parent.localEulerAngles.z)
+                    : 0f;
+                leftArmPivot.localRotation = Quaternion.Euler(0f, 0f, currentArmAngle - parentZ);
             }
 
             // 오른팔 2마디 관절 회전 (상완 + 전완 팔꿈치 굽힘)

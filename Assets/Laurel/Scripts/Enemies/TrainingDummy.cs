@@ -10,6 +10,8 @@ namespace Laurel
 
         public void InitDummy(Room room, bool immortal)
         {
+            var preview = transform.Find("StaticPreview");
+            if (preview != null) Destroy(preview.gameObject);
             var def = new EnemyDef { id = "dummy", name = immortal ? "수련 허수아비" : "과녁", ai = "dummy", hp = immortal ? 200 : 14, speed = 0, damage = 0, w = 0.9f, h = 1.6f, color = "#C8A060", gold = 0 };
             def.tint = DB.Hex(def.color);
             Init(room, def, 1f, 1f, false);

@@ -16,6 +16,7 @@ namespace pjs
         private enum State
         {
             Idle,
+            DashApproach,
             AttackReady,
             Attack,
             JumpReady,
@@ -44,11 +45,19 @@ namespace pjs
         public Sprite flesh3Sprite;
 
         [Header("Stats & Hitbox")]
-        public float maxHp = 400f;
-        public Vector2 hitboxOffset = new Vector2(0f, 1.1f);
-        public Vector2 hitboxSize = new Vector2(1.8f, 2.2f);
+        public float maxHp = 200f;
+        public Vector2 hitboxOffset = new Vector2(0f, 0.85f);
+        public Vector2 hitboxSize = new Vector2(1.6f, 1.7f);
         public float visualScale = 2.0f;
         public int sortingOrder = 10;
+
+        [Header("Head Critical Hitbox (머리 치명타)")]
+        [Tooltip("머리 치명타 판정 위치 (몸통 콜라이더 바로 위)")]
+        public Vector2 headHitboxOffset = new Vector2(0f, 2.05f);
+        [Tooltip("머리 치명타 판정 크기")]
+        public Vector2 headHitboxSize = new Vector2(1.1f, 0.7f);
+        [Tooltip("머리 명중 시 데미지 배율")]
+        public float headCritMultiplier = 3f;
 
         [Header("HP Bar")]
         public Vector2 hpBarOffset = new Vector2(0f, 2.65f);
@@ -56,28 +65,40 @@ namespace pjs
 
         [Header("Movement & Physics")]
         public LayerMask groundLayer = 1 << 8; // Terrain
-        public float gravity = 32f;
+        public float gravity = 40f;
         public float aggroRange = 30f;
-        public float attackRange = 3.6f;
-        public float idleDuration = 0.75f;
+        public float attackRange = 3.8f;
+        public float idleDuration = 0.55f;
 
-        [Header("Attack (Sweep)")]
-        public float attackReadyTime = 0.42f;
-        public float attackTime = 0.34f;
-        public float attackLungeSpeed = 7.5f;
+        [Header("Attack (Sweep & Dash)")]
+        public float attackDamage = 15f;
+        public float attackReadyTime = 0.36f;
+        public float attackTime = 0.42f;
+        public float attackLungeSpeed = 24f;
+        public float shortAttackTime = 0.24f;
+        public float shortAttackLungeSpeed = 11f;
         public Vector2 attackVisualOffset = new Vector2(-0.35f, 0f);
 
+        [Header("Dash Approach & Elevation")]
+        [Tooltip("이 거리보다 멀면 대시로 거리를 좁힌 뒤 대시 공격")]
+        public float dashApproachRange = 9.5f;
+        public float dashApproachSpeed = 16f;
+        public float dashApproachTime = 0.36f;
+        [Tooltip("플레이어와 이 높이 이상 단차가 나면 점프 공격")]
+        public float heightDiffThreshold = 1.6f;
+
         [Header("Normal Jump")]
-        public float jumpReadyTime = 0.16f;
-        public float jumpLandTime = 0.16f;
-        public float jumpSpeedY = 11.5f;
-        public float jumpSpeedX = 7.5f;
+        public float jumpReadyTime = 0.14f;
+        public float jumpLandTime = 0.14f;
+        public float jumpSpeedY = 13f;
+        public float jumpSpeedX = 9.5f;
 
         [Header("Big Jump Smash")]
-        public float bigJumpReadyTime = 0.38f;
-        public float bigJumpSpeedY = 17.5f;
-        public float bigJumpSpeedX = 9.5f;
-        public float jumpSmashTime = 0.42f;
+        public float smashDamage = 25f;
+        public float bigJumpReadyTime = 0.34f;
+        public float bigJumpSpeedY = 19.5f;
+        public float bigJumpSpeedX = 11.5f;
+        public float jumpSmashTime = 0.36f;
         public Vector2 jumpSmashVisualOffset = new Vector2(-0.25f, 0f);
 
         public float Hp { get; private set; }
@@ -87,7 +108,10 @@ namespace pjs
         private SpriteRenderer sr;
         private SpriteRenderer hpFillSr;
         private BoxCollider2D col;
+        private BoxCollider2D headCol;
         private Transform player;
+        private PlayerAvatar playerAvatar;
+        private ProceduralCharacterController playerCtrl;
         private TutorialBossMapTest arenaMap;
 
         private State state = State.Idle;
@@ -96,8 +120,10 @@ namespace pjs
         private Vector2 velocity;
         private bool grounded;
         private bool dead;
+        private bool attackHitDealt;
         private float flashT = -1f;
-        private int bigJumpCounter;
+        private float pendingAttackLungeSpeed;
+        private float pendingAttackTime;
 
         private static readonly float[] Blink = { 0.045f, 0.035f, 0.035f };
 
@@ -108,8 +134,28 @@ namespace pjs
 
             col = GetComponent<BoxCollider2D>();
             col.isTrigger = true;
-            col.offset = hitboxOffset;
-            col.size = hitboxSize;
+            hitboxOffset = col.offset;
+            hitboxSize = col.size;
+
+            var existingHead = transform.Find("HeadHitbox");
+            if (existingHead != null && existingHead.TryGetComponent(out BoxCollider2D existingHeadCol))
+            {
+                headCol = existingHeadCol;
+                headCol.gameObject.layer = Layers.Enemy;
+                headCol.isTrigger = true;
+                headHitboxOffset = headCol.offset;
+                headHitboxSize = headCol.size;
+            }
+            else
+            {
+                var headGo = new GameObject("HeadHitbox");
+                headGo.layer = Layers.Enemy;
+                headGo.transform.SetParent(transform, false);
+                headCol = headGo.AddComponent<BoxCollider2D>();
+                headCol.isTrigger = true;
+                headCol.offset = headHitboxOffset;
+                headCol.size = headHitboxSize;
+            }
 
             var old = transform.Find("Visual");
             if (old != null) Destroy(old.gameObject);
@@ -164,9 +210,20 @@ namespace pjs
         {
             if (player != null) return;
             var ctrl = FindFirstObjectByType<ProceduralCharacterController>();
-            if (ctrl != null) { player = ctrl.transform; return; }
+            if (ctrl != null)
+            {
+                player = ctrl.transform;
+                playerCtrl = ctrl;
+                playerAvatar = ctrl.GetComponent<PlayerAvatar>();
+                return;
+            }
             var avatar = FindFirstObjectByType<PlayerAvatar>();
-            if (avatar != null) player = avatar.transform;
+            if (avatar != null)
+            {
+                player = avatar.transform;
+                playerAvatar = avatar;
+                playerCtrl = avatar.GetComponent<ProceduralCharacterController>();
+            }
         }
 
         private void Update()
@@ -191,18 +248,31 @@ namespace pjs
                     if (stateTimer <= 0f) ChooseNextAction();
                     break;
 
+                case State.DashApproach:
+                    velocity.x = facing * dashApproachSpeed;
+                    if (stateTimer <= 0f || (player != null && Mathf.Abs(player.position.x - transform.position.x) <= attackRange + 1.5f))
+                    {
+                        FacePlayer();
+                        pendingAttackLungeSpeed = attackLungeSpeed;
+                        pendingAttackTime = attackTime;
+                        EnterState(State.AttackReady);
+                    }
+                    break;
+
                 case State.AttackReady:
                     velocity.x = 0f;
                     if (stateTimer <= 0f)
                     {
-                        velocity.x = facing * attackLungeSpeed;
+                        velocity.x = facing * (pendingAttackLungeSpeed > 0f ? pendingAttackLungeSpeed : attackLungeSpeed);
+                        attackHitDealt = false;
                         EnterState(State.Attack);
                         Sfx.Play("hit", 0.55f, 0.75f);
                     }
                     break;
 
                 case State.Attack:
-                    velocity.x = Mathf.MoveTowards(velocity.x, 0f, 18f * dt);
+                    velocity.x = Mathf.MoveTowards(velocity.x, 0f, 12f * dt);
+                    if (!attackHitDealt) TryDamagePlayer(attackDamage, 2.8f, 2.0f, true);
                     if (stateTimer <= 0f) EnterState(State.Idle);
                     break;
 
@@ -245,7 +315,9 @@ namespace pjs
                     if (grounded && velocity.y <= 0f)
                     {
                         velocity.x = 0f;
+                        attackHitDealt = false;
                         EnterState(State.JumpSmash);
+                        TryDamagePlayer(smashDamage, 3.6f, 2.5f, false);
                         Fx.Burst(transform.position, new Color(0.95f, 0.45f, 0.2f), 10, 6f, 0.16f, 0.35f);
                         Sfx.Play("hit", 0.85f, 0.65f);
                     }
@@ -253,6 +325,7 @@ namespace pjs
 
                 case State.JumpSmash:
                     velocity.x = 0f;
+                    if (!attackHitDealt) TryDamagePlayer(smashDamage, 3.6f, 2.5f, false);
                     if (stateTimer <= 0f) EnterState(State.Idle);
                     break;
             }
@@ -268,28 +341,42 @@ namespace pjs
             }
 
             float dx = Mathf.Abs(player.position.x - transform.position.x);
+            float dy = Mathf.Abs(player.position.y - transform.position.y);
             if (dx > aggroRange)
             {
                 EnterState(State.Idle);
                 return;
             }
 
+            // 근거리: 짧은 거리 대시 공격
             if (dx <= attackRange)
             {
+                pendingAttackLungeSpeed = shortAttackLungeSpeed;
+                pendingAttackTime = shortAttackTime;
                 EnterState(State.AttackReady);
                 return;
             }
 
-            bigJumpCounter++;
-            if (bigJumpCounter >= 3)
+            // 멀리 + 단차가 있는 곳: 점프 공격
+            if (dy >= heightDiffThreshold)
             {
-                bigJumpCounter = 0;
                 EnterState(State.BigJumpReady);
+                return;
             }
-            else
+
+            // 아주 멀리 (같은 높이): 대시 준비 후 곧바로 긴 거리 대시 공격
+            if (dx > dashApproachRange)
             {
-                EnterState(State.JumpReady);
+                pendingAttackLungeSpeed = attackLungeSpeed;
+                pendingAttackTime = attackTime;
+                EnterState(State.AttackReady);
+                return;
             }
+
+            // 기존 점프 공격 거리 (중거리, 같은 높이): 짧은 거리 대시 공격
+            pendingAttackLungeSpeed = shortAttackLungeSpeed;
+            pendingAttackTime = shortAttackTime;
+            EnterState(State.AttackReady);
         }
 
         private void EnterState(State next)
@@ -303,12 +390,16 @@ namespace pjs
                     stateTimer = idleDuration;
                     SetSprite(idleSprite);
                     break;
+                case State.DashApproach:
+                    stateTimer = dashApproachTime;
+                    SetSprite(readyAndEndOfJumpSprite);
+                    break;
                 case State.AttackReady:
                     stateTimer = attackReadyTime;
                     SetSprite(attackReadySprite);
                     break;
                 case State.Attack:
-                    stateTimer = attackTime;
+                    stateTimer = pendingAttackTime > 0f ? pendingAttackTime : attackTime;
                     SetSprite(attackSprite);
                     offset = attackVisualOffset;
                     break;
@@ -429,14 +520,81 @@ namespace pjs
         {
             if (dead) return;
 
+            bool isHead = IsHeadShot(point);
+            if (isHead)
+            {
+                damage = Mathf.Max(1, Mathf.RoundToInt(damage * headCritMultiplier));
+                critical = true;
+            }
+
             Hp = Mathf.Max(0f, Hp - damage);
             UpdateHpBar();
             flashT = 0f;
             DamagePopup.Spawn(point + new Vector2(Random.Range(-0.2f, 0.2f), 0.3f), damage, critical);
-            Fx.Burst(point, critical ? new Color(1f, 0.85f, 0.3f) : new Color(0.95f, 0.25f, 0.25f), 5, 4f, 0.1f, 0.25f);
-            Sfx.Play("hit", critical ? 0.9f : 0.7f, critical ? 0.85f : Random.Range(0.95f, 1.15f));
+            Fx.Burst(point, critical ? new Color(1f, 0.85f, 0.2f) : new Color(0.95f, 0.25f, 0.25f), critical ? 10 : 5, critical ? 6f : 4f, critical ? 0.14f : 0.1f, 0.28f);
+            Sfx.Play("hit", critical ? 0.95f : 0.7f, critical ? 0.8f : Random.Range(0.95f, 1.15f));
 
             if (Hp <= 0f) Die(dir);
+        }
+
+        private void TryDamagePlayer(float dmg, float reachX, float reachY, bool frontOnly)
+        {
+            if (player == null) return;
+            if (playerAvatar == null) playerAvatar = player.GetComponent<PlayerAvatar>();
+            if (playerCtrl == null) playerCtrl = player.GetComponent<ProceduralCharacterController>();
+            if (playerAvatar == null) return;
+
+            Vector2 diff = (Vector2)player.position - (Vector2)transform.position;
+            bool inX = frontOnly
+                ? (diff.x * facing >= -0.4f && diff.x * facing <= reachX)
+                : Mathf.Abs(diff.x) <= reachX;
+            if (inX && diff.y >= -0.5f && diff.y <= reachY)
+            {
+                if (playerCtrl != null && playerCtrl.IsDashing)
+                {
+                    attackHitDealt = true;
+                    DamagePopup.SpawnText(player.position + Vector3.up * 1.4f, "DODGE!", new Color(0.55f, 0.95f, 1f, 1f));
+                    return;
+                }
+
+                if (playerAvatar.Hurt(dmg, "미노타우로스"))
+                {
+                    attackHitDealt = true;
+                    float kbDir = Mathf.Abs(diff.x) > 0.05f ? Mathf.Sign(diff.x) : facing;
+                    if (playerCtrl != null)
+                        playerCtrl.ApplyKnockback(new Vector2(kbDir * 16f, 11f), 0.28f);
+                }
+            }
+        }
+
+        private bool IsHeadShot(Vector2 worldPoint)
+        {
+            if (headCol != null)
+            {
+                Bounds b = headCol.bounds;
+                b.Expand(0.1f);
+                if (b.Contains(new Vector3(worldPoint.x, worldPoint.y, b.center.z))) return true;
+            }
+            Vector2 local = transform.InverseTransformPoint(worldPoint);
+            float hx = headHitboxOffset.x * facing;
+            float hy = headHitboxOffset.y;
+            return Mathf.Abs(local.x - hx) <= headHitboxSize.x * 0.5f + 0.05f
+                && Mathf.Abs(local.y - hy) <= headHitboxSize.y * 0.5f + 0.05f;
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            Gizmos.color = new Color(1f, 0.85f, 0.15f, 0.95f);
+            Vector2 hOff = new Vector2(headHitboxOffset.x * facing, headHitboxOffset.y);
+            Vector2 hSize = headHitboxSize;
+            Vector3 center = (Vector2)transform.position + hOff;
+            var existingHead = transform.Find("HeadHitbox");
+            if (existingHead != null && existingHead.TryGetComponent(out BoxCollider2D hc))
+            {
+                center = existingHead.TransformPoint(hc.offset);
+                hSize = Vector2.Scale(hc.size, existingHead.lossyScale);
+            }
+            Gizmos.DrawWireCube(center, hSize);
         }
 
         private void UpdateFlash(float dt)
