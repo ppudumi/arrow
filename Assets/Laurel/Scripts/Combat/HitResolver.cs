@@ -42,6 +42,11 @@ namespace Laurel
             enemy.lastHitCardUid = card.uid;
 
             bool wasBoss = enemy.IsBoss;
+            if (enemy is pjs.MinotourEnemy mino && src != HitSource.Pull && mino.IsHeadHit(part, point))
+            {
+                dmg *= mino.headCritMultiplier;
+                mino.MarkNextHitCritical();
+            }
             enemy.TakeDamage(dmg, form.name, form.tint, true);
             c.Stats.hitsLanded++;
             Fx.Burst(point, form.tint, 5, 4f, 0.12f, 0.3f);

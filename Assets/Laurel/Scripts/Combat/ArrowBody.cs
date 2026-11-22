@@ -48,6 +48,8 @@ namespace Laurel
         private Transform stuckTo;
         private Vector2 stuckLocalPos;
         private float stuckLocalAngle;
+        private bool stuckRequiresEnemy;
+        private System.Func<bool> stuckAliveCheck;
         private Vector2 returnStartOffset;
         private float returnDuration, returnElapsed, returnExponent = 3f;
         private bool returnUseSlerp;
@@ -92,16 +94,16 @@ namespace Laurel
             sr.color = def.tint;
             float s = Mathf.Lerp(0.85f, 1.25f, Mathf.InverseLerp(0.5f, 1.5f, def.weight));
             bool dash = Shot != null && Shot.isDashAttack;
-            if (dash) s *= 1.85f;
             if (Art.ArrowSprite == null) transform.localScale = new Vector3(0.9f * s, 0.25f * s, 1f);
             else transform.localScale = new Vector3(s, s, 1f);
             if (trail != null)
             {
-                Color cStart = def.tint; cStart.a = 0.85f;
-                Color cEnd = def.tint; cEnd.a = 0f;
+                Color cStart = dash ? new Color(0.25f, 0.85f, 1f, 0.9f) : def.tint;
+                if (!dash) cStart.a = 0.85f;
+                Color cEnd = new Color(cStart.r, cStart.g, cStart.b, 0f);
                 trail.startColor = cStart;
                 trail.endColor = cEnd;
-                trail.widthMultiplier = dash ? 1.85f : 1f;
+                trail.widthMultiplier = 1f;
             }
         }
 
@@ -219,12 +221,28 @@ namespace Laurel
         {
             if (State != ArrowState.Flying) { owner.ReportViolation($"{Label}: {State} 상태에서 박힘 시도"); return; }
             StuckEnemy = enemy;
+            stuckRequiresEnemy = true;
+            stuckAliveCheck = null;
             stuckTo = part != null ? part : enemy.transform;
             Vector2 embed = point + LastDirection * 0.15f;
             transform.position = embed;
             stuckLocalPos = stuckTo.InverseTransformPoint(embed);
             stuckLocalAngle = transform.eulerAngles.z - stuckTo.eulerAngles.z;
             enemy.RegisterStuck(this);
+            SetState(ArrowState.Stuck);
+        }
+
+        public void StickToTransform(Transform targetTransform, Vector2 point, System.Func<bool> aliveCheck = null)
+        {
+            if (State != ArrowState.Flying) { owner.ReportViolation($"{Label}: {State} 상태에서 박힘 시도"); return; }
+            StuckEnemy = null;
+            stuckRequiresEnemy = false;
+            stuckAliveCheck = aliveCheck;
+            stuckTo = targetTransform;
+            Vector2 embed = point + LastDirection * 0.15f;
+            transform.position = embed;
+            stuckLocalPos = stuckTo.InverseTransformPoint(embed);
+            stuckLocalAngle = transform.eulerAngles.z - stuckTo.eulerAngles.z;
             SetState(ArrowState.Stuck);
         }
 
@@ -280,6 +298,8 @@ namespace Laurel
                 StuckEnemy = null;
             }
             stuckTo = null;
+            stuckRequiresEnemy = false;
+            stuckAliveCheck = null;
         }
 
         public void OnEnemyLost()
@@ -313,7 +333,7 @@ namespace Laurel
             switch (State)
             {
                 case ArrowState.Stuck:
-                    if (StuckEnemy == null || !StuckEnemy.IsAlive || stuckTo == null) { OnEnemyLost(); break; }
+                    if (stuckTo == null || (stuckRequiresEnemy && (StuckEnemy == null || !StuckEnemy.IsAlive)) || (stuckAliveCheck != null && !stuckAliveCheck())) { OnEnemyLost(); break; }
                     transform.position = stuckTo.TransformPoint(stuckLocalPos);
                     transform.rotation = Quaternion.Euler(0f, 0f, stuckTo.eulerAngles.z + stuckLocalAngle);
                     break;
@@ -512,9 +532,7 @@ namespace Laurel
             var gsr = go.AddComponent<SpriteRenderer>();
             gsr.sprite = sr.sprite;
             gsr.sortingOrder = sr.sortingOrder - 1;
-            Color c = sr.color;
-            c.a = 0.6f;
-            gsr.color = c;
+            gsr.color = new Color(0.25f, 0.85f, 1f, 0.75f);
             go.AddComponent<ArrowDashGhost>().Init(gsr, 0.22f);
         }
     }

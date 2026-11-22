@@ -319,6 +319,11 @@ namespace Laurel
                 case "bowling": shot.bounces = Mathf.RoundToInt(form.p1 > 0 ? form.p1 : 3); break;
                 case "wraith": shot.redirects = Mathf.RoundToInt(form.p1 > 0 ? form.p1 : 3); break;
             }
+            if (isDashing)
+            {
+                shot.damage *= 2f;
+                shot.speedMul *= 1.85f;
+            }
             if (pendingPierceBonus > 0)
             {
                 shot.pierce += pendingPierceBonus;

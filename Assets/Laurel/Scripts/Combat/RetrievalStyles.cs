@@ -189,7 +189,8 @@ namespace Laurel
             Swings++;
             combat.PlayFireFeedback(dir);
             Sfx.Play("swing");
-            Fx.Sector(origin, dir, Cfg.demeterRadius, Cfg.demeterAngle, new Color(1f, 0.9f, 0.35f), 0.08f, 0.25f);
+            Fx.ScytheSlash(origin, dir, Cfg.demeterRadius, Cfg.demeterAngle, 0.24f);
+            Fx.Burst(origin + dir * (Cfg.demeterRadius * 0.55f), new Color(0.35f, 1f, 0.5f), 8, 5.5f, 0.14f, 0.28f, 2f);
             float damage = combat.Attack * Cfg.demeterDamageMultiplier;
             if (combat.Room != null)
             {

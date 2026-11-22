@@ -11,7 +11,7 @@ namespace pjs
     /// - ILaserTarget 구현으로 레이저 활 타격, 피격 깜빡임, 데미지 팝업, 처치 시 flesh* 5종 파츠 분리를 처리한다.
     /// </summary>
     [RequireComponent(typeof(BoxCollider2D))]
-    public class MinotourEnemy : MonoBehaviour, ILaserTarget
+    public class MinotourEnemy : Enemy, ILaserTarget
     {
         private enum State
         {
@@ -65,7 +65,7 @@ namespace pjs
 
         [Header("Movement & Physics")]
         public LayerMask groundLayer = 1 << 8; // Terrain
-        public float gravity = 40f;
+        public new float gravity = 40f;
         public float aggroRange = 30f;
         public float attackRange = 3.8f;
         public float idleDuration = 0.55f;
@@ -101,9 +101,6 @@ namespace pjs
         public float jumpSmashTime = 0.36f;
         public Vector2 jumpSmashVisualOffset = new Vector2(-0.25f, 0f);
 
-        public float Hp { get; private set; }
-        public bool IsAlive => !dead && Hp > 0f;
-
         private Transform visual;
         private SpriteRenderer sr;
         private SpriteRenderer hpFillSr;
@@ -114,28 +111,32 @@ namespace pjs
         private ProceduralCharacterController playerCtrl;
         private TutorialBossMapTest arenaMap;
 
-        private State state = State.Idle;
+        private State minoState = State.Idle;
         private float stateTimer;
-        private float facing = 1f; // +1 = Right, -1 = Left
-        private Vector2 velocity;
-        private bool grounded;
-        private bool dead;
         private bool attackHitDealt;
         private float flashT = -1f;
         private float pendingAttackLungeSpeed;
         private float pendingAttackTime;
+        private bool pendingNextHitCritical;
+        private Vector2 lastHitDirection = Vector2.right;
 
         private static readonly float[] Blink = { 0.045f, 0.035f, 0.035f };
 
         private void Awake()
         {
-            Hp = maxHp;
             gameObject.layer = Layers.Enemy;
 
             col = GetComponent<BoxCollider2D>();
             col.isTrigger = true;
             hitboxOffset = col.offset;
             hitboxSize = col.size;
+            Col = col;
+            halfSize = hitboxSize * 0.5f;
+            MaxHp = maxHp;
+            Hp = maxHp;
+            DisplayName = "미노타우로스";
+            baseColor = Color.white;
+            spawnPos = transform.position;
 
             var existingHead = transform.Find("HeadHitbox");
             if (existingHead != null && existingHead.TryGetComponent(out BoxCollider2D existingHeadCol))
@@ -172,6 +173,11 @@ namespace pjs
             BuildHpBar();
         }
 
+        protected override void BuildVisual(Color c, bool elite)
+        {
+            // MinotourEnemy는 Awake()에서 자체 스프라이트/콜라이더를 구성하므로 Enemy 기본 사각형 비주얼을 생성하지 않는다.
+        }
+
         private void BuildHpBar()
         {
             var oldBar = transform.Find("HpBar");
@@ -203,7 +209,44 @@ namespace pjs
             arenaMap = FindFirstObjectByType<TutorialBossMapTest>();
 
             SnapToGround();
+            EnsureRegisteredInRoom();
             EnterState(State.Idle);
+        }
+
+        private void EnsureEnemyInitialized()
+        {
+            if (Status != null) return;
+            var room = Room != null ? Room : FindAnyObjectByType<Room>();
+            var def = new EnemyDef
+            {
+                id = "minotour",
+                name = "미노타우로스",
+                ai = "minotour",
+                hp = maxHp,
+                speed = dashApproachSpeed,
+                damage = attackDamage,
+                w = hitboxSize.x,
+                h = hitboxSize.y,
+                color = "#B04030",
+                gold = 0
+            };
+            Init(room, def, 1f, 1f, false);
+            ContactDamage = 0f;
+            goldValue = 0;
+            halfSize = hitboxSize * 0.5f;
+            baseColor = Color.white;
+            Col = col;
+            facing = 1f;
+        }
+
+        private void EnsureRegisteredInRoom()
+        {
+            EnsureEnemyInitialized();
+            var room = Room != null ? Room : FindAnyObjectByType<Room>();
+            if (room != null && !dead && !room.Enemies.Contains(this))
+            {
+                room.Enemies.Add(this);
+            }
         }
 
         private void FindPlayer()
@@ -226,14 +269,20 @@ namespace pjs
             }
         }
 
-        private void Update()
+        protected override void Update()
         {
             if (dead) return;
+            EnsureRegisteredInRoom();
             if (player == null) FindPlayer();
 
             float dt = Time.deltaTime;
+            if (Status != null)
+            {
+                Status.Tick(dt);
+                if (dead) return;
+            }
             UpdateFlash(dt);
-            UpdateStateMachine(dt);
+            if (Status == null || Status.stunT <= 0f) UpdateStateMachine(dt);
             MoveAndCollide(dt);
         }
 
@@ -241,7 +290,7 @@ namespace pjs
         {
             stateTimer -= dt;
 
-            switch (state)
+            switch (minoState)
             {
                 case State.Idle:
                     velocity.x = Mathf.MoveTowards(velocity.x, 0f, 30f * dt);
@@ -381,7 +430,7 @@ namespace pjs
 
         private void EnterState(State next)
         {
-            state = next;
+            minoState = next;
             Vector2 offset = Vector2.zero;
 
             switch (next)
@@ -516,9 +565,53 @@ namespace pjs
             }
         }
 
+        public bool IsHeadHit(Transform part, Vector2 worldPoint)
+        {
+            if (part != null && part == headCol?.transform) return true;
+            return IsHeadShot(worldPoint);
+        }
+
+        public void MarkNextHitCritical() => pendingNextHitCritical = true;
+
+        public override void TakeDamage(float amount, string label, Color color, bool isArrowHit)
+        {
+            if (dead || amount <= 0f) return;
+            EnsureEnemyInitialized();
+
+            bool crit = pendingNextHitCritical;
+            pendingNextHitCritical = false;
+
+            if (Status != null && Status.calamity > 0)
+            {
+                amount *= 2f;
+                Status.calamity--;
+                Fx.Text(Center + Vector3.up * 0.8f, "재앙!", new Color(0.7f, 0.3f, 1f), 20, 0.6f);
+            }
+            if (Status != null) amount *= Status.DamageTakenMul;
+
+            Hp = Mathf.Max(0f, Hp - amount);
+            UpdateHpBar();
+            flashT = 0f;
+
+            int dmgInt = Mathf.Max(1, Mathf.RoundToInt(amount));
+            DamagePopup.Spawn(transform.position + Vector3.up * 1.4f + new Vector3(Random.Range(-0.2f, 0.2f), 0f, 0f), dmgInt, crit, crit ? new Color(1f, 0.88f, 0.25f, 1f) : color);
+
+            if (isArrowHit && Status != null && Status.resonanceDamage > 0f && Room != null)
+            {
+                float rd = Status.resonanceDamage;
+                Status.resonanceDamage = 0f;
+                Fx.Circle(Center, 2.6f, new Color(0.5f, 0.9f, 1f), 0.08f, 0.3f);
+                Room.Explode(Center, 2.6f, rd, null, new Color(0.5f, 0.9f, 1f), "공명");
+            }
+            if (Status != null && Status.midasT > 0f) DropMidasGold(false);
+            OnDamaged(amount);
+            if (Hp <= 0f) Die();
+        }
+
         public void TakeLaserHit(int damage, bool critical, Vector2 point, Vector2 dir)
         {
             if (dead) return;
+            lastHitDirection = dir.sqrMagnitude > 0.001f ? dir.normalized : Vector2.right;
 
             bool isHead = IsHeadShot(point);
             if (isHead)
@@ -534,7 +627,7 @@ namespace pjs
             Fx.Burst(point, critical ? new Color(1f, 0.85f, 0.2f) : new Color(0.95f, 0.25f, 0.25f), critical ? 10 : 5, critical ? 6f : 4f, critical ? 0.14f : 0.1f, 0.28f);
             Sfx.Play("hit", critical ? 0.95f : 0.7f, critical ? 0.8f : Random.Range(0.95f, 1.15f));
 
-            if (Hp <= 0f) Die(dir);
+            if (Hp <= 0f) Die();
         }
 
         private void TryDamagePlayer(float dmg, float reachX, float reachY, bool frontOnly)
@@ -611,10 +704,9 @@ namespace pjs
             }
         }
 
-        private void Die(Vector2 hitDir)
+        protected override void OnDeathVisual()
         {
-            dead = true;
-            col.enabled = false;
+            Vector2 hitDir = lastHitDirection;
             Fx.Burst(transform.position + Vector3.up * 1f, new Color(0.85f, 0.15f, 0.15f), 18, 7f, 0.18f, 0.5f);
             Sfx.Play("hit", 1f, 0.55f);
 
