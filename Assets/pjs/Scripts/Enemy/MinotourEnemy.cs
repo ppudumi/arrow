@@ -63,6 +63,10 @@ namespace pjs
         public Vector2 hpBarOffset = new Vector2(0f, 2.65f);
         public Vector2 hpBarSize = new Vector2(2.2f, 0.22f);
 
+        [Header("Drop Presentation (연출용 골드·경험치)")]
+        public int dropGold = 25;
+        public int dropExp = 40;
+
         [Header("Movement & Physics")]
         public LayerMask groundLayer = 1 << 8; // Terrain
         public new float gravity = 40f;
@@ -104,6 +108,7 @@ namespace pjs
         private Transform visual;
         private SpriteRenderer sr;
         private SpriteRenderer hpFillSr;
+        private SpriteRenderer hpTrailSr;
         private BoxCollider2D col;
         private BoxCollider2D headCol;
         private Transform player;
@@ -115,6 +120,8 @@ namespace pjs
         private float stateTimer;
         private bool attackHitDealt;
         private float flashT = -1f;
+        private float hpTrailRatio = 1f;
+        private float hpTrailDelay;
         private float pendingAttackLungeSpeed;
         private float pendingAttackTime;
         private bool pendingNextHitCritical;
@@ -189,8 +196,11 @@ namespace pjs
 
             Art.Quad(barRoot, "Bg", Art.Square, new Color(0.08f, 0.08f, 0.08f, 0.85f),
                 new Vector2(hpBarSize.x + 0.08f, hpBarSize.y + 0.08f), sortingOrder + 5, Vector3.zero);
-            hpFillSr = Art.Quad(barRoot, "Fill", Art.Square, new Color(0.92f, 0.22f, 0.22f, 1f),
+            hpTrailSr = Art.Quad(barRoot, "TrailFill", Art.Square, new Color(1f, 0.84f, 0.18f, 1f),
                 hpBarSize, sortingOrder + 6, Vector3.zero);
+            hpFillSr = Art.Quad(barRoot, "Fill", Art.Square, new Color(0.92f, 0.22f, 0.22f, 1f),
+                hpBarSize, sortingOrder + 7, Vector3.zero);
+            hpTrailRatio = 1f;
             UpdateHpBar();
         }
 
@@ -198,9 +208,38 @@ namespace pjs
         {
             if (hpFillSr == null) return;
             float ratio = maxHp > 0f ? Mathf.Clamp01(Hp / maxHp) : 0f;
-            float w = hpBarSize.x * ratio;
-            hpFillSr.transform.localScale = new Vector3(w, hpBarSize.y, 1f);
-            hpFillSr.transform.localPosition = new Vector3((w - hpBarSize.x) * 0.5f, 0f, 0f);
+            ApplyBarRatio(hpFillSr, ratio);
+            if (ratio < hpTrailRatio) hpTrailDelay = 0.25f;
+            else hpTrailRatio = ratio;
+            ApplyBarRatio(hpTrailSr, hpTrailRatio);
+        }
+
+        private void ApplyBarRatio(SpriteRenderer barSr, float ratio)
+        {
+            if (barSr == null) return;
+            float w = hpBarSize.x * Mathf.Clamp01(ratio);
+            barSr.transform.localScale = new Vector3(w, hpBarSize.y, 1f);
+            barSr.transform.localPosition = new Vector3((w - hpBarSize.x) * 0.5f, 0f, 0f);
+        }
+
+        private void UpdateHpBarTrail(float dt)
+        {
+            if (hpTrailSr == null) return;
+            float target = maxHp > 0f ? Mathf.Clamp01(Hp / maxHp) : 0f;
+            if (hpTrailRatio <= target)
+            {
+                hpTrailRatio = target;
+                ApplyBarRatio(hpTrailSr, hpTrailRatio);
+                return;
+            }
+            if (hpTrailDelay > 0f)
+            {
+                hpTrailDelay -= dt;
+                return;
+            }
+            float speed = Mathf.Max(0.28f, (hpTrailRatio - target) * 3.0f);
+            hpTrailRatio = Mathf.MoveTowards(hpTrailRatio, target, speed * dt);
+            ApplyBarRatio(hpTrailSr, hpTrailRatio);
         }
 
         private void Start()
@@ -232,7 +271,8 @@ namespace pjs
             };
             Init(room, def, 1f, 1f, false);
             ContactDamage = 0f;
-            goldValue = 0;
+            goldValue = dropGold;
+            expValue = dropExp;
             halfSize = hitboxSize * 0.5f;
             baseColor = Color.white;
             Col = col;
@@ -282,6 +322,7 @@ namespace pjs
                 if (dead) return;
             }
             UpdateFlash(dt);
+            UpdateHpBarTrail(dt);
             if (Status == null || Status.stunT <= 0f) UpdateStateMachine(dt);
             MoveAndCollide(dt);
         }
@@ -594,7 +635,12 @@ namespace pjs
             flashT = 0f;
 
             int dmgInt = Mathf.Max(1, Mathf.RoundToInt(amount));
-            DamagePopup.Spawn(transform.position + Vector3.up * 1.4f + new Vector3(Random.Range(-0.2f, 0.2f), 0f, 0f), dmgInt, crit, crit ? new Color(1f, 0.88f, 0.25f, 1f) : color);
+            bool frenzy = (playerCtrl != null && playerCtrl.IsFrenzy) || (GameRoot.I?.Avatar?.Controller?.IsFrenzy ?? false);
+            Color popColor = frenzy
+                ? (crit ? new Color(0.12f, 0.58f, 1f, 1f) : new Color(0.45f, 0.88f, 1f, 1f))
+                : (crit ? new Color(1f, 0.88f, 0.25f, 1f) : color);
+            float popScale = frenzy && crit ? 1.35f : 1f;
+            DamagePopup.Spawn(transform.position + Vector3.up * 1.4f + new Vector3(Random.Range(-0.2f, 0.2f), 0f, 0f), dmgInt, crit, popColor, popScale);
 
             if (isArrowHit && Status != null && Status.resonanceDamage > 0f && Room != null)
             {
@@ -623,7 +669,10 @@ namespace pjs
             Hp = Mathf.Max(0f, Hp - damage);
             UpdateHpBar();
             flashT = 0f;
-            DamagePopup.Spawn(point + new Vector2(Random.Range(-0.2f, 0.2f), 0.3f), damage, critical);
+            bool frenzy = (playerCtrl != null && playerCtrl.IsFrenzy) || (GameRoot.I?.Avatar?.Controller?.IsFrenzy ?? false);
+            Color? popColor = frenzy ? (critical ? new Color(0.12f, 0.58f, 1f, 1f) : new Color(0.45f, 0.88f, 1f, 1f)) : (Color?)null;
+            float popScale = frenzy && critical ? 1.35f : 1f;
+            DamagePopup.Spawn(point + new Vector2(Random.Range(-0.2f, 0.2f), 0.3f), damage, critical, popColor, popScale);
             Fx.Burst(point, critical ? new Color(1f, 0.85f, 0.2f) : new Color(0.95f, 0.25f, 0.25f), critical ? 10 : 5, critical ? 6f : 4f, critical ? 0.14f : 0.1f, 0.28f);
             Sfx.Play("hit", critical ? 0.95f : 0.7f, critical ? 0.8f : Random.Range(0.95f, 1.15f));
 
@@ -647,6 +696,7 @@ namespace pjs
                 {
                     attackHitDealt = true;
                     DamagePopup.SpawnText(player.position + Vector3.up * 1.4f, "DODGE!", new Color(0.55f, 0.95f, 1f, 1f));
+                    playerCtrl.TriggerDodgeFlameAura(2f);
                     return;
                 }
 
@@ -692,14 +742,20 @@ namespace pjs
 
         private void UpdateFlash(float dt)
         {
-            if (flashT < 0f || sr == null) return;
+            if (sr == null) return;
+            Color restColor = (Status != null && Status.burnT > 0f) ? new Color(1f, 0.42f, 0.36f, 1f) : Color.white;
+            if (flashT < 0f)
+            {
+                sr.color = restColor;
+                return;
+            }
             flashT += dt;
             float t = flashT;
             bool white = t < Blink[0] || (t >= Blink[0] + Blink[1] && t < Blink[0] + Blink[1] + Blink[2]);
-            sr.color = white ? new Color(1f, 0.35f, 0.35f, 1f) : Color.white;
+            sr.color = white ? new Color(1f, 0.35f, 0.35f, 1f) : restColor;
             if (t >= Blink[0] + Blink[1] + Blink[2])
             {
-                sr.color = Color.white;
+                sr.color = restColor;
                 flashT = -1f;
             }
         }

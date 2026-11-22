@@ -105,4 +105,75 @@ namespace Laurel
             sr.sprite = frames[frame];
         }
     }
+
+    /// <summary>
+    /// 오르페우스 회수 방식 활성화 시 캐릭터 위쪽 뒤를 떠다니며 따라오는 황금 현악기(리라).
+    /// 회수 트리거 발동 시 이 악기 위치에서 파동과 빛 이펙트가 방출된다.
+    /// </summary>
+    public class OrpheusLyreFx : MonoBehaviour
+    {
+        public const string ResourcePath = "LaurelFx/orpheus-lyre";
+        public const float PixelsPerUnit = 54f;
+        public const int SortingOrder = 5;
+
+        private static Sprite cachedSprite;
+
+        private SpriteRenderer sr;
+        private System.Func<Vector2> targetPosFn;
+        private float pulse;
+
+        private static Sprite LoadSprite()
+        {
+            if (cachedSprite != null) return cachedSprite;
+            var tex = Resources.Load<Texture2D>(ResourcePath);
+            if (tex == null)
+            {
+                Debug.LogWarning("[Laurel] 오르페우스 현악기 리소스가 없습니다: " + ResourcePath);
+                return null;
+            }
+            tex.filterMode = FilterMode.Point;
+            cachedSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), PixelsPerUnit, 0, SpriteMeshType.FullRect);
+            return cachedSprite;
+        }
+
+        public static OrpheusLyreFx Create(System.Func<Vector2> getTargetPos)
+        {
+            var sp = LoadSprite();
+            if (sp == null) return null;
+            var go = new GameObject("OrpheusLyre_Follower");
+            var lyre = go.AddComponent<OrpheusLyreFx>();
+            lyre.targetPosFn = getTargetPos;
+            lyre.sr = go.AddComponent<SpriteRenderer>();
+            lyre.sr.sprite = sp;
+            lyre.sr.sortingOrder = SortingOrder;
+            if (getTargetPos != null)
+            {
+                Vector2 p = getTargetPos();
+                go.transform.position = new Vector3(p.x, p.y, -0.05f);
+            }
+            return lyre;
+        }
+
+        public void TriggerPulse() => pulse = 1f;
+
+        private void LateUpdate()
+        {
+            float dt = Time.deltaTime;
+            if (targetPosFn != null)
+            {
+                Vector2 baseTarget = targetPosFn();
+                float bob = Mathf.Sin(Time.time * 3.2f) * 0.07f;
+                Vector3 want = new Vector3(baseTarget.x, baseTarget.y + bob, -0.05f);
+                transform.position = Vector3.Lerp(transform.position, want, 1f - Mathf.Exp(-14f * dt));
+            }
+
+            if (pulse > 0f) pulse = Mathf.Max(0f, pulse - dt * 3.2f);
+            float sc = 1f + pulse * 0.32f;
+            transform.localScale = new Vector3(sc, sc, 1f);
+            transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Sin(Time.time * 2.1f) * 4f);
+
+            if (sr != null)
+                sr.color = Color.Lerp(Color.white, new Color(0.85f, 1f, 1f, 1f), pulse);
+        }
+    }
 }

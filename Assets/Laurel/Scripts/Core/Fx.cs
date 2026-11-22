@@ -142,6 +142,44 @@ namespace Laurel
             go.AddComponent<ScytheSlashFx>().Init(radius, dir.x < 0f, duration);
         }
 
+        /// <summary>적 처치 시 연출용 골드/경험치 오브를 흩뿌리고 플레이어에게 흡수시킨다.</summary>
+        public static void SpawnDropOrbs(Vector2 pos, int gold, int exp)
+        {
+            SpawnOrbBatch(pos, gold, isExp: false, new Color(1f, 0.85f, 0.25f, 1f), 0.26f);
+            SpawnOrbBatch(pos, exp, isExp: true, new Color(0.35f, 0.95f, 1f, 1f), 0.22f);
+        }
+
+        /// <summary>데드셀 스타일 테스트용 투척 폭탄을 생성합니다.</summary>
+        public static void SpawnBomb(Room room, Vector2 pos, Vector2 velocity, float damage, float radius)
+        {
+            var go = new GameObject("TestBomb");
+            go.layer = Layers.Enemy;
+            go.transform.position = new Vector3(pos.x, pos.y, -0.1f);
+            Art.Quad(go.transform, "Body", Art.Square, new Color(0.24f, 0.04f, 0.06f, 1f), new Vector2(0.75f, 0.52f), 25);
+            Art.Quad(go.transform, "Core", Art.Square, new Color(0.95f, 0.18f, 0.14f, 1f), new Vector2(0.22f, 0.14f), 26, new Vector3(0.22f, 0.12f, 0f));
+            var col = go.AddComponent<BoxCollider2D>();
+            col.isTrigger = true;
+            col.size = new Vector2(1.45f, 1.25f);
+            go.AddComponent<TestBombProjectile>().Init(room, velocity, damage, radius);
+        }
+
+        private static void SpawnOrbBatch(Vector2 pos, int total, bool isExp, Color color, float size)
+        {
+            if (total <= 0) return;
+            int count = Mathf.Clamp(total / 6 + 1, 1, 5);
+            int per = Mathf.Max(1, total / count);
+            int rest = total;
+            for (int i = 0; i < count && rest > 0; i++)
+            {
+                int val = i == count - 1 ? rest : Mathf.Min(per, rest);
+                rest -= val;
+                var go = new GameObject(isExp ? "ExpOrb" : "GoldOrb");
+                go.transform.position = new Vector3(pos.x, pos.y, -0.1f);
+                Art.Quad(go.transform, "c", Art.Circle, color, Vector2.one * size, 22);
+                go.AddComponent<PresentationDropOrb>().Init(val, isExp, new Vector2(Random.Range(-3.2f, 3.2f), Random.Range(4.5f, 8.5f)));
+            }
+        }
+
         public static void Sector(Vector2 o, Vector2 dir, float r, float angle, Color color, float width, float life)
         {
             var pts = new List<Vector3> { o };
@@ -240,9 +278,11 @@ namespace Laurel
         [Tooltip("이 속도(유닛/초)보다 빨리 떨어지면 아래를 비추기 시작")]
         public float fallSpeedThreshold = 8f;
         [Tooltip("앞·아래 미리보기가 바뀌는 빠르기 (클수록 즉각)")]
-        public float lookSmoothing = 3f;
-        [Tooltip("플레이어 기준 커서 방향으로 카메라가 더 나아가는 최대 거리 (월드 유닛)")]
-        public float cursorLookAhead = 4.5f;
+        public float lookSmoothing = 10f;
+        [Tooltip("카메라가 플레이어를 따라가는 속도 (낮을수록 부드럽고 클수록 빠름)")]
+        public float followSmoothing = 10f;
+        [Tooltip("플레이어 기준 커서 방향으로 카메라가 즉시 이동하는 최대 거리 (월드 유닛)")]
+        public float cursorLookAhead = 1.4f;
         [Tooltip("커서가 플레이어에서 이 거리 이상 떨어지면 최대 cursorLookAhead 적용")]
         public float cursorLookRange = 12f;
         [Tooltip("커서 상하(Y) 방향 추적 비율 (0=가로만, 1=가로와 동일)")]
@@ -253,6 +293,7 @@ namespace Laurel
 
         private float shake;
         private Vector3 basePos;
+        private Vector3 playerFollowPos;
         private Vector2 look;
         private Rigidbody2D targetBody;
 
@@ -265,6 +306,7 @@ namespace Laurel
             I = this;
             Cam = GetComponent<Camera>();
             basePos = transform.position;
+            playerFollowPos = transform.position;
         }
 
         public void Setup(Rect worldBounds, float orthoSize, Color bg)
@@ -278,7 +320,8 @@ namespace Laurel
         public void SnapToTarget()
         {
             look = Vector2.zero;
-            basePos = Clamp(target != null ? target.position + Vector3.up * lookUp : (Vector3)bounds.center);
+            playerFollowPos = target != null ? target.position + Vector3.up * lookUp : (Vector3)bounds.center;
+            basePos = Clamp(playerFollowPos);
             transform.position = basePos;
         }
 
@@ -298,8 +341,9 @@ namespace Laurel
 
         private void LateUpdate()
         {
-            // 앞(달리는 방향)·아래(빠른 낙하) 미리보기
+            // 1) 플레이어 이동·낙하 미리보기 + 부드러운 플레이어 추적
             Vector2 lookWant = Vector2.zero;
+            Vector3 cursorOffset = Vector3.zero;
             if (target != null)
             {
                 if (targetBody == null || targetBody.transform != target) targetBody = target.GetComponent<Rigidbody2D>();
@@ -309,6 +353,7 @@ namespace Laurel
                     lookWant.x = Mathf.Clamp(v.x / 10f, -1f, 1f) * lookAhead;
                     if (v.y < -fallSpeedThreshold) lookWant.y = -fallLookDown;
                 }
+                // 2) 마우스 커서 오프셋은 항상 즉각 반영
                 if (Cam != null && cursorLookAhead > 0f)
                 {
                     Vector2 mouseScreen = GetMouseScreenPos();
@@ -319,14 +364,15 @@ namespace Laurel
                     {
                         float t = Mathf.Clamp01(dist / Mathf.Max(0.1f, cursorLookRange));
                         Vector2 dir = toCursor / dist;
-                        lookWant += new Vector2(dir.x, dir.y * cursorLookVerticalWeight) * (cursorLookAhead * t);
+                        cursorOffset = new Vector3(dir.x, dir.y * cursorLookVerticalWeight, 0f) * (cursorLookAhead * t);
                     }
                 }
             }
             look = Vector2.Lerp(look, lookWant, 1f - Mathf.Exp(-lookSmoothing * Time.unscaledDeltaTime));
-            Vector3 want = target != null ? target.position + Vector3.up * lookUp + (Vector3)look : (Vector3)bounds.center;
-            if (focus2 != null && target != null) want = Vector3.Lerp(want, focus2.position, focus2Weight);
-            basePos = Vector3.Lerp(basePos, Clamp(want), 1f - Mathf.Exp(-8f * Time.unscaledDeltaTime));
+            Vector3 wantPlayer = target != null ? target.position + Vector3.up * lookUp + (Vector3)look : (Vector3)bounds.center;
+            if (focus2 != null && target != null) wantPlayer = Vector3.Lerp(wantPlayer, focus2.position, focus2Weight);
+            playerFollowPos = Vector3.Lerp(playerFollowPos, wantPlayer, 1f - Mathf.Exp(-followSmoothing * Time.unscaledDeltaTime));
+            basePos = Clamp(playerFollowPos + cursorOffset);
             Vector3 off = Vector3.zero;
             if (shake > 0f)
             {
@@ -444,6 +490,170 @@ namespace Laurel
             }
 
             if (t >= 1f) Destroy(gameObject);
+        }
+    }
+
+    /// <summary>적 처치 시 튀어 올랐다가 플레이어에게 흡수되며 연출용 골드/경험치 수치만 올리는 오브</summary>
+    public class PresentationDropOrb : MonoBehaviour
+    {
+        private int amount;
+        private bool isExp;
+        private Vector2 vel;
+        private float elapsed;
+
+        public void Init(int value, bool exp, Vector2 initialVel)
+        {
+            amount = value;
+            isExp = exp;
+            vel = initialVel;
+        }
+
+        private void Update()
+        {
+            float dt = Time.deltaTime;
+            elapsed += dt;
+
+            if (elapsed < 0.36f)
+            {
+                vel.y -= 22f * dt;
+                transform.position += (Vector3)(vel * dt);
+                return;
+            }
+
+            var root = GameRoot.I;
+            if (root == null || root.PlayerGO == null)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            Vector3 target = root.PlayerGO.transform.position + Vector3.up * 0.45f;
+            Vector3 to = target - transform.position;
+            float dist = to.magnitude;
+            float speed = Mathf.Min(26f, 10f + (elapsed - 0.36f) * 28f);
+            if (dist <= Mathf.Max(0.42f, speed * dt))
+            {
+                if (isExp) root.AddPresentationExp(amount);
+                else
+                {
+                    root.AddPresentationGold(amount);
+                    Sfx.Play("coin", 0.35f);
+                }
+                Destroy(gameObject);
+                return;
+            }
+            transform.position += (to / dist) * (speed * dt);
+        }
+    }
+
+    /// <summary>데드셀 스타일 투척 폭탄: 포물선으로 날아가 지형에 튕기고, 화살 피격 시 즉시 또는 3초 후 광역 폭발한다.</summary>
+    public class TestBombProjectile : MonoBehaviour, ILaserTarget
+    {
+        private Room room;
+        private Vector2 vel;
+        private float damage;
+        private float radius;
+        private float fuse = 3f;
+        private float sparkTimer;
+        private bool exploded;
+
+        public void Init(Room r, Vector2 initialVel, float dmg, float rad)
+        {
+            room = r;
+            vel = initialVel;
+            damage = dmg;
+            radius = rad;
+        }
+
+        public void TakeLaserHit(int hitDamage, bool critical, Vector2 point, Vector2 dir)
+        {
+            Explode();
+        }
+
+        private void Update()
+        {
+            if (exploded) return;
+            float dt = Time.deltaTime;
+            fuse -= dt;
+
+            vel.y -= 28f * dt;
+            Vector2 pos = transform.position;
+            Vector2 step = vel * dt;
+            float dist = step.magnitude;
+
+            if (dist > 0.0001f)
+            {
+                Vector2 dir = step / dist;
+                // 적 직격 체크 (자기 자신 콜라이더 제외)
+                var enemyHit = Physics2D.CircleCast(pos, 0.28f, dir, dist, Layers.EnemyMask);
+                if (enemyHit.collider != null && enemyHit.collider.gameObject != gameObject && enemyHit.collider.GetComponentInParent<Enemy>() is Enemy e && e.IsAlive)
+                {
+                    transform.position = enemyHit.point;
+                    Explode();
+                    return;
+                }
+
+                // 지형 바운스 체크
+                var wallHit = Physics2D.CircleCast(pos, 0.26f, dir, dist, Layers.TerrainMask);
+                if (wallHit.collider != null && !wallHit.collider.isTrigger)
+                {
+                    pos = wallHit.point + wallHit.normal * 0.26f;
+                    if (Mathf.Abs(wallHit.normal.x) > 0.5f) vel.x = -vel.x * 0.55f;
+                    if (Mathf.Abs(wallHit.normal.y) > 0.5f) vel.y = -vel.y * 0.45f;
+                    vel.x *= 0.82f;
+                }
+                else
+                {
+                    pos += step;
+                }
+            }
+
+            transform.position = new Vector3(pos.x, pos.y, -0.1f);
+            transform.Rotate(0f, 0f, -vel.x * 45f * dt);
+
+            sparkTimer -= dt;
+            if (sparkTimer <= 0f)
+            {
+                sparkTimer = 0.05f;
+                Fx.Burst(pos, new Color(1f, 0.35f, 0.15f), 2, 2.5f, 0.12f, 0.22f, 4f);
+            }
+
+            if (fuse <= 0f) Explode();
+        }
+
+        private void Explode()
+        {
+            if (exploded) return;
+            exploded = true;
+            Vector2 center = transform.position;
+
+            if (room != null)
+            {
+                room.Explode(center, radius, damage, null, new Color(1f, 0.38f, 0.14f), "폭탄");
+                foreach (var e in new List<Enemy>(room.Enemies))
+                {
+                    if (e != null && e.IsAlive && e.DistanceFrom(center) <= radius)
+                        e.Status?.ApplyBurn(4f, 2f); // 0.5초당 1 피해 (burnDps=2 * 0.5s)
+                }
+            }
+            else
+            {
+                Fx.Burst(center, new Color(1f, 0.38f, 0.14f), 24, 10f, 0.24f, 0.45f, 2f);
+                Sfx.Play("boom", 0.6f);
+                foreach (var e in Object.FindObjectsByType<Enemy>(FindObjectsSortMode.None))
+                {
+                    if (e != null && e.IsAlive && e.DistanceFrom(center) <= radius)
+                    {
+                        e.TakeDamage(damage, "폭탄", new Color(1f, 0.38f, 0.14f), false);
+                        e.Status?.ApplyBurn(4f, 2f);
+                    }
+                }
+            }
+
+            Fx.WaveRing(center, 1.45f, 0.34f, new Color(1f, 0.55f, 0.2f, 1f));
+            Fx.Burst(center, new Color(1f, 0.85f, 0.28f), 16, 11f, 0.2f, 0.38f, 6f);
+            CameraRig.Shake(0.28f);
+            Destroy(gameObject);
         }
     }
 }

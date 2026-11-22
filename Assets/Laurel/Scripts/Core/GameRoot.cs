@@ -71,6 +71,14 @@ namespace Laurel
         public bool DevMode { get; set; }
         public bool SelfTestRunning { get; set; }
 
+        // 연출용 골드·레벨(경험치) 표시 카운터 (기능 없음, 숫자만 증가)
+        public int DisplayGold { get; private set; }
+        public int DisplayExp { get; private set; }
+        public int DisplayLevel => 1 + DisplayExp / 100;
+        public int DisplayExpInLevel => DisplayExp % 100;
+        public void AddPresentationGold(int amount) { if (amount > 0) DisplayGold += amount; }
+        public void AddPresentationExp(int amount) { if (amount > 0) DisplayExp += amount; }
+
         // 스토리
         public readonly List<StoryLine> StoryQueue = new List<StoryLine>();
         public int StoryIndex { get; private set; }

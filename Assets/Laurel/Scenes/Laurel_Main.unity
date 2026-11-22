@@ -583,7 +583,7 @@ MonoBehaviour:
   lookAhead: 2.5
   fallLookDown: 2.5
   fallSpeedThreshold: 8
-  lookSmoothing: 3
+  lookSmoothing: 10
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

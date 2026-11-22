@@ -78,6 +78,8 @@ namespace Laurel
         public override void Tick(CombatInput input, float dt)
         {
             base.Tick(input, dt);
+            if (lyre == null) lyre = OrpheusLyreFx.Create(LyreAnchor);
+
             Holding = input.recallDown || input.recallHeld;
             if (input.recallDown)
             {
@@ -93,21 +95,31 @@ namespace Laurel
                 {
                     combat.Log($"부르기: {started}발 귀환 시작");
                     Sfx.Play("recall", 0.5f);
-                    Fx.WaveRing(combat.PlayerCenter, 1f, 0.45f);
-                    Fx.WaveRing(combat.PlayerCenter, 0.65f, 0.35f);
+                    Vector2 emitPos = lyre != null ? (Vector2)lyre.transform.position : combat.PlayerCenter;
+                    lyre?.TriggerPulse();
+                    Fx.WaveRing(emitPos, 1f, 0.45f);
+                    Fx.WaveRing(emitPos, 0.65f, 0.35f);
+                    Fx.Burst(emitPos, new Color(1f, 0.88f, 0.45f), 8, 4.5f, 0.12f, 0.32f, 0f);
                 }
             }
 
-            // 부르기 이펙트: 부르기로 돌아오는 화살이 있는 동안 표시
+            // 부르기 이펙트: 부르기로 돌아오는 화살이 있는 동안 현악기 위치에 표시
             if (CountReturning(Source) > 0)
             {
-                if (fx == null) fx = RecallFx.Create(() => combat.PlayerCenter);
+                if (fx == null) fx = RecallFx.Create(() => lyre != null ? (Vector2)lyre.transform.position : combat.PlayerCenter);
                 if (fx != null) fx.Pulse();
             }
             else if (fx != null) fx.Hide();
         }
 
+        private Vector2 LyreAnchor()
+        {
+            float facing = combat.Aim != null && !combat.Aim.IsFacingRight ? -1f : 1f;
+            return combat.PlayerCenter + new Vector2(-facing * 0.72f, 1.05f);
+        }
+
         private RecallFx fx;
+        private OrpheusLyreFx lyre;
         /// <summary>검증용: 지금 이펙트가 보이는지</summary>
         public bool FxVisible => fx != null && fx.Visible;
 
@@ -115,6 +127,8 @@ namespace Laurel
         {
             if (fx != null) Object.Destroy(fx.gameObject);
             fx = null;
+            if (lyre != null) Object.Destroy(lyre.gameObject);
+            lyre = null;
         }
 
         public override string StatusText() => $"R 누르기: 부르기 (귀환 중 {CountReturning(Source)}발)";

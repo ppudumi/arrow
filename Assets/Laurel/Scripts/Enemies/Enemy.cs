@@ -71,8 +71,8 @@ namespace Laurel
             if (burnT > 0f)
             {
                 burnT -= dt; burnTick += dt;
-                if (burnTick >= 0.5f) { burnTick = 0f; owner.TakeDamage(burnDps * 0.5f, "화염", new Color(1f, 0.5f, 0.2f), false); }
-                if (Random.value < 0.3f) Fx.Burst(owner.Center, new Color(1f, 0.5f, 0.1f), 1, 2f, 0.12f, 0.3f, -4f);
+                if (burnTick >= 0.5f) { burnTick = 0f; owner.TakeDamage(burnDps * 0.5f, "화염", new Color(1f, 0.25f, 0.2f), false); }
+                if (Random.value < 0.45f) Fx.Burst(owner.Center + Vector3.up * 0.6f, new Color(1f, 0.22f, 0.15f), 1, 2.5f, 0.15f, 0.35f, -5f);
             }
             if (midasT > 0f) midasT -= dt;
             if (midasGoldCd > 0f) midasGoldCd -= dt;
@@ -133,6 +133,7 @@ namespace Laurel
         public float lastArrowDamage;
         public int lastHitCardUid;
         public int goldValue;
+        public int expValue = 15;
         public float speed;
         /// <summary>검증용: 받은 피해 누적</summary>
         public float DamageTaken { get; private set; }
@@ -172,6 +173,7 @@ namespace Laurel
             ContactDamage = Damage;
             speed = def.speed * (elite ? 1.1f : 1f);
             goldValue = Mathf.RoundToInt(def.gold * (elite ? 3f : 1f));
+            expValue = Mathf.Max(5, Mathf.RoundToInt(def.hp * 0.4f * (elite ? 2f : 1f)));
             halfSize = new Vector2(def.w, def.h) * 0.5f * sizeMul;
             baseColor = def.tint;
             BuildVisual(def.tint, elite);
@@ -230,6 +232,7 @@ namespace Laurel
             if (bodySr != null)
             {
                 Color c = flash > 0f ? Color.white : baseColor;
+                if (Status.burnT > 0f) c = Color.Lerp(c, new Color(1f, 0.25f, 0.2f), 0.5f);
                 if (Status.midasT > 0f) c = Color.Lerp(c, new Color(1f, 0.85f, 0.2f), 0.5f);
                 if (Status.sisyT > 0f) c = Color.Lerp(c, new Color(0.5f, 0.4f, 0.3f), 0.4f);
                 bodySr.color = c;
@@ -324,7 +327,9 @@ namespace Laurel
             DamageTaken += amount;
             if (isArrowHit) HitsTaken++;
             flash = 0.08f;
-            Fx.Text(Center + Vector3.up * (halfSize.y + 0.2f), amount.ToString("0.#"), color, isArrowHit ? 28 : 22);
+            bool frenzy = GameRoot.I?.Avatar?.Controller?.IsFrenzy ?? false;
+            Color popColor = frenzy ? new Color(0.45f, 0.88f, 1f, 1f) : color;
+            Fx.Text(Center + Vector3.up * (halfSize.y + 0.2f), amount.ToString("0.#"), popColor, isArrowHit ? 28 : 22);
             if (isArrowHit && Status.resonanceDamage > 0f && Room != null)
             {
                 float rd = Status.resonanceDamage;
@@ -391,6 +396,7 @@ namespace Laurel
             foreach (var a in new List<ArrowBody>(StuckArrows)) a.OnEnemyLost();
             StuckArrows.Clear();
             Fx.Burst(Center, baseColor, 16, 7f, 0.22f, 0.6f);
+            DropTable.SpawnDrops(Center, goldValue, expValue, 5);
             Sfx.Play("hit", 0.9f, 0.7f);
             if (Status.virusT > 0f && Room != null) Room.VirusBurst(this);
             Room?.OnEnemyDied(this);

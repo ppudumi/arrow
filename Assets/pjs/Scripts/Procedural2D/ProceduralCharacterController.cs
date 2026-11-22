@@ -165,6 +165,10 @@ namespace Procedural2D
         private float dashDirection = 1f;
         private float nextDashAllowedTime = 0f;
         private float nextGhostSpawnTime = 0f;
+        private float frenzyRemaining = 0f;
+
+        /// <summary>닷지 성공 후 파란 불꽃 아우라가 유지되는 '폭주' 상태 여부</summary>
+        public bool IsFrenzy => frenzyRemaining > 0f;
 
         // 벽타기 상태 변수
         private bool isClimbing = false;
@@ -226,6 +230,7 @@ namespace Procedural2D
 
         private void Update()
         {
+            if (frenzyRemaining > 0f) frenzyRemaining = Mathf.Max(0f, frenzyRemaining - Time.deltaTime);
             float inputX = GetHorizontalInput();
             bool jumpPressed = GetJumpInput();
             bool jumpReleased = GetJumpReleasedInput();
@@ -434,6 +439,31 @@ namespace Procedural2D
         }
 
         #region 초고속 대시 & 잔상 시스템 (Flash Dash & Ghost Trail)
+
+        public void CancelDash()
+        {
+            if (!isDashing) return;
+            isDashing = false;
+            dashTimer = 0f;
+            if (visualTransform != null) visualTransform.localRotation = Quaternion.identity;
+            if (rb != null) rb.linearVelocity = new Vector2(rb.linearVelocity.x * 0.3f, rb.linearVelocity.y);
+        }
+
+        /// <summary>닷지 성공 시 플레이어 주위에 일렁이는 파란 불꽃 아우라('폭주' 상태)를 duration초 동안 재생합니다.</summary>
+        public void TriggerDodgeFlameAura(float duration = 2f)
+        {
+            frenzyRemaining = Mathf.Max(frenzyRemaining, duration);
+            var existing = GetComponentInChildren<DodgeFlameAuraFx>();
+            if (existing != null)
+            {
+                existing.Refresh(duration);
+                return;
+            }
+            var go = new GameObject("DodgeFlameAura");
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+            go.AddComponent<DodgeFlameAuraFx>().Init(duration);
+        }
 
         private void StartDash(float inputX)
         {
@@ -954,6 +984,70 @@ namespace Procedural2D
                 if (legLowerL != null) legLowerL.localRotation = Quaternion.identity;
                 if (legUpperR != null) legUpperR.localRotation = Quaternion.identity;
                 if (legLowerR != null) legLowerR.localRotation = Quaternion.identity;
+            }
+        }
+    }
+
+    /// <summary>닷지 성공 시 플레이어 주위에 2초간 일렁이는 파란 불꽃 아우라 이펙트</summary>
+    public class DodgeFlameAuraFx : MonoBehaviour
+    {
+        private float remaining;
+        private float totalDuration = 2f;
+        private float wispTimer;
+        private SpriteRenderer outerGlow;
+        private SpriteRenderer innerGlow;
+        private float seed;
+
+        public void Init(float duration)
+        {
+            totalDuration = Mathf.Max(0.1f, duration);
+            remaining = totalDuration;
+            seed = Random.Range(0f, 100f);
+
+            outerGlow = Laurel.Art.Quad(transform, "OuterBlueFlame", Laurel.Art.Soft, new Color(0.15f, 0.55f, 1f, 0.55f), new Vector2(2.2f, 2.7f), 2);
+            innerGlow = Laurel.Art.Quad(transform, "InnerCyanFlame", Laurel.Art.Soft, new Color(0.55f, 0.92f, 1f, 0.65f), new Vector2(1.4f, 1.85f), 3);
+        }
+
+        public void Refresh(float duration)
+        {
+            totalDuration = Mathf.Max(0.1f, duration);
+            remaining = totalDuration;
+        }
+
+        private void Update()
+        {
+            float dt = Time.deltaTime;
+            remaining -= dt;
+            if (remaining <= 0f)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            float fade = remaining < 0.35f ? Mathf.Clamp01(remaining / 0.35f) : 1f;
+            float n1 = Mathf.PerlinNoise(seed, Time.time * 9f);
+            float n2 = Mathf.PerlinNoise(seed + 17.3f, Time.time * 13f);
+
+            if (outerGlow != null)
+            {
+                outerGlow.transform.localScale = new Vector3(2.0f + n1 * 0.55f, 2.5f + n2 * 0.7f, 1f);
+                outerGlow.transform.localPosition = new Vector3((n1 - 0.5f) * 0.14f, (n2 - 0.5f) * 0.16f + 0.1f, 0f);
+                outerGlow.color = new Color(0.12f, 0.52f, 1f, (0.42f + n1 * 0.25f) * fade);
+            }
+            if (innerGlow != null)
+            {
+                innerGlow.transform.localScale = new Vector3(1.25f + n2 * 0.4f, 1.7f + n1 * 0.5f, 1f);
+                innerGlow.transform.localPosition = new Vector3((n2 - 0.5f) * 0.1f, (n1 - 0.5f) * 0.12f, 0f);
+                innerGlow.color = new Color(0.5f, 0.92f, 1f, (0.5f + n2 * 0.25f) * fade);
+            }
+
+            wispTimer -= dt;
+            if (wispTimer <= 0f)
+            {
+                wispTimer = 0.04f;
+                Vector2 spawnPos = (Vector2)transform.position + new Vector2(Random.Range(-0.45f, 0.45f), Random.Range(-0.45f, 0.55f));
+                Color flameColor = Random.value < 0.5f ? new Color(0.22f, 0.68f, 1f, 0.9f * fade) : new Color(0.6f, 0.95f, 1f, 0.9f * fade);
+                Laurel.Fx.Burst(spawnPos, flameColor, 2, 2.2f, Random.Range(0.14f, 0.24f), 0.38f, -7.5f);
             }
         }
     }

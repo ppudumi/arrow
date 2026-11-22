@@ -327,6 +327,42 @@ namespace Laurel
                 }
             }
 
+            DrawBottomLeftDropHud();
+        }
+
+        private void DrawBottomLeftDropHud()
+        {
+            var r = new Rect(20f, VH - 114f, 152f, 90f);
+            Panel(r, 0.82f);
+            var lvStyle = new GUIStyle(label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            var goldStyle = new GUIStyle(label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            OutlinedText(new Rect(r.x + 12f, r.y + 8f, r.width - 24f, 30f), $"LV. {G.DisplayLevel}", lvStyle, new Color(0.55f, 0.96f, 1f));
+            Bar(new Rect(r.x + 12f, r.y + 42f, r.width - 24f, 8f), G.DisplayExpInLevel / 100f, new Color(0.35f, 0.92f, 1f), new Color(0.08f, 0.1f, 0.14f, 0.9f));
+            OutlinedText(new Rect(r.x + 12f, r.y + 52f, r.width - 24f, 30f), $"GOLD  {G.DisplayGold}", goldStyle, new Color(1f, 0.88f, 0.35f));
+
+            // 옆 아이템 슬롯
+            var slot = new Rect(r.xMax + 8f, r.y, 76f, 90f);
+            Panel(slot, 0.86f);
+            var item = G.Combat != null ? G.Combat.EquippedItem : null;
+            string keyLabel = item != null ? item.KeyHint : "E";
+            OutlinedText(new Rect(slot.x + 6f, slot.y + 4f, 24f, 20f), keyLabel, new GUIStyle(tiny) { fontSize = 14, fontStyle = FontStyle.Bold }, new Color(0.95f, 0.9f, 0.65f));
+
+            if (item is BombItem)
+            {
+                // 폭탄 아이콘 (진한 검붉은 직사각형 + 붉은 신관)
+                var iconBody = new Rect(slot.x + 18f, slot.y + 30f, 40f, 26f);
+                Rect(iconBody, ScreenColor(new Color(0.24f, 0.04f, 0.06f, 1f)));
+                Rect(new Rect(iconBody.xMax - 12f, iconBody.y + 5f, 9f, 7f), ScreenColor(new Color(0.95f, 0.18f, 0.14f, 1f)));
+                OutlinedText(new Rect(slot.x + 4f, slot.yMax - 26f, slot.width - 8f, 22f), item.Name, new GUIStyle(tiny) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }, Color.white);
+            }
+            else if (item != null)
+            {
+                OutlinedText(new Rect(slot.x + 4f, slot.y + 32f, slot.width - 8f, 26f), item.Name, new GUIStyle(tiny) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }, Color.white);
+            }
+            else
+            {
+                OutlinedText(new Rect(slot.x + 4f, slot.y + 34f, slot.width - 8f, 24f), "비어있음", new GUIStyle(tiny) { fontSize = 13, alignment = TextAnchor.MiddleCenter }, new Color(0.6f, 0.6f, 0.6f));
+            }
         }
 
         // ── 양피지 퀘스트 패널 ──

@@ -11823,8 +11823,9 @@ MonoBehaviour:
   lookAhead: 2.5
   fallLookDown: 2.5
   fallSpeedThreshold: 8
-  lookSmoothing: 3
-  cursorLookAhead: 4.5
+  lookSmoothing: 10
+  followSmoothing: 10
+  cursorLookAhead: 1.4
   cursorLookRange: 12
   cursorLookVerticalWeight: 1
 --- !u!114 &2054295413

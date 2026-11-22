@@ -42,7 +42,7 @@ namespace Laurel
         private SpriteRenderer[] renderers;
         private Color[] baseColors;
 
-        public static void Spawn(Vector2 pos, int value, bool critical, Color? overrideColor = null)
+        public static void Spawn(Vector2 pos, int value, bool critical, Color? overrideColor = null, float scaleMultiplier = 1f)
         {
             Build();
             var go = new GameObject("DamagePopup");
@@ -63,7 +63,7 @@ namespace Laurel
                 x += (glyphW + gap) * px;
             }
             if (critical) Glyph(root, bangSprite, col, new Vector3(x + px * 0.5f, 0f, 0f));
-            p.baseScale = critical ? 1.25f : 1f;
+            p.baseScale = (critical ? 1.25f : 1f) * Mathf.Max(0.5f, scaleMultiplier);
 
             p.start = (Vector3)pos;
             p.drift = new Vector3(Random.Range(-0.25f, 0.25f), Random.Range(0.45f, 0.65f), 0f);

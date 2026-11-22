@@ -15,6 +15,38 @@ namespace Laurel
         public bool fireDown, fireHeld, fireUp;
         public bool recallDown, recallHeld, recallUp;
         public bool discardDown;
+        public bool bombDown;
+    }
+
+    /// <summary>장착 가능한 사용형 아이템 기본 클래스 (예: 폭탄)</summary>
+    public abstract class ActiveItem
+    {
+        public abstract string Name { get; }
+        public abstract string KeyHint { get; }
+        public abstract float Cooldown { get; }
+        public float CooldownRemaining { get; protected set; }
+        public virtual void Tick(float dt) { if (CooldownRemaining > 0f) CooldownRemaining = Mathf.Max(0f, CooldownRemaining - dt); }
+        public abstract bool TryUse(PlayerCombat combat, Vector2 aimWorld);
+    }
+
+    /// <summary>투척 폭탄 아이템 (E키로 사용, 화살로 맞추면 즉시 폭발, 60 피해 + 화염 디버프)</summary>
+    public class BombItem : ActiveItem
+    {
+        public override string Name => "폭탄";
+        public override string KeyHint => "E";
+        public override float Cooldown => 0.4f;
+
+        public override bool TryUse(PlayerCombat combat, Vector2 aimWorld)
+        {
+            if (combat == null || CooldownRemaining > 0f) return false;
+            CooldownRemaining = Cooldown;
+            Vector2 origin = combat.PlayerCenter + Vector2.up * 0.25f;
+            Vector2 dir = combat.AimDirectionFrom(origin, aimWorld);
+            Vector2 launchVel = dir * 15f + Vector2.up * 4.5f;
+            Fx.SpawnBomb(combat.Room, origin, launchVel, 60f, 5.2f);
+            Sfx.Play("shoot", 0.5f, 0.7f);
+            return true;
+        }
     }
 
     public class CombatStats
@@ -68,6 +100,10 @@ namespace Laurel
         private float emptyClickCooldown, discardCooldown, pebbleTimer;
         private int pendingPierceBonus;
         private ArrowDef lastFiredForm;
+        public ActiveItem EquippedItem { get; private set; }
+        public void EquipItem(ActiveItem item) => EquippedItem = item;
+        public bool ForceDashAttack { get; private set; }
+        public bool IsDashAttackActive => ForceDashAttack || (Avatar != null && Avatar.Controller != null && Avatar.Controller.IsDashing);
         private Enemy focusEnemy;
         private int focusStreak;
         private int terrainMask = -1;
@@ -79,6 +115,7 @@ namespace Laurel
             Avatar = avatar;
             Aim = GetComponent<Procedural2DAim>();
             playerColliders = GetComponentsInChildren<Collider2D>(true);
+            if (EquippedItem == null) EquippedItem = new BombItem();
         }
 
         // ───────────── 라운드(=노드) 시작·종료 ─────────────
@@ -176,11 +213,28 @@ namespace Laurel
             float dt = Time.deltaTime;
             var input = InputOverride != null ? InputOverride() : ReadDeviceInput();
             if (!inputEnabled) input = new CombatInput { aimWorld = input.aimWorld, fireUp = true, recallUp = true };
+            if (inputEnabled && input.fireDown && Quiver.Count == 0 && Retriever is OrpheusCall)
+            {
+                input.recallDown = true;
+                input.recallHeld = true;
+            }
+
+            bool isDashing = Avatar != null && Avatar.Controller != null && Avatar.Controller.IsDashing;
+            ForceDashAttack = false;
+            if (isDashing && inputEnabled && Quiver.Count > 0 && input.fireDown)
+            {
+                Avatar.Controller.CancelDash();
+                ForceDashAttack = true;
+                input.fireUp = true;
+            }
             CurrentInput = input;
 
             Launcher.Tick(input, dt);
+            ForceDashAttack = false;
             Retriever.Tick(input, dt);
+            EquippedItem?.Tick(dt);
             if (input.discardDown) Discard();
+            if (input.bombDown && EquippedItem != null) EquippedItem.TryUse(this, input.aimWorld);
             TickPebbles(dt);
 
             Vector2 p = PlayerCenter;
@@ -221,6 +275,7 @@ namespace Laurel
                 input.recallHeld = k.rKey.isPressed;
                 input.recallUp = k.rKey.wasReleasedThisFrame;
                 if (k.qKey.wasPressedThisFrame) input.discardDown = true;
+                if (k.eKey.wasPressedThisFrame) input.bombDown = true;
             }
 #endif
             return input;
@@ -259,6 +314,11 @@ namespace Laurel
 
         public void EmptyQuiverFeedback()
         {
+            if (Retriever is OrpheusCall)
+            {
+                for (int i = 0; i < Bodies.Count; i++)
+                    if (Bodies[i].IsOnField || Bodies[i].State == ArrowState.Returning) return;
+            }
             if (emptyClickCooldown > 0f) return;
             emptyClickCooldown = 0.35f;
             Log("화살통이 비어 있음");
@@ -307,8 +367,8 @@ namespace Laurel
                 if (form.effect == "echo") form = DB.Arrow(0);
             }
             float cardDamage = isEcho ? form.damage : card.Damage;
-            bool isDashing = Avatar != null && Avatar.Controller != null && Avatar.Controller.IsDashing;
-            var shot = new ShotInfo { form = form, isEcho = isEcho, isDashAttack = isDashing };
+            bool isDashAttack = IsDashAttackActive;
+            var shot = new ShotInfo { form = form, isEcho = isEcho, isDashAttack = isDashAttack };
             shot.damage = dmgFn != null ? dmgFn(cardDamage) : HitResolver.NormalDamage(cardDamage, Attack);
             switch (form.effect)
             {
@@ -319,7 +379,7 @@ namespace Laurel
                 case "bowling": shot.bounces = Mathf.RoundToInt(form.p1 > 0 ? form.p1 : 3); break;
                 case "wraith": shot.redirects = Mathf.RoundToInt(form.p1 > 0 ? form.p1 : 3); break;
             }
-            if (isDashing)
+            if (isDashAttack)
             {
                 shot.damage *= 2f;
                 shot.speedMul *= 1.85f;

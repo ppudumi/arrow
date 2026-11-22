@@ -18,6 +18,9 @@ namespace Laurel
         public abstract LaunchStyle Style { get; }
         public abstract float BaseInterval { get; }
         public virtual float AttackSpeedBonus => 0f;
+        public virtual bool IsCharging => false;
+        public virtual float ChargeProgress => 0f;
+        protected bool IsPlayerDashing => combat.IsDashAttackActive;
         public abstract void Tick(CombatInput input, float dt);
         public virtual string StatusText() => IntervalLine();
 
@@ -65,23 +68,47 @@ namespace Laurel
         }
     }
 
-    /// <summary>직사/곡사 발사 공통: 좌클릭을 누르고 있으면 간격마다 연속 발사</summary>
+    /// <summary>직사/곡사 발사 공통: 쿨타임 없이 누르고 있는 동안 차징(0.7초), 떼거나 최대 차징 시 발사</summary>
     public abstract class ProjectileLaunch : LaunchBehaviour
     {
+        public const float ChargeDuration = 0.7f;
+        public bool Charging { get; private set; }
+        public float ChargeElapsed { get; private set; }
+        public override bool IsCharging => Charging;
+        public override float ChargeProgress => Charging ? (IsPlayerDashing ? 1f : Mathf.Clamp01(ChargeElapsed / ChargeDuration)) : 0f;
+
         protected ProjectileLaunch(PlayerCombat c) : base(c) { }
         protected virtual float GravityFor(ArrowDef def) => 0f;
         protected virtual void OnFired() { }
 
         public override void Tick(CombatInput input, float dt)
         {
-            AdvanceDraw(dt);
-            if (!(input.fireDown || input.fireHeld)) return;
             var next = combat.Quiver.Peek();
-            if (next == null) { if (input.fireDown) combat.EmptyQuiverFeedback(); return; }
-            if (!IsReady) return;
+            if (!Charging)
+            {
+                if (!input.fireDown) return;
+                if (next == null) { combat.EmptyQuiverFeedback(); return; }
+                Charging = true;
+                ChargeElapsed = 0f;
+                if (!input.fireUp) return;
+            }
+
+            if (next == null) { Charging = false; ChargeElapsed = 0f; return; }
+
+            if (input.fireHeld && !input.fireUp)
+            {
+                ChargeElapsed += dt;
+                if (ChargeElapsed < ChargeDuration) return;
+            }
+
+            float chargeRatio = IsPlayerDashing ? 1f : Mathf.Clamp01(ChargeElapsed / ChargeDuration);
+            Charging = false;
+            ChargeElapsed = 0f;
+
             Vector2 dir = combat.AimDirectionFrom(combat.MuzzlePosition, input.aimWorld);
-            var fired = combat.FireFront(dir, GravityFor(next.Card.Def));
-            if (fired.Count > 0) { ResetDraw(); OnFired(); }
+            float dmgMul = 1f + 0.5f * chargeRatio;
+            var fired = combat.FireFront(dir, GravityFor(next.Card.Def), cd => HitResolver.NormalDamage(cd, combat.Attack) * dmgMul);
+            if (fired.Count > 0) OnFired();
         }
     }
 
@@ -160,7 +187,9 @@ namespace Laurel
             return cardDamage * (normalizedSeconds / Mathf.Max(0.01f, referenceSeconds)) + attack;
         }
 
-        public float ChargeRatio => Charging ? Mathf.Clamp01(ChargeElapsed / Mathf.Max(0.001f, MaxCharge())) : 0f;
+        public float ChargeRatio => Charging ? (IsPlayerDashing ? 1f : Mathf.Clamp01(ChargeElapsed / Mathf.Max(0.001f, MaxCharge()))) : 0f;
+        public override bool IsCharging => Charging;
+        public override float ChargeProgress => ChargeRatio;
 
         public override void Tick(CombatInput input, float dt)
         {
@@ -172,8 +201,9 @@ namespace Laurel
                     if (next == null) { combat.EmptyQuiverFeedback(); return; }
                     Charging = true;
                     ChargeElapsed = 0f;
+                    if (!input.fireUp) return;
                 }
-                return;
+                else return;
             }
             if (next == null) { Charging = false; ChargeElapsed = 0f; return; }
             if (input.fireHeld && !input.fireUp)
@@ -182,13 +212,14 @@ namespace Laurel
                 return;
             }
             Charging = false;
-            if (ChargeElapsed + 0.0001f < MinCharge())
+            float effectiveElapsed = IsPlayerDashing ? MaxCharge() : ChargeElapsed;
+            if (effectiveElapsed + 0.0001f < MinCharge())
             {
                 combat.Log($"차지 취소: {ChargeElapsed:0.00}초 < 최소 {MinCharge():0.00}초 (화살 소모 없음)");
                 ChargeElapsed = 0f;
                 return;
             }
-            float norm = NormalizedCharge(ChargeElapsed);
+            float norm = NormalizedCharge(effectiveElapsed);
             LastNormalizedCharge = norm;
             float atk = combat.Attack;
             Vector2 dir = combat.AimDirectionFrom(combat.MuzzlePosition, input.aimWorld);
