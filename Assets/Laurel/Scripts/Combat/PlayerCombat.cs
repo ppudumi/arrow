@@ -256,6 +256,7 @@ namespace Laurel
             float dt = Time.deltaTime;
             var input = InputOverride != null ? InputOverride() : ReadDeviceInput();
             if (!inputEnabled) input = new CombatInput { aimWorld = input.aimWorld, fireUp = true, recallUp = true };
+            else if (PixelRenderEffect.IsPointerOverPixelSlider) input = new CombatInput { aimWorld = input.aimWorld, fireUp = true, recallUp = true };
             if (inputEnabled && input.fireDown && Quiver.Count == 0 && Retriever is OrpheusCall)
             {
                 input.recallDown = true;

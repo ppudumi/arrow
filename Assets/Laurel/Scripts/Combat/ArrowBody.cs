@@ -485,7 +485,17 @@ namespace Laurel
             AlignTo(velocity);
 
             if (gravity <= 0f && traveled >= maxRange) { Drop(velocity * 0.15f); owner.OnFlightEnded(this, next); }
-            if (next.y < -40f || Mathf.Abs(next.x) > 80f) { transform.position = owner.SafeGroundPoint(); SetState(ArrowState.Grounded); }
+            if (IsOutOfWorldBounds(next)) { transform.position = owner.SafeGroundPoint(); SetState(ArrowState.Grounded); }
+        }
+
+        private bool IsOutOfWorldBounds(Vector2 p)
+        {
+            if (owner != null && owner.Room != null)
+            {
+                var b = owner.Room.InnerBounds;
+                return p.y < b.yMin - 40f || p.x < b.xMin - 40f || p.x > b.xMax + 40f;
+            }
+            return p.y < -40f || Mathf.Abs(p.x) > 80f;
         }
 
         /// <summary>밀랍 화살의 높이 비례 피해</summary>
@@ -509,7 +519,7 @@ namespace Laurel
             }
             transform.position = next;
             transform.Rotate(0f, 0f, -velocity.x * 40f * dt);
-            if (next.y < -40f)
+            if (IsOutOfWorldBounds(next))
             {
                 transform.position = owner.SafeGroundPoint();
                 SetState(ArrowState.Grounded);

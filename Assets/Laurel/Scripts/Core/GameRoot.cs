@@ -57,6 +57,8 @@ namespace Laurel
         /// <summary>궁술 테스트 씬(Laurel_ArcheryTest)이면 그 씬의 설정. null 이면 일반 게임</summary>
         public ArcheryTestArena ArcheryTest { get; private set; }
         public bool InArcheryTest => ArcheryTest != null;
+        public Stage1Controller Stage1 { get; private set; }
+        public bool InStage1 => Stage1 != null;
 
         public GameState State { get; private set; } = GameState.Boot;
         public GameState ReturnState { get; set; }
@@ -120,7 +122,8 @@ namespace Laurel
             DB.Load();
             // 궁술 테스트 씬: 세이브를 읽지도 쓰지도 않는다 (정적 값이라 일반 씬에서는 반드시 끈다)
             ArcheryTest = FindAnyObjectByType<ArcheryTestArena>();
-            SaveStore.Disabled = InArcheryTest;
+            Stage1 = FindAnyObjectByType<Stage1Controller>();
+            SaveStore.Disabled = InArcheryTest || InStage1;
             if (arrowSprite != null) Art.ArrowSprite = arrowSprite;
 
             cam = Camera.main;
@@ -142,7 +145,7 @@ namespace Laurel
             fxGo.AddComponent<Fx>();
             DontDestroyOnLoad(fxGo);
 
-            Profile = InArcheryTest ? ArcheryTestArena.MakeProfile() : SaveStore.Load();
+            Profile = (InArcheryTest || InStage1) ? ArcheryTestArena.MakeProfile() : SaveStore.Load();
             Sfx.Volume = Profile.sfxVolume;
 
             if (playerPrefab == null) Debug.LogError("[Laurel] GameRoot.playerPrefab 이 연결되지 않았습니다.");
@@ -154,8 +157,33 @@ namespace Laurel
         private void Start()
         {
             if (InArcheryTest) { StartArcheryTest(); return; }
+            if (InStage1) { StartStage1Scene(); return; }
             if (HasArg("-laurelSelfTest") || ArgValue("-laurelPersistPhase") != null) { gameObject.AddComponent<SelfTest>(); return; }
             GoTitle();
+        }
+
+        private void StartStage1Scene()
+        {
+            Run = new RunState { stage = 1, seed = Random.Range(1, 999999), startTime = Time.time };
+            Run.gold = DB.Balance.player.startGold;
+            StyleNames.TryParseLaunch(Profile.launch, out Run.launch);
+            StyleNames.TryParseRetrieval(Profile.retrieval, out Run.retrieval);
+            var stats = Run.ComputeStats(Profile);
+            foreach (var code in DB.Balance.player.startArrows) Run.AddCard(code);
+            Avatar.ApplyStats(stats, true);
+
+            Room = FindAnyObjectByType<Room>();
+            if (Room == null)
+            {
+                var rgo = new GameObject("Room_Stage1");
+                Room = rgo.AddComponent<Room>();
+            }
+            Room.Player = Avatar;
+            Room.Combat = Combat;
+            PlayerGO.SetActive(true);
+            Combat.BeginRound(Room, Run, Run.launch, Run.retrieval);
+            SetState(GameState.Node);
+            Stage1.BeginStage(this);
         }
 
         private void OnDestroy()
@@ -658,11 +686,30 @@ namespace Laurel
             PlayStory($"stage{Run.stage}_intro", null);
         }
 
+        public void OpenStage1Reward(RewardData data)
+        {
+            Reward = data;
+            SetState(GameState.Reward);
+        }
+
+        public void CancelStage1Reward()
+        {
+            if (!InStage1 || State != GameState.Reward) return;
+            Sfx.Play("ui");
+            Reward = null;
+            SetState(GameState.Node);
+        }
+
         public void FinishReward()
         {
             Sfx.Play("ui");
             if (Reward != null && Reward.skipGold > 0 && !Reward.arrowTaken && (Reward.relics.Count == 0 || !Reward.relicTaken)) AddGold(Reward.skipGold, false);
             Reward = null;
+            if (InStage1)
+            {
+                SetState(GameState.Node);
+                return;
+            }
             DestroyRoom();
             PlayerGO.SetActive(false);
             SetState(GameState.Map);
@@ -672,10 +719,23 @@ namespace Laurel
         {
             if (Reward == null || Reward.arrowTaken) return false;
             if (Run.NonRelicCardCount >= DB.Balance.player.quiverMax) { ShowToast("화살통이 가득 찼습니다"); return false; }
-            Run.AddCard(a.code);
+            if (InStage1 && Combat != null && Combat.Active)
+            {
+                if (!Combat.AddNewArrow(a.code)) { ShowToast("화살통이 가득 찼습니다 (바닥 화살을 [G]로 제거 가능)"); return false; }
+            }
+            else
+            {
+                Run.AddCard(a.code);
+            }
             Reward.arrowTaken = true;
             Sfx.Play("buy", 0.6f);
             ShowToast($"{a.name} 획득 — 화살통 맨 뒤에 추가");
+            if (InStage1)
+            {
+                Stage1?.OnStage1RewardTaken(false);
+                Reward = null;
+                SetState(GameState.Node);
+            }
             return true;
         }
 
@@ -687,6 +747,12 @@ namespace Laurel
             Reward.relicTaken = true;
             Sfx.Play("buy", 0.6f);
             ShowToast($"유물 {r.name} 획득");
+            if (InStage1)
+            {
+                Stage1?.OnStage1RewardTaken(true);
+                Reward = null;
+                SetState(GameState.Node);
+            }
             return true;
         }
 
@@ -797,6 +863,15 @@ namespace Laurel
         private void OnPlayerDied()
         {
             if (Run == null) return;
+            if (InStage1)
+            {
+                Avatar.ApplyStats(Run.ComputeStats(Profile), true);
+                Combat.BeginRound(Room, Run, Run.launch, Run.retrieval);
+                Stage1.BeginStage(this);
+                ShowToast("쓰러졌습니다 — 1스테이지를 다시 시작합니다");
+                Sfx.Play("hurt", 1f, 0.6f);
+                return;
+            }
             if (Run.isTutorial)
             {
                 // 튜토리얼에서는 패널티 없이 다시 일어선다
@@ -834,6 +909,13 @@ namespace Laurel
         {
             Paused = false;
             Time.timeScale = 1f;
+            if (InStage1)
+            {
+                Avatar.ApplyStats(Run.ComputeStats(Profile), true);
+                Combat.BeginRound(Room, Run, Run.launch, Run.retrieval);
+                Stage1.BeginStage(this);
+                return;
+            }
             if (Run != null && Run.isTutorial) { DestroyRoom(); Run = null; GoTitle(); return; }
             LastDeathCause = "도전 포기";
             EndRun(false);
@@ -853,6 +935,7 @@ namespace Laurel
 
         public void GoLobby()
         {
+            if (InStage1) return;
             DestroyRoom();
             Run = null;
             Paused = false;
@@ -1001,7 +1084,8 @@ namespace Laurel
             if (k == null || SelfTestRunning) return;
             if (k.escapeKey.wasPressedThisFrame)
             {
-                if (State == GameState.NectarTree || State == GameState.ArcherySelect || State == GameState.Records) ClosePanel();
+                if (InStage1 && State == GameState.Reward) CancelStage1Reward();
+                else if (State == GameState.NectarTree || State == GameState.ArcherySelect || State == GameState.Records) ClosePanel();
                 else if (State == GameState.ArcheryTest) OpenPanel(GameState.ArcherySelect); // 테스트 씬: 일시정지 대신 궁술 선택
                 else SetPaused(!Paused);
             }

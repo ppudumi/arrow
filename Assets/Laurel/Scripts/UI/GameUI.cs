@@ -115,7 +115,18 @@ namespace Laurel
             {
                 case GameState.Title: DrawTitle(); break;
                 case GameState.Tutorial: DrawWorldOverlay(); DrawCombatHud(); break; // 전투 HUD(공용): GameUI.CombatHud.cs
-                case GameState.Node: DrawWorldOverlay(); DrawCombatHud(); break;
+                case GameState.Node:
+                    DrawWorldOverlay();
+                    if (G.InStage1)
+                    {
+                        if (G.Combat != null && G.Combat.Active) DrawTopLeftOwnedArrows(G.Combat, 24f, 24f);
+                        DrawBottomLeftDropHud();
+                    }
+                    else
+                    {
+                        DrawCombatHud();
+                    }
+                    break;
                 case GameState.Map: DrawMap(); break;
                 case GameState.Reward: DrawWorldOverlay(); DrawReward(); break;
                 case GameState.Shop: DrawWorldOverlay(); DrawShop(); break;
@@ -308,7 +319,9 @@ namespace Laurel
             }
             if (rw.arrows.Count > 0)
             {
-                bool full = G.Run.NonRelicCardCount >= DB.Balance.player.quiverMax;
+                bool full = G.InStage1
+                    ? (G.Combat == null || !G.Combat.HasQuiverSpace)
+                    : (G.Run.NonRelicCardCount >= DB.Balance.player.quiverMax);
                 Text(new Rect(r.x + 30, y, 1300, 34), rw.arrowTaken ? "<color=#888888>화살 선택 완료</color>" : (full ? "<color=#FF9080>화살통이 가득 차 더 받을 수 없습니다</color>" : "<b>화살 하나를 고르세요</b> <color=#AAAAAA>(덱 = 화살통에 1장 추가)</color>"), small);
                 y += 40;
                 y += 52;
@@ -319,7 +332,7 @@ namespace Laurel
                 cardZoom = 4;
             }
             bool nothingTaken = !rw.arrowTaken && (rw.relics.Count == 0 || !rw.relicTaken) && rw.skipGold > 0;
-            if (Btn(new Rect(r.x + r.width - 330, r.y + r.height - 80, 300, 60), nothingTaken ? $"건너뛰기 (골드 +{rw.skipGold})" : "지도로", true, bigButton)) G.FinishReward();
+            if (Btn(new Rect(r.x + r.width - 330, r.y + r.height - 80, 300, 60), nothingTaken ? $"건너뛰기 (골드 +{rw.skipGold})" : (G.InStage1 ? "닫기" : "지도로"), true, bigButton)) G.FinishReward();
         }
 
         // ───────────── 화살 선택 카드 ─────────────
@@ -710,6 +723,11 @@ namespace Laurel
             Text(new Rect(r.x + 40, r.y + 90, 760, 220),
                 "A / D 이동 · Space 점프 (보유 시 공중 Space 더블점프) · Shift 대쉬 (보유 시)\n좌클릭 발사 (궁술에 따라 연사·충전·찌르기) · R 회수 궁술 · 우클릭 / Q 버리기\n마우스 조준 · Esc 일시정지\n\n개발자 모드 F12 (F9 넥타르, F10 방 정리, F11 보스 해금)", small);
             if (Btn(new Rect(r.x + 220, r.y + 330, 400, 66), "계속하기", true, bigButton)) G.SetPaused(false);
+            if (G.InStage1)
+            {
+                if (Btn(new Rect(r.x + 220, r.y + 410, 400, 60), "1스테이지 다시 시작")) G.AbandonRun();
+                return;
+            }
             bool inRun = G.Run != null && !G.Run.isTutorial;
             if (G.State != GameState.Lobby && Btn(new Rect(r.x + 220, r.y + 410, 400, 60), inRun ? "도전 포기 (사망 처리 → 로비)" : "튜토리얼 그만두기 (타이틀)")) G.AbandonRun();
             if (Btn(new Rect(r.x + 220, r.y + 486, 400, 60), "타이틀로" + (inRun ? " (도전 포기)" : ""))) { if (inRun) G.AbandonRun(); G.GoTitle(); }

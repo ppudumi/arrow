@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Laurel
 {
-    public enum NodeType { Combat, Elite, Reward, Shop, Rest, Boss }
+    public enum NodeType { Combat, Question, Elite, Reward, Shop, Rest, Boss }
 
     public class MapNode
     {
@@ -19,6 +19,7 @@ namespace Laurel
         {
             switch (t)
             {
+                case NodeType.Question: return "물음표";
                 case NodeType.Elite: return "정예";
                 case NodeType.Reward: return "보상";
                 case NodeType.Shop: return "상점";
@@ -105,6 +106,73 @@ namespace Laurel
                     if (k >= 0 && k < m && rng.NextDouble() < 0.6) Link(node, nxt[k], incoming, k);
                 }
                 // 들어오는 길이 없는 노드는 가장 가까운 앞 노드와 잇는다
+                for (int j = 0; j < m; j++)
+                {
+                    if (incoming[j] > 0) continue;
+                    int i = m == 1 ? 0 : Mathf.Clamp(Mathf.RoundToInt(j * (n - 1f) / (m - 1f)), 0, n - 1);
+                    Link(map.nodes[cur[i]], nxt[j], incoming, j);
+                }
+            }
+            return map;
+        }
+
+        /// <summary>
+        /// 1스테이지 지도 생성:
+        /// - 0층: 무조건 전투 노드 1개 (게임 시작)
+        /// - 중간 층(1~4층): 전투 / 물음표 / 보상 / 엘리트 노드 랜덤 배치
+        /// - 마지막 층(5층): 보스 노드 1개
+        /// - 모든 층의 노드를 길(next)로 연결
+        /// </summary>
+        public static MapData GenerateStage1(int seed)
+        {
+            var rng = new System.Random(seed);
+            var map = new MapData { stage = 1 };
+
+            int[] counts = { 1, rng.Next(2, 4), rng.Next(2, 4), rng.Next(2, 4), rng.Next(2, 4), 1 };
+            for (int L = 0; L < counts.Length; L++)
+            {
+                var ids = new List<int>();
+                for (int i = 0; i < counts[L]; i++)
+                {
+                    NodeType t;
+                    if (L == 0) t = NodeType.Combat;
+                    else if (L == counts.Length - 1) t = NodeType.Boss;
+                    else
+                    {
+                        int roll = rng.Next(100);
+                        if (roll < 40) t = NodeType.Combat;
+                        else if (roll < 65) t = NodeType.Question;
+                        else if (roll < 82) t = NodeType.Reward;
+                        else t = NodeType.Elite;
+                    }
+                    var n = new MapNode { id = map.nodes.Count, layer = L, index = i, type = t, seed = rng.Next(1, int.MaxValue) };
+                    map.nodes.Add(n);
+                    ids.Add(n.id);
+                }
+                map.layers.Add(ids);
+            }
+
+            for (int L = 0; L + 1 < map.layers.Count; L++)
+            {
+                var cur = map.layers[L];
+                var nxt = map.layers[L + 1];
+                int n = cur.Count, m = nxt.Count;
+                var incoming = new int[m];
+                for (int i = 0; i < n; i++)
+                {
+                    var node = map.nodes[cur[i]];
+                    int j = n == 1 ? m / 2 : Mathf.RoundToInt(i * (m - 1f) / (n - 1f));
+                    Link(node, nxt[j], incoming, j);
+                    if (n == 1)
+                    {
+                        for (int all = 0; all < m; all++) Link(node, nxt[all], incoming, all);
+                    }
+                    else
+                    {
+                        int k = j + (rng.Next(2) == 0 ? -1 : 1);
+                        if (k >= 0 && k < m && rng.NextDouble() < 0.65) Link(node, nxt[k], incoming, k);
+                    }
+                }
                 for (int j = 0; j < m; j++)
                 {
                     if (incoming[j] > 0) continue;

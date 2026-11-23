@@ -317,7 +317,7 @@ namespace Laurel
 #endif
         }
 
-        private static ArrowBody FindHoveredGroundArrow(PlayerCombat combat)
+        public static ArrowBody FindHoveredGroundArrow(PlayerCombat combat)
         {
             if (combat == null || !combat.Active || Camera.main == null) return null;
 #if ENABLE_INPUT_SYSTEM

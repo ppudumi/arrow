@@ -14,6 +14,7 @@ namespace Laurel
     public class RandomMapGenerator : MonoBehaviour
     {
         public RandomMapSettings settings;
+        public bool autoGenerateOnStart = true;
         public Tilemap tilemap;
         public TileBase terrainTile;
         [Tooltip("씬에 있는 플레이어 (ProceduralCharacter 프리팹 인스턴스). 비우면 씬에서 찾는다")]
@@ -44,6 +45,7 @@ namespace Laurel
 
         private void Start()
         {
+            if (!autoGenerateOnStart) return;
             if (player == null)
             {
                 var c = FindAnyObjectByType<Procedural2D.ProceduralCharacterController>();
