@@ -146,8 +146,7 @@ namespace Laurel
         private ArrowDef lastFiredForm;
         public ActiveItem EquippedItem { get; private set; }
         public void EquipItem(ActiveItem item) => EquippedItem = item;
-        public bool ForceDashAttack { get; private set; }
-        public bool IsDashAttackActive => ForceDashAttack || (Avatar != null && Avatar.Controller != null && Avatar.Controller.IsDashing);
+        public bool IsDashAttackActive => Avatar != null && Avatar.Controller != null && Avatar.Controller.IsDashing;
         private Enemy focusEnemy;
         private int focusStreak;
         private int terrainMask = -1;
@@ -264,17 +263,13 @@ namespace Laurel
             }
 
             bool isDashing = Avatar != null && Avatar.Controller != null && Avatar.Controller.IsDashing;
-            ForceDashAttack = false;
             if (isDashing && inputEnabled && Quiver.Count > 0 && input.fireDown)
             {
-                Avatar.Controller.CancelDash();
-                ForceDashAttack = true;
                 input.fireUp = true;
             }
             CurrentInput = input;
 
             Launcher.Tick(input, dt);
-            ForceDashAttack = false;
             Retriever.Tick(input, dt);
             EquippedItem?.Tick(dt);
             if (input.discardDown) Discard();
@@ -747,9 +742,10 @@ namespace Laurel
         {
             if (body == null) return;
             float facing = Aim != null && !Aim.IsFacingRight ? -1f : 1f;
-            Vector2 vel = new Vector2(facing * Tuning.discardToss + Random.Range(-1.2f, 1.2f), 4f + Random.Range(-0.5f, 0.8f));
-            body.Toss(PlayerCenter + new Vector2(facing * 0.4f, 0.3f), vel);
-            Log($"화살통 가득 참 — 넘친 화살 떨어짐: {body.Label}");
+            Vector2 vel = new Vector2(-facing * Random.Range(2.2f, 4.2f), Random.Range(3.5f, 5.5f));
+            body.Toss(PlayerCenter + new Vector2(0f, 0.35f), vel);
+            Sfx.Play("wall", 0.35f, 1.3f);
+            Log($"화살통 가득 참 — 몸에 부딪혀 떨어짐: {body.Label}");
         }
 
         public void NotifyReturnArrived(ArrowBody body) => TryRecover(body, body.ReturnSource ?? "귀환");

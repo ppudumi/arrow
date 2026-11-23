@@ -244,6 +244,7 @@ namespace Laurel
                 }
             }
             ApplyMotion(dt);
+            ApplySoftSeparation(dt);
             if (Room == null || !Room.IsPlayerHidden) ContactCheck(dt);
             if (flash > 0f) flash -= dt;
             if (bodySr != null)
@@ -260,6 +261,37 @@ namespace Laurel
         }
 
         protected virtual void Think(float dt) { }
+
+        protected void ApplySoftSeparation(float dt)
+        {
+            if (Room == null || this is TrainingDummy) return;
+            float pushX = ComputeSeparationDirX();
+            if (Mathf.Abs(pushX) > 0.001f) MoveKinematic(new Vector2(pushX * 2.4f * dt, 0f));
+        }
+
+        protected float ComputeSeparationDirX()
+        {
+            if (Room == null) return 0f;
+            float pushX = 0f;
+            Vector2 myPos = transform.position;
+            for (int i = 0; i < Room.Enemies.Count; i++)
+            {
+                var other = Room.Enemies[i];
+                if (other == null || other == this || !other.IsAlive || other is TrainingDummy) continue;
+                Vector2 op = other.transform.position;
+                if (Mathf.Abs(op.y - myPos.y) > (halfSize.y + other.HalfSize.y) * 0.9f) continue;
+                float minSep = (halfSize.x + other.HalfSize.x) * 0.65f;
+                float dx = myPos.x - op.x;
+                float absDx = Mathf.Abs(dx);
+                if (absDx < minSep)
+                {
+                    float dir = absDx > 0.001f ? Mathf.Sign(dx) : (GetInstanceID() < other.GetInstanceID() ? -1f : 1f);
+                    float ratio = (minSep - absDx) / Mathf.Max(0.01f, minSep);
+                    pushX += dir * ratio;
+                }
+            }
+            return Mathf.Clamp(pushX, -1f, 1f);
+        }
 
         protected void ApplyMotion(float dt)
         {

@@ -334,6 +334,26 @@ namespace pjs
                 UpdateStateMachine(dt);
             }
             MoveAndCollide(dt);
+            ApplyMinotourSeparation(dt);
+        }
+
+        private void ApplyMinotourSeparation(float dt)
+        {
+            float pushX = ComputeSeparationDirX();
+            if (Mathf.Abs(pushX) <= 0.001f) return;
+            float moveX = pushX * 2.4f * dt;
+            Vector2 pos = transform.position;
+            Vector2 center = pos + hitboxOffset;
+            var wallHit = Physics2D.BoxCast(center, new Vector2(hitboxSize.x * 0.9f, hitboxSize.y * 0.8f), 0f,
+                new Vector2(Mathf.Sign(moveX), 0f), Mathf.Abs(moveX) + 0.05f, groundLayer);
+            if (wallHit.collider != null && !wallHit.collider.isTrigger) return;
+            pos.x += moveX;
+            if (arenaMap != null)
+            {
+                float halfW = hitboxSize.x * 0.5f;
+                pos.x = Mathf.Clamp(pos.x, arenaMap.arena.xMin + halfW + 0.2f, arenaMap.arena.xMax - halfW - 0.2f);
+            }
+            transform.position = pos;
         }
 
         private void UpdateStateMachine(float dt)

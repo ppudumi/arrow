@@ -18,6 +18,7 @@ namespace Laurel
         private const float SafeRoomMaxX = -27.5f;
         private const float InteractRange = 1.45f;
         private const float HoverRange = 0.85f;
+        private const float GroundArrowPlayerRange = 2.8f;
 
         private enum PedestalKind { Retrieval, Quiver, Arrow, EmptyRelic }
 
@@ -299,29 +300,14 @@ namespace Laurel
             var k = Keyboard.current;
             if (k != null && g.State == GameState.ArcheryTest)
             {
-                if (hoveredGroundArrow != null)
+                if (hoveredGroundArrow != null && k.gKey.wasPressedThisFrame)
                 {
-                    if (k.fKey.wasPressedThisFrame)
-                    {
-                        if (g.Combat != null && g.Combat.Quiver.Count < g.Combat.MaxQuiverCapacity)
-                        {
-                            g.Combat.TryRecover(hoveredGroundArrow, "줍기");
-                        }
-                        else
-                        {
-                            Sfx.Play("empty");
-                            g.ShowToast("화살통이 가득 찼습니다");
-                        }
-                    }
-                    else if (k.gKey.wasPressedThisFrame)
-                    {
-                        Vector3 pos = hoveredGroundArrow.transform.position;
-                        Color c = hoveredGroundArrow.Card.Def.tint;
-                        g.Combat?.RemoveArrowPermanently(hoveredGroundArrow);
-                        Fx.Burst(pos, c, 8, 4f, 0.12f, 0.3f);
-                        Sfx.Play("wall", 0.6f, 1.2f);
-                        hoveredGroundArrow = null;
-                    }
+                    Vector3 pos = hoveredGroundArrow.transform.position;
+                    Color c = hoveredGroundArrow.Card.Def.tint;
+                    g.Combat?.RemoveArrowPermanently(hoveredGroundArrow);
+                    Fx.Burst(pos, c, 8, 4f, 0.12f, 0.3f);
+                    Sfx.Play("wall", 0.6f, 1.2f);
+                    hoveredGroundArrow = null;
                 }
                 else if (nearestAvailable != null && k.fKey.wasPressedThisFrame)
                 {
@@ -341,10 +327,12 @@ namespace Laurel
             Vector3 mw = Camera.main.ScreenToWorldPoint(new Vector3(ms.x, ms.y, Mathf.Abs(Camera.main.transform.position.z)));
             ArrowBody best = null;
             float bestD = HoverRange;
+            Vector2 playerPos = combat.PlayerCenter;
             for (int i = 0; i < combat.Bodies.Count; i++)
             {
                 var b = combat.Bodies[i];
                 if (b == null || b.State != ArrowState.Grounded) continue;
+                if (Vector2.Distance(playerPos, b.transform.position) > GroundArrowPlayerRange) continue;
                 float d = Vector2.Distance(mw, b.transform.position);
                 if (d < bestD) { bestD = d; best = b; }
             }
@@ -409,7 +397,7 @@ namespace Laurel
                     promptTitleStyle.normal.textColor = hoveredGroundArrow.Card.Def.tint;
                     GUI.Label(new Rect(r.x + 4f, r.y + 3f, r.width - 8f, 22f), hoveredGroundArrow.Card.Def.name, promptTitleStyle);
                     promptDescStyle.normal.textColor = new Color(0.95f, 0.92f, 0.72f);
-                    GUI.Label(new Rect(r.x + 4f, r.y + 26f, r.width - 8f, 22f), "[F] 획득   [G] 분해", promptDescStyle);
+                    GUI.Label(new Rect(r.x + 4f, r.y + 26f, r.width - 8f, 22f), "[G] 제거", promptDescStyle);
                 }
                 return;
             }

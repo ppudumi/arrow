@@ -356,8 +356,9 @@ namespace Laurel
                 Color tipCol = inQuiver ? Color.Lerp(baseCol, Color.white, 0.35f) : new Color(bodyCol.r * 1.15f, bodyCol.g * 1.15f, bodyCol.b * 1.15f, 0.85f);
                 Color edgeCol = inQuiver ? new Color(0.05f, 0.04f, 0.04f, 0.92f) : new Color(0.03f, 0.03f, 0.03f, 0.7f);
 
-                GUI.matrix = prevMatrix;
-                GUIUtility.RotateAroundPivot(-45f, new Vector2(cx, cy));
+                GUI.matrix = prevMatrix
+                    * Matrix4x4.TRS(new Vector3(cx, cy, 0f), Quaternion.Euler(0f, 0f, -45f), Vector3.one)
+                    * Matrix4x4.TRS(new Vector3(-cx, -cy, 0f), Quaternion.identity, Vector3.one);
 
                 float x = cx - arrowW * 0.5f;
                 float y = cy - arrowH * 0.5f;

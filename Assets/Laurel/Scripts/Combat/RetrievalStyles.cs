@@ -25,6 +25,7 @@ namespace Laurel
 
         protected void AutoPickup()
         {
+            if (combat.Quiver != null && combat.Quiver.Count >= combat.MaxQuiverCapacity) return;
             Vector2 p = combat.PlayerCenter;
             float r = Cfg.autoPickupRadius;
             foreach (var a in combat.Bodies)
@@ -32,6 +33,20 @@ namespace Laurel
                 if (a.State != ArrowState.Grounded) continue;
                 if (Vector2.Distance(a.transform.position, p) <= r) combat.TryRecover(a, "줍기");
             }
+        }
+
+        protected int PullAllFieldArrows(float speed, float exponent, string source, bool useSlerp = false)
+        {
+            int started = 0;
+            Vector2 target = combat.PlayerCenter + Vector2.up * 0.2f;
+            foreach (var a in combat.Bodies)
+            {
+                if (!a.IsOnField) continue;
+                float dist = Vector2.Distance(a.transform.position, target);
+                float dur = Mathf.Max(0.05f, dist / Mathf.Max(1f, speed));
+                if (a.BeginReturn(combat.PlayerCenter, dur, exponent, source, useSlerp)) started++;
+            }
+            return started;
         }
 
         public abstract string StatusText();
@@ -57,13 +72,18 @@ namespace Laurel
         }
     }
 
-    /// <summary>기본 — 줍기: 화살이 적에게 박히지 않고 떨어진다.</summary>
+    /// <summary>기본 — 줍기: 화살이 적에게 박히지 않고 떨어진다. R을 누르면 모든 화살을 불러온다.</summary>
     public class BasicPickup : RetrievalBehaviour
     {
         public BasicPickup(PlayerCombat c) : base(c) { }
         public override RetrievalStyle Style => RetrievalStyle.Basic;
         public override bool ArrowsStickToEnemies => false;
-        public override string StatusText() => "바닥의 화살 근처로 가면 자동으로 줍기";
+        public override void Tick(CombatInput input, float dt)
+        {
+            base.Tick(input, dt);
+            if (input.recallDown) PullAllFieldArrows(24f, 1.5f, "줍기");
+        }
+        public override string StatusText() => "바닥의 화살 줍기 / R: 모든 화살 불러오기";
     }
 
     /// <summary>오르페우스 — 부르기: R을 누르고 있는 동안 필드의 모든 화살이 고정된 빠른 속도로 Slerp 호를 그리며 돌아온다.</summary>
@@ -145,6 +165,7 @@ namespace Laurel
         public override void Tick(CombatInput input, float dt)
         {
             base.Tick(input, dt);
+            if (input.recallDown) PullAllFieldArrows(26f, 1.5f, "뽑기");
             if (combat.Room == null) return;
             Vector2 p = combat.PlayerCenter;
             foreach (var enemy in combat.Room.Enemies)
@@ -262,7 +283,8 @@ namespace Laurel
             foreach (var a in combat.Bodies) if (a.IsOnField && InSector(origin, dir, a.transform.position)) scratch.Add(a);
             int rec = 0;
             foreach (var a in scratch) if (combat.TryRecover(a, "수확")) rec++;
-            combat.Log($"수확: 피해 {damage:0.#}, 화살 {rec}발 회수");
+            int pulled = PullAllFieldArrows(26f, 1.5f, "수확");
+            combat.Log($"수확: 피해 {damage:0.#}, 화살 {rec}발 회수 (추가 귀환 {pulled}발)");
         }
 
         private void ThrowScythe(Vector2 aimWorld)
@@ -488,7 +510,7 @@ namespace Laurel
         {
             base.Tick(input, dt);
             foreach (var a in combat.Bodies)
-                if (a.State == ArrowState.Grounded || a.State == ArrowState.Stuck)
+                if (a.IsOnField)
                     a.BeginReturn(combat.PlayerCenter, Cfg.hadesReturnDuration, Cfg.returnEaseExponent, Source);
         }
 
@@ -514,7 +536,12 @@ namespace Laurel
             scratch.Clear();
             foreach (var a in combat.Bodies) if (a.IsOnField && Vector2.Distance(a.transform.position, center) <= Cfg.zeusRadius) scratch.Add(a);
             Fx.Circle(center, Cfg.zeusRadius, new Color(0.6f, 0.85f, 1f, 0.6f), 0.05f, 0.3f);
-            if (scratch.Count == 0) { combat.Log("뇌우: 범위 안에 화살 없음 (대기시간 소모 안 함)"); return; }
+            if (scratch.Count == 0)
+            {
+                int fallbackPulled = PullAllFieldArrows(28f, 1.4f, "뇌우");
+                combat.Log(fallbackPulled > 0 ? $"뇌우: {fallbackPulled}발 귀환" : "뇌우: 범위 안에 화살 없음 (대기시간 소모 안 함)");
+                return;
+            }
 
             var chain = new List<ArrowBody>();
             var remaining = new List<ArrowBody>(scratch);
@@ -550,10 +577,11 @@ namespace Laurel
             }
             int rec = 0;
             foreach (var a in chain) if (combat.TryRecover(a, "뇌우")) rec++;
+            int pulled = PullAllFieldArrows(28f, 1.4f, "뇌우");
             cooldown = Cfg.zeusCooldown;
             Casts++;
             Sfx.Play("zap");
-            combat.Log($"뇌우: {rec}발 즉시 회수, 번개 적중 {damaged.Count}");
+            combat.Log($"뇌우: {rec}발 즉시 회수, {pulled}발 귀환, 번개 적중 {damaged.Count}");
         }
 
         private List<Enemy> EnemiesOnSegment(Vector2 a, Vector2 b)
