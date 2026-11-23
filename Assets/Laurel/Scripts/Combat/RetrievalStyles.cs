@@ -173,21 +173,34 @@ namespace Laurel
         public override string StatusText() => $"박힌 화살에 다가가 뽑기 (뽑은 화살 {PulledTotal}, 재적중 {RetriggerTotal})";
     }
 
-    /// <summary>데메테르 — 수확: R로 마우스 방향 부채꼴에 낫. 공격력×2 피해, 범위 안 화살(비행 중 제외) 모두 회수. 간격 = 1초 × 0.5 ÷ 공속.</summary>
+    /// <summary>데메테르 — 수확: R 클릭 시 마우스 방향 부채꼴에 낫, R 0.5초 차징 시 3초간 날아가는 낫 투척(쿨타임 3초).</summary>
     public class DemeterHarvest : RetrievalBehaviour
     {
+        public const float ChargeDuration = 0.5f;
+        public const float ThrowCooldownDuration = 3f;
+        public const float ProjectileLifetime = 3f;
+
         private float cooldown;
+        private float throwCooldown;
+        private bool charging;
+        private float chargeElapsed;
+
         public int Swings { get; private set; }
+        public bool IsCharging => charging && throwCooldown <= 0f;
+        public float ChargeProgress => IsCharging ? Mathf.Clamp01(chargeElapsed / ChargeDuration) : 0f;
+        public float ThrowCooldownRemaining => throwCooldown;
+
         public DemeterHarvest(PlayerCombat c) : base(c) { }
         public override RetrievalStyle Style => RetrievalStyle.Demeter;
         public override float CooldownRemaining => cooldown;
         public float SwingInterval => Cfg.apolloBaseInterval * Cfg.demeterIntervalFactor / combat.AttackSpeedMultiplier;
+        public float SlashRadius => Cfg.demeterRadius * 1.35f;
 
         public bool InSector(Vector2 origin, Vector2 dir, Vector2 point)
         {
             Vector2 d = point - origin;
             float dist = d.magnitude;
-            if (dist > Cfg.demeterRadius) return false;
+            if (dist > SlashRadius) return false;
             if (dist < 0.35f) return true;
             return Vector2.Angle(dir, d) <= Cfg.demeterAngle * 0.5f;
         }
@@ -195,16 +208,47 @@ namespace Laurel
         public override void Tick(CombatInput input, float dt)
         {
             base.Tick(input, dt);
-            if (cooldown > 0f) cooldown -= dt;
-            if (!input.recallDown || cooldown > 0f) return;
+            if (cooldown > 0f) cooldown = Mathf.Max(0f, cooldown - dt);
+            if (throwCooldown > 0f) throwCooldown = Mathf.Max(0f, throwCooldown - dt);
+
+            if (!charging && input.recallDown)
+            {
+                charging = true;
+                chargeElapsed = 0f;
+            }
+
+            if (!charging) return;
+
+            if (input.recallHeld && !input.recallUp)
+            {
+                if (throwCooldown <= 0f)
+                {
+                    chargeElapsed += dt;
+                    if (chargeElapsed >= ChargeDuration)
+                    {
+                        charging = false;
+                        chargeElapsed = 0f;
+                        ThrowScythe(input.aimWorld);
+                    }
+                }
+                return;
+            }
+
+            charging = false;
+            chargeElapsed = 0f;
+            if (cooldown <= 0f) SwingScythe(input.aimWorld);
+        }
+
+        private void SwingScythe(Vector2 aimWorld)
+        {
             Vector2 origin = combat.PlayerCenter;
-            Vector2 dir = combat.AimDirectionFrom(origin, input.aimWorld);
+            Vector2 dir = combat.AimDirectionFrom(origin, aimWorld);
             cooldown = SwingInterval;
             Swings++;
             combat.PlayFireFeedback(dir);
             Sfx.Play("swing");
-            Fx.ScytheSlash(origin, dir, Cfg.demeterRadius, Cfg.demeterAngle, 0.24f);
-            Fx.Burst(origin + dir * (Cfg.demeterRadius * 0.55f), new Color(0.35f, 1f, 0.5f), 8, 5.5f, 0.14f, 0.28f, 2f);
+            Fx.ScytheSlash(origin, dir, SlashRadius, Cfg.demeterAngle, 0.16f);
+            Fx.Burst(origin + dir * (SlashRadius * 0.55f), new Color(0.35f, 1f, 0.5f), 10, 6.5f, 0.14f, 0.28f, 2f);
             float damage = combat.Attack * Cfg.demeterDamageMultiplier;
             if (combat.Room != null)
             {
@@ -221,7 +265,216 @@ namespace Laurel
             combat.Log($"수확: 피해 {damage:0.#}, 화살 {rec}발 회수");
         }
 
-        public override string StatusText() => cooldown > 0f ? $"R: 수확 (대기 {cooldown:0.0}초)" : "R: 수확 준비";
+        private void ThrowScythe(Vector2 aimWorld)
+        {
+            Vector2 origin = combat.PlayerCenter;
+            Vector2 dir = combat.AimDirectionFrom(origin, aimWorld);
+            throwCooldown = ThrowCooldownDuration;
+            Swings++;
+            combat.PlayFireFeedback(dir);
+            Sfx.Play("swing", 1f, 0.85f);
+            Fx.Burst(origin + dir * 0.6f, new Color(0.45f, 1f, 0.6f), 10, 6f, 0.16f, 0.3f);
+
+            var go = new GameObject("DemeterThrownScythe");
+            go.transform.position = new Vector3(origin.x, origin.y, -0.15f);
+            var proj = go.AddComponent<DemeterScytheProjectile>();
+            proj.Init(combat, dir, ProjectileLifetime, combat.Attack * Cfg.demeterDamageMultiplier);
+            combat.Log("수확 투척: 날아가는 낫 발사 (쿨타임 3초)");
+        }
+
+        public override string StatusText()
+        {
+            if (throwCooldown > 0f) return $"R: 수확 · 투척 대기 {throwCooldown:0.0}초";
+            return cooldown > 0f ? $"R: 수확 (대기 {cooldown:0.0}초)" : "R: 수확 / 0.5초 차징: 낫 투척";
+        }
+    }
+
+    /// <summary>데메테르 0.5초 차징으로 날아가는 낫 투사체 (demeter-scythe 사용, 회전 비행, 중앙이 벽에 닿으면 플레이어에게 복귀)</summary>
+    public class DemeterScytheProjectile : MonoBehaviour
+    {
+        public const string ResourcePath = "LaurelFx/demeter-scythe";
+        private const float Speed = 28f;
+        private const float SpinSpeed = 1080f;
+        private const float HitRadius = 2.775f;
+        private const float AfterimageInterval = 0.025f;
+
+        private static Sprite cachedScytheSprite;
+        private static readonly List<RaycastHit2D> wallHits = new List<RaycastHit2D>(8);
+
+        private PlayerCombat combat;
+        private Vector2 dir;
+        private float life;
+        private float damage;
+        private float angleZ;
+        private float afterimageTimer;
+        private bool returning;
+        private SpriteRenderer sr;
+        private readonly HashSet<Enemy> hitEnemies = new HashSet<Enemy>();
+        private readonly List<ArrowBody> arrowScratch = new List<ArrowBody>();
+
+        private static Sprite LoadScytheSprite()
+        {
+            if (cachedScytheSprite != null) return cachedScytheSprite;
+            var tex = Resources.Load<Texture2D>(ResourcePath);
+            if (tex != null)
+            {
+                tex.filterMode = FilterMode.Point;
+                cachedScytheSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+                return cachedScytheSprite;
+            }
+            return ScytheSlashFx.LoadSprite();
+        }
+
+        public void Init(PlayerCombat c, Vector2 direction, float duration, float dmg)
+        {
+            combat = c;
+            dir = direction.sqrMagnitude > 0.001f ? direction.normalized : Vector2.right;
+            life = duration;
+            damage = dmg;
+            angleZ = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+
+            var sp = LoadScytheSprite();
+            sr = gameObject.AddComponent<SpriteRenderer>();
+            sr.sprite = sp;
+            sr.sortingOrder = 36;
+            sr.color = Color.white;
+            float spriteWidthUnits = sp != null ? sp.rect.width / sp.pixelsPerUnit : 2.56f;
+            float sc = 3.8f / Mathf.Max(0.1f, spriteWidthUnits);
+            transform.localScale = new Vector3(sc, sc, 1f);
+            transform.rotation = Quaternion.Euler(0f, 0f, angleZ);
+        }
+
+        private void SpawnAfterimage()
+        {
+            if (sr == null || sr.sprite == null) return;
+            var ghost = new GameObject("DemeterScytheGhost");
+            ghost.transform.position = transform.position + new Vector3(0f, 0f, 0.01f);
+            ghost.transform.rotation = transform.rotation;
+            ghost.transform.localScale = transform.localScale;
+            var gsr = ghost.AddComponent<SpriteRenderer>();
+            gsr.sprite = sr.sprite;
+            gsr.flipY = sr.flipY;
+            gsr.sortingOrder = sr.sortingOrder - 1;
+            gsr.color = new Color(0.28f, 0.95f, 0.45f, 0.55f);
+            ghost.AddComponent<DemeterScytheAfterimage>().Init(gsr, 0.2f);
+        }
+
+        private void Update()
+        {
+            float dt = Time.deltaTime;
+            life -= dt;
+            if (life <= 0f || combat == null || !combat.Active)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            Vector2 pos = transform.position;
+            if (!returning)
+            {
+                Vector2 nextPos = pos + dir * (Speed * dt);
+                var filter = new ContactFilter2D { useTriggers = false };
+                filter.SetLayerMask(Layers.TerrainMask);
+                wallHits.Clear();
+                int hitCount = Physics2D.Linecast(pos, nextPos, filter, wallHits);
+                bool hitWall = false;
+                Vector2 hitPoint = nextPos;
+                float bestDist = float.MaxValue;
+                for (int i = 0; i < hitCount; i++)
+                {
+                    var h = wallHits[i];
+                    if (h.collider == null || h.collider.isTrigger || h.collider.usedByEffector) continue;
+                    if (h.distance < bestDist) { bestDist = h.distance; hitPoint = h.point; hitWall = true; }
+                }
+                if (hitWall)
+                {
+                    pos = hitPoint;
+                    returning = true;
+                    hitEnemies.Clear();
+                    Fx.Burst(pos, new Color(0.35f, 1f, 0.55f), 8, 5f, 0.14f, 0.28f);
+                    Sfx.Play("wall", 0.5f, 1.2f);
+                }
+                else
+                {
+                    pos = nextPos;
+                }
+            }
+            else
+            {
+                Vector2 toPlayer = combat.PlayerCenter - pos;
+                float dist = toPlayer.magnitude;
+                float step = Speed * dt;
+                if (dist <= Mathf.Max(0.8f, step))
+                {
+                    Destroy(gameObject);
+                    return;
+                }
+                pos += (toPlayer / dist) * step;
+            }
+
+            transform.position = new Vector3(pos.x, pos.y, -0.15f);
+            angleZ += (dir.x >= 0f ? -SpinSpeed : SpinSpeed) * dt;
+            transform.rotation = Quaternion.Euler(0f, 0f, angleZ);
+
+            afterimageTimer += dt;
+            if (afterimageTimer >= AfterimageInterval)
+            {
+                afterimageTimer = 0f;
+                SpawnAfterimage();
+            }
+
+            // 낫에 맞은 화살 회수
+            arrowScratch.Clear();
+            for (int i = 0; i < combat.Bodies.Count; i++)
+            {
+                var a = combat.Bodies[i];
+                if (a != null && a.IsOnField && Vector2.Distance(a.transform.position, pos) <= HitRadius)
+                    arrowScratch.Add(a);
+            }
+            for (int i = 0; i < arrowScratch.Count; i++)
+                combat.TryRecover(arrowScratch[i], "수확");
+
+            // 경로 상의 적 피해
+            if (combat.Room != null)
+            {
+                foreach (var e in new List<Enemy>(combat.Room.Enemies))
+                {
+                    if (e == null || !e.IsAlive || hitEnemies.Contains(e)) continue;
+                    if (e.DistanceFrom(pos) <= HitRadius)
+                    {
+                        hitEnemies.Add(e);
+                        e.TakeDamage(damage, "수확", new Color(1f, 0.9f, 0.4f), false);
+                    }
+                }
+            }
+
+            if (sr != null && life < 0.35f)
+            {
+                sr.color = new Color(1f, 1f, 1f, Mathf.Clamp01(life / 0.35f));
+            }
+        }
+    }
+
+    public class DemeterScytheAfterimage : MonoBehaviour
+    {
+        private SpriteRenderer sr;
+        private float life, maxLife;
+        private Color baseCol;
+
+        public void Init(SpriteRenderer r, float duration)
+        {
+            sr = r;
+            maxLife = life = Mathf.Max(0.05f, duration);
+            baseCol = r.color;
+        }
+
+        private void Update()
+        {
+            life -= Time.deltaTime;
+            if (life <= 0f || sr == null) { Destroy(gameObject); return; }
+            float t = life / maxLife;
+            sr.color = new Color(baseCol.r, baseCol.g, baseCol.b, baseCol.a * t);
+        }
     }
 
     /// <summary>하데스 — 부름: 땅에 떨어졌거나 적에게 박힌 화살이 입력 없이 5초에 걸쳐 돌아온다.</summary>

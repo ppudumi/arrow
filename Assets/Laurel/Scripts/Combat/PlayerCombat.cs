@@ -84,6 +84,50 @@ namespace Laurel
         public readonly List<string> Violations = new List<string>();
         public readonly List<string> LogLines = new List<string>();
         public string LastBatchDescription { get; private set; } = "";
+        public int MaxQuiverCapacity
+        {
+            get
+            {
+                if (Run != null) return QuiverStats.ArrowCount(Run.quiver) + (Avatar != null ? Avatar.Stats.extraStartArrows : 0);
+                return QuiverStats.ArrowCount(GameRoot.I != null ? GameRoot.I.CurrentQuiver : QuiverType.Basic);
+            }
+        }
+        public bool HasQuiverSpace => Active && Quiver != null && Bodies.Count < MaxQuiverCapacity && Quiver.Count < MaxQuiverCapacity;
+
+        public void SwapRetrieval(RetrievalStyle s)
+        {
+            if (!Active) return;
+            RetrievalType = s;
+            Retriever?.Dispose();
+            Retriever = RetrievalBehaviour.Create(s, this);
+        }
+
+        public bool AddNewArrow(int code)
+        {
+            if (!Active || Room == null || Quiver == null || !HasQuiverSpace) return false;
+            var card = Run != null ? Run.AddCard(code) : new ArrowCard(code);
+            var go = new GameObject();
+            go.transform.SetParent(Room.transform, false);
+            var body = go.AddComponent<ArrowBody>();
+            body.Setup(this, card);
+            Bodies.Add(body);
+            Quiver.InitialAdd(body);
+            return true;
+        }
+
+        public bool RemoveArrowPermanently(ArrowBody body)
+        {
+            if (body == null) return false;
+            pendingArrivals.Remove(body);
+            consumeAfterHit.Remove(body);
+            consumeOnFlightEnd.Remove(body);
+            Quiver?.Remove(body);
+            Bodies.Remove(body);
+            if (Run != null && body.Card != null) Run.RemoveCard(body.Card);
+            Destroy(body.gameObject);
+            return true;
+        }
+
         public int TotalRecoveries { get; private set; }
 
         public float Attack => Avatar != null ? Avatar.Stats.attack : 1f;
@@ -330,7 +374,7 @@ namespace Laurel
         /// 화살통 맨 앞 화살을 쏜다 (듀얼샷이면 두 발). 바로 뒤가 에코 화살이면 같이 따라 나간다.
         /// cardDamageToFinal: 카드 피해 → 최종 피해 (기본: +공격력, 오디세우스: ×배율 + 공격력)
         /// </summary>
-        public List<ArrowBody> FireFront(Vector2 dir, float gravity, System.Func<float, float> cardDamageToFinal = null)
+        public List<ArrowBody> FireFront(Vector2 dir, float gravity, System.Func<float, float> cardDamageToFinal = null, float speedAdd = 0f)
         {
             var fired = new List<ArrowBody>();
             int count = DualShot ? 2 : 1;
@@ -339,24 +383,24 @@ namespace Laurel
                 var body = Quiver.TakeNext();
                 if (body == null) break;
                 Vector2 d = k == 0 ? dir : (Vector2)(Quaternion.Euler(0, 0, 4f) * dir);
-                FireBody(body, d, gravity, cardDamageToFinal, null);
+                FireBody(body, d, gravity, cardDamageToFinal, null, speedAdd);
                 fired.Add(body);
-                FollowWithEcho(body, d, gravity, cardDamageToFinal);
+                FollowWithEcho(body, d, gravity, cardDamageToFinal, speedAdd);
             }
             if (fired.Count > 0) PlayFireFeedback(dir);
             return fired;
         }
 
-        private void FollowWithEcho(ArrowBody leader, Vector2 dir, float gravity, System.Func<float, float> dmgFn)
+        private void FollowWithEcho(ArrowBody leader, Vector2 dir, float gravity, System.Func<float, float> dmgFn, float speedAdd = 0f)
         {
             var next = Quiver.Peek();
             if (next == null || next.Card.Def.effect != "echo" || leader.Card.Def.effect == "echo") return;
             var echo = Quiver.TakeNext();
-            FireBody(echo, Quaternion.Euler(0, 0, -3f) * dir, gravity, dmgFn, leader.Shot != null ? leader.Shot.form : leader.Card.Def);
+            FireBody(echo, Quaternion.Euler(0, 0, -3f) * dir, gravity, dmgFn, leader.Shot != null ? leader.Shot.form : leader.Card.Def, speedAdd);
             Log($"에코: {echo.Label} 가 {leader.Card.Def.name} 을(를) 따라 발사");
         }
 
-        public ShotInfo MakeShot(ArrowBody body, ArrowDef copyForm, System.Func<float, float> dmgFn)
+        public ShotInfo MakeShot(ArrowBody body, ArrowDef copyForm, System.Func<float, float> dmgFn, float speedAdd = 0f)
         {
             var card = body.Card;
             var form = card.Def;
@@ -368,7 +412,7 @@ namespace Laurel
             }
             float cardDamage = isEcho ? form.damage : card.Damage;
             bool isDashAttack = IsDashAttackActive;
-            var shot = new ShotInfo { form = form, isEcho = isEcho, isDashAttack = isDashAttack };
+            var shot = new ShotInfo { form = form, isEcho = isEcho, isDashAttack = isDashAttack, speedAdd = speedAdd };
             shot.damage = dmgFn != null ? dmgFn(cardDamage) : HitResolver.NormalDamage(cardDamage, Attack);
             switch (form.effect)
             {
@@ -394,10 +438,10 @@ namespace Laurel
         }
 
         /// <summary>화살 한 장을 실제로 발사한다 (발사 시 효과 포함)</summary>
-        public void FireBody(ArrowBody body, Vector2 dir, float gravity, System.Func<float, float> dmgFn, ArrowDef copyForm)
+        public void FireBody(ArrowBody body, Vector2 dir, float gravity, System.Func<float, float> dmgFn, ArrowDef copyForm, float speedAdd = 0f)
         {
             var card = body.Card;
-            var shot = MakeShot(body, copyForm, dmgFn);
+            var shot = MakeShot(body, copyForm, dmgFn, speedAdd);
             var form = shot.form;
             Stats.shots++;
 
@@ -413,7 +457,7 @@ namespace Laurel
             {
                 float range = gravity > 0f ? float.MaxValue : Tuning.straightMaxRange;
                 float delay = form.effect == "trigger" ? (form.p1 > 0 ? form.p1 : 1.5f) : 0f;
-                body.Launch(MuzzlePosition, dir, Tuning.arrowSpeed * shot.speedMul, gravity, range, shot, delay);
+                body.Launch(MuzzlePosition, dir, Tuning.arrowSpeed * shot.speedMul + shot.speedAdd, gravity, range, shot, delay);
             }
             SpawnOnFire(body, shot, dir, gravity);
             lastFiredForm = form;
@@ -425,7 +469,7 @@ namespace Laurel
         {
             var form = shot.form;
             Vector2 o = MuzzlePosition;
-            float speed = Tuning.arrowSpeed * shot.speedMul;
+            float speed = Tuning.arrowSpeed * shot.speedMul + shot.speedAdd;
             switch (form.effect)
             {
                 case "triple":
@@ -631,6 +675,13 @@ namespace Laurel
                 float dmg = body.Shot != null ? body.Shot.damage : HitResolver.NormalDamage(body.Card.Damage, Attack);
                 Room?.Explode(point, r, dmg, null, form.tint, form.name);
             }
+            if (body.Card.Def.effect == "bomb")
+            {
+                Stats.consumed++;
+                Log($"{body.Label}: 폭발 후 소멸");
+                RemoveArrowPermanently(body);
+                return;
+            }
             if (consumeOnFlightEnd.Remove(body) || consumeAfterHit.Remove(body))
             {
                 body.Consume();
@@ -677,6 +728,12 @@ namespace Laurel
                     return false; // InQuiver(중복), Flying/Delayed(비행 중), Consumed(소멸) 거부
             }
             if (Quiver.Contains(body)) { ReportViolation($"{body.Label}: 화살통에 있는데 필드 상태({body.State})"); return false; }
+            if (Quiver.Count + pendingArrivals.Count >= MaxQuiverCapacity)
+            {
+                if (source == "줍기" && body.State == ArrowState.Grounded) return false;
+                TossOverflowArrow(body);
+                return false;
+            }
             body.EnterQuiver();
             pendingArrivals.Add(body);
             sourcesThisFrame.Add(source);
@@ -686,13 +743,30 @@ namespace Laurel
             return true;
         }
 
+        private void TossOverflowArrow(ArrowBody body)
+        {
+            if (body == null) return;
+            float facing = Aim != null && !Aim.IsFacingRight ? -1f : 1f;
+            Vector2 vel = new Vector2(facing * Tuning.discardToss + Random.Range(-1.2f, 1.2f), 4f + Random.Range(-0.5f, 0.8f));
+            body.Toss(PlayerCenter + new Vector2(facing * 0.4f, 0.3f), vel);
+            Log($"화살통 가득 참 — 넘친 화살 떨어짐: {body.Label}");
+        }
+
         public void NotifyReturnArrived(ArrowBody body) => TryRecover(body, body.ReturnSource ?? "귀환");
 
         private void FlushArrivals()
         {
             if (pendingArrivals.Count == 0) return;
-            var batch = new List<ArrowBody>(pendingArrivals);
+            var batch = new List<ArrowBody>();
+            int roomLeft = Mathf.Max(0, MaxQuiverCapacity - Quiver.Count);
+            for (int i = 0; i < pendingArrivals.Count; i++)
+            {
+                var b = pendingArrivals[i];
+                if (i < roomLeft) batch.Add(b);
+                else TossOverflowArrow(b);
+            }
             pendingArrivals.Clear();
+            if (batch.Count == 0) { sourcesThisFrame.Clear(); return; }
             var added = Quiver.AddRecoveredBatch(batch);
             var sb = new StringBuilder();
             for (int i = 0; i < added.Count; i++) { if (i > 0) sb.Append(", "); sb.Append(added[i].Label); }

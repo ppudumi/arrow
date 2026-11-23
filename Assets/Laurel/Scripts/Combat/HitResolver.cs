@@ -130,7 +130,7 @@ namespace Laurel
                     enemy.Knockback(dir.normalized * (form.p1 > 0 ? form.p1 : 7f));
                     break;
                 case "poison":
-                    enemy.Status.ApplyPoison(form.p1 > 0 ? form.p1 : st.poisonDuration, c.Attack);
+                    enemy.Status.ApplyPoison(0.95f, c.Attack, 0.3f);
                     break;
                 case "fire":
                     enemy.Status.ApplyBurn(form.p1 > 0 ? form.p1 : 7f, st.burnDps + c.Attack * st.burnAttackFactor);

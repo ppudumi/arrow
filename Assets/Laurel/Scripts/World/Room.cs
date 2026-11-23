@@ -91,7 +91,47 @@ namespace Laurel
 
         public bool Cleared { get; private set; }
         public bool CombatRoom { get; private set; }
+        public bool IsPlayerHidden { get; set; }
         public System.Action OnCleared;
+
+        public void ClearEnemiesAndDrops()
+        {
+            for (int i = Enemies.Count - 1; i >= 0; i--)
+            {
+                var e = Enemies[i];
+                if (e != null && !(e is TrainingDummy))
+                {
+                    Destroy(e.gameObject);
+                    Enemies.RemoveAt(i);
+                }
+            }
+            var allEnemies = FindObjectsByType<Enemy>(FindObjectsSortMode.None);
+            for (int i = 0; i < allEnemies.Length; i++)
+            {
+                var e = allEnemies[i];
+                if (e != null && !(e is TrainingDummy)) Destroy(e.gameObject);
+            }
+            for (int i = projectiles.Count - 1; i >= 0; i--)
+            {
+                if (projectiles[i] != null) Destroy(projectiles[i].gameObject);
+            }
+            projectiles.Clear();
+            for (int i = golds.Count - 1; i >= 0; i--)
+            {
+                if (golds[i] != null) Destroy(golds[i].gameObject);
+            }
+            golds.Clear();
+            var allDrops = FindObjectsByType<DropPickup>(FindObjectsSortMode.None);
+            for (int i = 0; i < allDrops.Length; i++)
+            {
+                if (allDrops[i] != null) Destroy(allDrops[i].gameObject);
+            }
+            var allGolds = FindObjectsByType<GoldPickup>(FindObjectsSortMode.None);
+            for (int i = 0; i < allGolds.Length; i++)
+            {
+                if (allGolds[i] != null) Destroy(allGolds[i].gameObject);
+            }
+        }
         public System.Action<Enemy> OnEnemyKilled;
         public System.Action<int> OnGoldCollected;
         public int KillCount { get; private set; }
@@ -143,7 +183,24 @@ namespace Laurel
         {
             Theme = theme;
             float hw = width * 0.5f, hh = height * 0.5f;
-            InnerBounds = new Rect(-hw, -hh, width, height);
+            var b = new Rect(-hw, -hh, width, height);
+            var tm = FindAnyObjectByType<UnityEngine.Tilemaps.Tilemap>();
+            if (tm != null)
+            {
+                tm.CompressBounds();
+                var cb = tm.cellBounds;
+                if (cb.size.x > 0 && cb.size.y > 0)
+                {
+                    Vector3 minW = tm.CellToWorld(cb.min);
+                    Vector3 maxW = tm.CellToWorld(cb.max);
+                    float xMin = Mathf.Min(b.xMin, minW.x);
+                    float yMin = Mathf.Min(b.yMin, minW.y);
+                    float xMax = Mathf.Max(b.xMax, maxW.x);
+                    float yMax = Mathf.Max(b.yMax, maxW.y);
+                    b = Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+                }
+            }
+            InnerBounds = b;
             PlayerSpawn = spawn;
         }
 

@@ -296,6 +296,10 @@ namespace Laurel
         private Vector3 playerFollowPos;
         private Vector2 look;
         private Rigidbody2D targetBody;
+        private float normalOrthoSize = 7f;
+        private bool roomLocked;
+        private Vector2 roomLockCenter;
+        private float roomLockOrthoSize;
 
         private void Awake() => Init();
 
@@ -312,9 +316,23 @@ namespace Laurel
         public void Setup(Rect worldBounds, float orthoSize, Color bg)
         {
             bounds = worldBounds;
+            normalOrthoSize = orthoSize;
+            roomLocked = false;
             Cam.orthographicSize = orthoSize;
             Cam.backgroundColor = bg;
             SnapToTarget();
+        }
+
+        public void SetRoomLock(Vector2 center, float orthoSize)
+        {
+            roomLocked = true;
+            roomLockCenter = center;
+            roomLockOrthoSize = orthoSize;
+        }
+
+        public void ClearRoomLock()
+        {
+            roomLocked = false;
         }
 
         public void SnapToTarget()
@@ -341,43 +359,54 @@ namespace Laurel
 
         private void LateUpdate()
         {
-            // 1) 플레이어 이동·낙하 미리보기 + 부드러운 플레이어 추적
-            Vector2 lookWant = Vector2.zero;
-            Vector3 cursorOffset = Vector3.zero;
-            if (target != null)
+            float dt = Time.unscaledDeltaTime;
+            if (roomLocked)
             {
-                if (targetBody == null || targetBody.transform != target) targetBody = target.GetComponent<Rigidbody2D>();
-                if (targetBody != null)
+                if (Cam != null) Cam.orthographicSize = Mathf.Lerp(Cam.orthographicSize, roomLockOrthoSize, 1f - Mathf.Exp(-8f * dt));
+                basePos = Vector3.Lerp(basePos, new Vector3(roomLockCenter.x, roomLockCenter.y, -10f), 1f - Mathf.Exp(-8f * dt));
+                playerFollowPos = basePos;
+            }
+            else
+            {
+                if (Cam != null) Cam.orthographicSize = Mathf.Lerp(Cam.orthographicSize, normalOrthoSize, 1f - Mathf.Exp(-8f * dt));
+                // 1) 플레이어 이동·낙하 미리보기 + 부드러운 플레이어 추적
+                Vector2 lookWant = Vector2.zero;
+                Vector3 cursorOffset = Vector3.zero;
+                if (target != null)
                 {
-                    Vector2 v = targetBody.linearVelocity;
-                    lookWant.x = Mathf.Clamp(v.x / 10f, -1f, 1f) * lookAhead;
-                    if (v.y < -fallSpeedThreshold) lookWant.y = -fallLookDown;
-                }
-                // 2) 마우스 커서 오프셋은 항상 즉각 반영
-                if (Cam != null && cursorLookAhead > 0f)
-                {
-                    Vector2 mouseScreen = GetMouseScreenPos();
-                    Vector3 cursorWorld = Cam.ScreenToWorldPoint(new Vector3(mouseScreen.x, mouseScreen.y, Mathf.Abs(Cam.transform.position.z - target.position.z)));
-                    Vector2 toCursor = (Vector2)(cursorWorld - target.position);
-                    float dist = toCursor.magnitude;
-                    if (dist > 0.01f)
+                    if (targetBody == null || targetBody.transform != target) targetBody = target.GetComponent<Rigidbody2D>();
+                    if (targetBody != null)
                     {
-                        float t = Mathf.Clamp01(dist / Mathf.Max(0.1f, cursorLookRange));
-                        Vector2 dir = toCursor / dist;
-                        cursorOffset = new Vector3(dir.x, dir.y * cursorLookVerticalWeight, 0f) * (cursorLookAhead * t);
+                        Vector2 v = targetBody.linearVelocity;
+                        lookWant.x = Mathf.Clamp(v.x / 10f, -1f, 1f) * lookAhead;
+                        if (v.y < -fallSpeedThreshold) lookWant.y = -fallLookDown;
+                    }
+                    // 2) 마우스 커서 오프셋은 항상 즉각 반영
+                    if (Cam != null && cursorLookAhead > 0f)
+                    {
+                        Vector2 mouseScreen = GetMouseScreenPos();
+                        Vector3 cursorWorld = Cam.ScreenToWorldPoint(new Vector3(mouseScreen.x, mouseScreen.y, Mathf.Abs(Cam.transform.position.z - target.position.z)));
+                        Vector2 toCursor = (Vector2)(cursorWorld - target.position);
+                        float dist = toCursor.magnitude;
+                        if (dist > 0.01f)
+                        {
+                            float t = Mathf.Clamp01(dist / Mathf.Max(0.1f, cursorLookRange));
+                            Vector2 dir = toCursor / dist;
+                            cursorOffset = new Vector3(dir.x, dir.y * cursorLookVerticalWeight, 0f) * (cursorLookAhead * t);
+                        }
                     }
                 }
+                look = Vector2.Lerp(look, lookWant, 1f - Mathf.Exp(-lookSmoothing * dt));
+                Vector3 wantPlayer = target != null ? target.position + Vector3.up * lookUp + (Vector3)look : (Vector3)bounds.center;
+                if (focus2 != null && target != null) wantPlayer = Vector3.Lerp(wantPlayer, focus2.position, focus2Weight);
+                playerFollowPos = Vector3.Lerp(playerFollowPos, wantPlayer, 1f - Mathf.Exp(-followSmoothing * dt));
+                basePos = Clamp(playerFollowPos + cursorOffset);
             }
-            look = Vector2.Lerp(look, lookWant, 1f - Mathf.Exp(-lookSmoothing * Time.unscaledDeltaTime));
-            Vector3 wantPlayer = target != null ? target.position + Vector3.up * lookUp + (Vector3)look : (Vector3)bounds.center;
-            if (focus2 != null && target != null) wantPlayer = Vector3.Lerp(wantPlayer, focus2.position, focus2Weight);
-            playerFollowPos = Vector3.Lerp(playerFollowPos, wantPlayer, 1f - Mathf.Exp(-followSmoothing * Time.unscaledDeltaTime));
-            basePos = Clamp(playerFollowPos + cursorOffset);
             Vector3 off = Vector3.zero;
             if (shake > 0f)
             {
                 off = (Vector3)Random.insideUnitCircle * shake;
-                shake = Mathf.Max(0f, shake - Time.unscaledDeltaTime * 2.5f);
+                shake = Mathf.Max(0f, shake - dt * 2.5f);
             }
             transform.position = new Vector3(basePos.x, basePos.y, -10f) + off;
         }
@@ -430,10 +459,10 @@ namespace Laurel
         }
     }
 
-    /// <summary>데메테르 수확 낫 베기 이펙트 (Resources/LaurelFx/demeter-slash 사용)</summary>
+    /// <summary>데메테르 수확 낫 횡 베기 이펙트 (Resources/LaurelFx/demeter-melee-slash 사용)</summary>
     public class ScytheSlashFx : MonoBehaviour
     {
-        public const string ResourcePath = "LaurelFx/demeter-slash";
+        public const string ResourcePath = "LaurelFx/demeter-melee-slash";
         private static Sprite cachedSprite;
 
         private SpriteRenderer sr;
@@ -442,16 +471,20 @@ namespace Laurel
         private float baseZ;
         private float targetScale;
 
-        private static Sprite LoadSprite()
+        public static Sprite LoadSprite()
         {
             if (cachedSprite != null) return cachedSprite;
             var tex = Resources.Load<Texture2D>(ResourcePath);
             if (tex == null)
             {
-                Debug.LogWarning("[Laurel] 데메테르 참격 이펙트 리소스가 없습니다: " + ResourcePath);
-                return null;
+                tex = Resources.Load<Texture2D>("LaurelFx/demeter-slash");
+                if (tex == null)
+                {
+                    Debug.LogWarning("[Laurel] 데메테르 참격 이펙트 리소스가 없습니다: " + ResourcePath);
+                    return null;
+                }
             }
-            cachedSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.35f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            cachedSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.22f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
             return cachedSprite;
         }
 
@@ -467,26 +500,21 @@ namespace Laurel
             sr.flipY = flipY;
             sr.color = Color.white;
 
-            float spriteWidthUnits = sp != null ? sp.rect.width / sp.pixelsPerUnit : 7.7f;
-            targetScale = (radius * 2f) / Mathf.Max(0.1f, spriteWidthUnits);
-            transform.localScale = Vector3.one * (targetScale * 0.85f);
+            float spriteWidthUnits = sp != null ? sp.rect.width / sp.pixelsPerUnit : 5.12f;
+            targetScale = (radius * 2.4f) / Mathf.Max(0.1f, spriteWidthUnits);
+            transform.localScale = new Vector3(targetScale, targetScale, 1f);
         }
 
         private void Update()
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            float easeOut = 1f - Mathf.Pow(1f - t, 3f);
-
-            float sweep = Mathf.Lerp(-8f, 6f, easeOut);
-            transform.rotation = Quaternion.Euler(0f, 0f, baseZ + sweep);
-            float sc = Mathf.Lerp(targetScale * 0.85f, targetScale * 1.08f, easeOut);
-            transform.localScale = new Vector3(sc, sc, 1f);
 
             if (sr != null)
             {
-                float alpha = t < 0.35f ? 1f : 1f - ((t - 0.35f) / 0.65f);
-                sr.color = new Color(1f, 1f, 1f, alpha);
+                float bright = t < 0.25f ? 1f : Mathf.Lerp(1f, 0.15f, (t - 0.25f) / 0.75f);
+                float alpha = t < 0.2f ? 1f : 1f - ((t - 0.2f) / 0.8f);
+                sr.color = new Color(bright, bright, bright, alpha);
             }
 
             if (t >= 1f) Destroy(gameObject);

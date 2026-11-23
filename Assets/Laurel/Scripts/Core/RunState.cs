@@ -5,6 +5,64 @@ namespace Laurel
 {
     public enum LaunchStyle { Apollo, Hermes, Athena, Odysseus, Ares }
     public enum RetrievalStyle { Basic, Orpheus, Ares, Demeter, Hades, Zeus }
+    public enum QuiverType { Basic, Light, Heavy }
+
+    public static class QuiverStats
+    {
+        public static readonly QuiverType[] All = { QuiverType.Basic, QuiverType.Light, QuiverType.Heavy };
+
+        public static string Name(QuiverType q)
+        {
+            switch (q)
+            {
+                case QuiverType.Light: return "경량 화살통";
+                case QuiverType.Heavy: return "중형 화살통";
+                default: return "기본 화살통";
+            }
+        }
+
+        public static string ShortName(QuiverType q)
+        {
+            switch (q)
+            {
+                case QuiverType.Light: return "경량";
+                case QuiverType.Heavy: return "중형";
+                default: return "기본";
+            }
+        }
+
+        public static int ArrowCount(QuiverType q)
+        {
+            switch (q)
+            {
+                case QuiverType.Light: return 1;
+                case QuiverType.Heavy: return 20;
+                default: return 6;
+            }
+        }
+
+        public static float MoveSpeedMul(QuiverType q) => q == QuiverType.Heavy ? 0.72f : 1f;
+
+        public static string Desc(QuiverType q)
+        {
+            switch (q)
+            {
+                case QuiverType.Light: return "화살 1발";
+                case QuiverType.Heavy: return "화살 20발 · 이동속도 감소";
+                default: return "화살 6발";
+            }
+        }
+
+        public static string ResourcePath(QuiverType q)
+        {
+            switch (q)
+            {
+                case QuiverType.Light: return "LaurelFx/quiver-light";
+                case QuiverType.Heavy: return "LaurelFx/quiver-heavy";
+                default: return "LaurelFx/quiver-basic";
+            }
+        }
+    }
 
     public static class StyleNames
     {
@@ -148,6 +206,7 @@ namespace Laurel
         public float startTime;
         public LaunchStyle launch;
         public RetrievalStyle retrieval;
+        public QuiverType quiver = QuiverType.Basic;
         public int seed;
 
         public bool HasRelic(string id) => relics.Contains(id);
@@ -226,7 +285,7 @@ namespace Laurel
             s.attack = b.player.attack + profile.StatBonus("attack") + RelicSum("attack");
             s.defense = b.player.defense + profile.StatBonus("defense");
             s.attackSpeedBonus = b.player.attackSpeed + profile.StatBonus("attackSpeed") + RelicSum("attackSpeed");
-            s.moveMul = b.player.moveSpeedMul + profile.StatBonus("moveSpeed") + RelicSum("moveSpeed");
+            s.moveMul = (b.player.moveSpeedMul + profile.StatBonus("moveSpeed") + RelicSum("moveSpeed")) * QuiverStats.MoveSpeedMul(quiver);
             s.regenPer5s = profile.StatBonus("regen");
             s.revive = profile.StatBonus("revive") > 0f;
             s.extraStartArrows = Mathf.RoundToInt(profile.StatBonus("startArrows"));

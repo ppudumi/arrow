@@ -96,6 +96,8 @@ namespace Procedural2D
         public float dashSpeed = 26f;
         [Tooltip("대시 지속 시간 (초)")]
         public float dashDuration = 0.24f;
+        [Tooltip("대시 무적 지속 시간 (초, 대시 캔슬과 별개로 유지)")]
+        public float dashInvulnDuration = 0.30f;
         [Tooltip("대시 재사용 쿨타임 (초)")]
         public float dashCooldown = 0.45f;
         [Tooltip("대시 돌진 시 공기역학적 전방 기울기 각도 (도 단위)")]
@@ -162,6 +164,7 @@ namespace Procedural2D
         // 초고속 대시 상태 변수
         private bool isDashing = false;
         private float dashTimer = 0f;
+        private float dashInvulnRemaining = 0f;
         private float dashDirection = 1f;
         private float nextDashAllowedTime = 0f;
         private float nextGhostSpawnTime = 0f;
@@ -204,6 +207,7 @@ namespace Procedural2D
         /// 현재 초고속 대시 돌진 중인지 여부
         /// </summary>
         public bool IsDashing => isDashing;
+        public bool IsDashInvulnerable => dashInvulnRemaining > 0f;
 
         /// <summary>
         /// 하위 호환용 롤링 프로퍼티 (IsDashing 매핑)
@@ -231,6 +235,8 @@ namespace Procedural2D
         private void Update()
         {
             if (frenzyRemaining > 0f) frenzyRemaining = Mathf.Max(0f, frenzyRemaining - Time.deltaTime);
+            if (dashInvulnRemaining > 0f) dashInvulnRemaining = Mathf.Max(0f, dashInvulnRemaining - Time.deltaTime);
+            UpdateDashOutline();
             float inputX = GetHorizontalInput();
             bool jumpPressed = GetJumpInput();
             bool jumpReleased = GetJumpReleasedInput();
@@ -262,11 +268,24 @@ namespace Procedural2D
                 StartDash(inputX);
             }
 
-            // 2. 대시 진행 중인 경우
+            // 2. 대시 진행 중인 경우 (대시 중 점프 입력 시 대시를 취소하고 점프 허용)
             if (isDashing)
             {
-                UpdateDash();
-                return; // 대시 중에는 기본 이동/점프를 덮어씀
+                if (jumpPressed && (IsStandingOnGround() || coyoteTimer > 0f || remainingJumps > 0))
+                {
+                    if (IsStandingOnGround())
+                    {
+                        isGrounded = true;
+                        coyoteTimer = coyoteTime;
+                        remainingJumps = maxJumps;
+                    }
+                    CancelDash();
+                }
+                else
+                {
+                    UpdateDash();
+                    return; // 대시 중에는 기본 이동/점프를 덮어씀
+                }
             }
 
             // 2.5 벽타기: 벽에 닿아 있고 W/↑ 를 누르고 있는 동안만 위로 오른다
@@ -432,6 +451,7 @@ namespace Procedural2D
             jumpBufferTimer = 0f;
             jumpCutQueued = false;
             isDashing = false;
+            dashInvulnRemaining = 0f;
             isSpinning = false;
             remainingJumps = maxJumps;
             if (visualTransform != null) visualTransform.localRotation = Quaternion.identity;
@@ -447,6 +467,76 @@ namespace Procedural2D
             dashTimer = 0f;
             if (visualTransform != null) visualTransform.localRotation = Quaternion.identity;
             if (rb != null) rb.linearVelocity = new Vector2(rb.linearVelocity.x * 0.3f, rb.linearVelocity.y);
+        }
+
+        private struct OutlineSlot
+        {
+            public SpriteRenderer source;
+            public SpriteRenderer[] copies;
+        }
+
+        private readonly List<OutlineSlot> dashOutlineSlots = new List<OutlineSlot>();
+        private static Material dashOutlineMat;
+        private static readonly Vector3[] OutlineOffsets =
+        {
+            new Vector3(-0.055f, 0f, 0.005f),
+            new Vector3( 0.055f, 0f, 0.005f),
+            new Vector3(0f, -0.055f, 0.005f),
+            new Vector3(0f,  0.055f, 0.005f)
+        };
+
+        private void EnsureDashOutlineSlots()
+        {
+            if (dashOutlineSlots.Count > 0 || visualTransform == null) return;
+            if (dashOutlineMat == null)
+            {
+                var sh = Shader.Find("GUI/Text Shader") ?? Shader.Find("Sprites/Default");
+                if (sh != null) dashOutlineMat = new Material(sh);
+            }
+            var sources = visualTransform.GetComponentsInChildren<SpriteRenderer>(true);
+            for (int i = 0; i < sources.Length; i++)
+            {
+                var src = sources[i];
+                if (src == null || src.name.StartsWith("DashOutline_")) continue;
+                var copies = new SpriteRenderer[OutlineOffsets.Length];
+                for (int k = 0; k < OutlineOffsets.Length; k++)
+                {
+                    var go = new GameObject($"DashOutline_{k}");
+                    go.transform.SetParent(src.transform, false);
+                    go.transform.localPosition = OutlineOffsets[k];
+                    var sr = go.AddComponent<SpriteRenderer>();
+                    if (dashOutlineMat != null) sr.sharedMaterial = dashOutlineMat;
+                    sr.color = Color.white;
+                    sr.enabled = false;
+                    copies[k] = sr;
+                }
+                dashOutlineSlots.Add(new OutlineSlot { source = src, copies = copies });
+            }
+        }
+
+        private void UpdateDashOutline()
+        {
+            bool show = IsDashInvulnerable;
+            if (show) EnsureDashOutlineSlots();
+            for (int i = 0; i < dashOutlineSlots.Count; i++)
+            {
+                var slot = dashOutlineSlots[i];
+                bool active = show && slot.source != null && slot.source.enabled && slot.source.gameObject.activeInHierarchy && slot.source.sprite != null;
+                for (int k = 0; k < slot.copies.Length; k++)
+                {
+                    var copy = slot.copies[k];
+                    if (copy == null) continue;
+                    copy.enabled = active;
+                    if (active)
+                    {
+                        copy.sprite = slot.source.sprite;
+                        copy.flipX = slot.source.flipX;
+                        copy.flipY = slot.source.flipY;
+                        copy.sortingLayerID = slot.source.sortingLayerID;
+                        copy.sortingOrder = slot.source.sortingOrder - 1;
+                    }
+                }
+            }
         }
 
         /// <summary>닷지 성공 시 플레이어 주위에 일렁이는 파란 불꽃 아우라('폭주' 상태)를 duration초 동안 재생합니다.</summary>
@@ -470,6 +560,7 @@ namespace Procedural2D
             if (isClimbing) StopClimb(false);
             isDashing = true;
             dashTimer = 0f;
+            dashInvulnRemaining = Mathf.Max(0.01f, dashInvulnDuration);
             nextDashAllowedTime = Time.time + dashCooldown;
             nextGhostSpawnTime = 0f;
 

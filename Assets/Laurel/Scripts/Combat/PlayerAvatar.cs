@@ -81,6 +81,12 @@ namespace Laurel
         public bool Hurt(float dmg, string source)
         {
             if (Dead || invulnerable || iframes > 0f || !isActiveAndEnabled) return false;
+            if (Controller != null && Controller.IsDashInvulnerable)
+            {
+                DamagePopup.SpawnText(transform.position + Vector3.up * 1.4f, "DODGE!", new Color(0.55f, 0.95f, 1f, 1f));
+                Controller.TriggerDodgeFlameAura(2f);
+                return false;
+            }
             float final = Mathf.Max(1f, dmg - Stats.defense);
             Hp -= final;
             if (minHp > 0f && Hp < minHp) Hp = minHp;

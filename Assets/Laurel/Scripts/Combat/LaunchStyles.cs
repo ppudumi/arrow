@@ -72,6 +72,7 @@ namespace Laurel
     public abstract class ProjectileLaunch : LaunchBehaviour
     {
         public const float ChargeDuration = 0.7f;
+        public const float ChargeMaxSpeedAdd = 22f;
         public bool Charging { get; private set; }
         public float ChargeElapsed { get; private set; }
         public override bool IsCharging => Charging;
@@ -107,7 +108,8 @@ namespace Laurel
 
             Vector2 dir = combat.AimDirectionFrom(combat.MuzzlePosition, input.aimWorld);
             float dmgMul = 1f + 0.5f * chargeRatio;
-            var fired = combat.FireFront(dir, GravityFor(next.Card.Def), cd => HitResolver.NormalDamage(cd, combat.Attack) * dmgMul);
+            float speedAdd = ChargeMaxSpeedAdd * chargeRatio;
+            var fired = combat.FireFront(dir, GravityFor(next.Card.Def), cd => HitResolver.NormalDamage(cd, combat.Attack) * dmgMul, speedAdd);
             if (fired.Count > 0) OnFired();
         }
     }
@@ -220,10 +222,11 @@ namespace Laurel
                 return;
             }
             float norm = NormalizedCharge(effectiveElapsed);
+            float chargeRatio = IsPlayerDashing ? 1f : Mathf.Clamp01(effectiveElapsed / Mathf.Max(0.001f, MaxCharge()));
             LastNormalizedCharge = norm;
             float atk = combat.Attack;
             Vector2 dir = combat.AimDirectionFrom(combat.MuzzlePosition, input.aimWorld);
-            combat.FireFront(dir, 0f, cd => ChargeDamage(cd, atk, norm, Cfg.odysseusDamageReferenceSeconds));
+            combat.FireFront(dir, 0f, cd => ChargeDamage(cd, atk, norm, Cfg.odysseusDamageReferenceSeconds), ProjectileLaunch.ChargeMaxSpeedAdd * chargeRatio);
             combat.Log($"차지샷: 실제 {ChargeElapsed:0.00}초 → 기준 {norm:0.00}초");
             ChargeElapsed = 0f;
         }

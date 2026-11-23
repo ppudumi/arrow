@@ -12,6 +12,7 @@ namespace Laurel
         public ArrowDef form;          // 이번 비행의 형태 (에코는 복사한 화살, 이카루스↔밀랍은 비행 중 변함)
         public float damage;           // 최종 피해 (화살 피해 + 공격력, 차지 배율 반영)
         public float speedMul = 1f;
+        public float speedAdd;
         public int pierce;             // 남은 관통 횟수
         public int bounces;            // 볼링 남은 꺾임
         public int redirects;          // 망령 남은 방향 전환

@@ -295,6 +295,9 @@ namespace Laurel
             var quest = CurrentQuest();
             if (quest.Count > 0) qy = DrawQuestPanel(quest, qy) + 10f;
 
+            // 5) 내가 가진 화살 (왼쪽 위, 긴 직사각형 화살 이미지만 표시)
+            if (G.Combat != null && G.Combat.Active) DrawTopLeftOwnedArrows(G.Combat, HudX, qy + 4f);
+
             // 보스 체력 패널: ShowEnemyHealth 가 꺼져 있으면 배경·테두리째 그리지 않음
             var room = G.Room;
             if (ShowEnemyHealth && room != null && room.Boss != null && room.Boss.IsAlive)
@@ -330,8 +333,50 @@ namespace Laurel
             DrawBottomLeftDropHud();
         }
 
+        private void DrawTopLeftOwnedArrows(PlayerCombat c, float startX, float startY)
+        {
+            const float cellW = 34f, cellH = 38f, gapX = 4f, gapY = 6f;
+            const float arrowW = 40f, arrowH = 9f;
+            const int perRow = 10;
+            int idx = 0;
+            Matrix4x4 prevMatrix = GUI.matrix;
+            for (int i = 0; i < c.Bodies.Count; i++)
+            {
+                var b = c.Bodies[i];
+                if (b == null || b.State == ArrowState.Consumed || b.Card == null) continue;
+                var d = b.Card.Def;
+                int col = idx % perRow;
+                int row = idx / perRow;
+                float cx = startX + col * (cellW + gapX) + cellW * 0.5f;
+                float cy = startY + row * (cellH + gapY) + cellH * 0.5f;
+
+                bool inQuiver = b.State == ArrowState.InQuiver;
+                Color baseCol = d.code == 0 ? new Color(0.88f, 0.82f, 0.68f, 1f) : d.tint;
+                Color bodyCol = inQuiver ? baseCol : new Color(baseCol.r * 0.3f, baseCol.g * 0.3f, baseCol.b * 0.3f, 0.85f);
+                Color tipCol = inQuiver ? Color.Lerp(baseCol, Color.white, 0.35f) : new Color(bodyCol.r * 1.15f, bodyCol.g * 1.15f, bodyCol.b * 1.15f, 0.85f);
+                Color edgeCol = inQuiver ? new Color(0.05f, 0.04f, 0.04f, 0.92f) : new Color(0.03f, 0.03f, 0.03f, 0.7f);
+
+                GUI.matrix = prevMatrix;
+                GUIUtility.RotateAroundPivot(-45f, new Vector2(cx, cy));
+
+                float x = cx - arrowW * 0.5f;
+                float y = cy - arrowH * 0.5f;
+                Rect(new Rect(x - 1f, y - 1f, arrowW + 2f, arrowH + 2f), edgeCol);
+                Rect(new Rect(x, y, arrowW - 7f, arrowH), ScreenColor(bodyCol));
+                Rect(new Rect(x + arrowW - 7f, y, 7f, arrowH), ScreenColor(tipCol));
+                idx++;
+            }
+            GUI.matrix = prevMatrix;
+        }
+
         private void DrawBottomLeftDropHud()
         {
+            // 위 줄: 선택한 보조무기(회수 방식) + 화살통
+            var subSlot = new Rect(20f, VH - 212f, 114f, 90f);
+            var quivSlot = new Rect(subSlot.xMax + 8f, subSlot.y, 114f, 90f);
+            DrawRetrievalSlot(subSlot);
+            DrawQuiverSlot(quivSlot);
+
             var r = new Rect(20f, VH - 114f, 152f, 90f);
             Panel(r, 0.82f);
             var lvStyle = new GUIStyle(label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
@@ -363,6 +408,51 @@ namespace Laurel
             {
                 OutlinedText(new Rect(slot.x + 4f, slot.y + 34f, slot.width - 8f, 24f), "비어있음", new GUIStyle(tiny) { fontSize = 13, alignment = TextAnchor.MiddleCenter }, new Color(0.6f, 0.6f, 0.6f));
             }
+        }
+
+        private readonly Dictionary<string, Texture2D> toolIconCache = new Dictionary<string, Texture2D>();
+
+        private Texture2D LoadToolIcon(string resourcePath)
+        {
+            if (string.IsNullOrEmpty(resourcePath)) return null;
+            if (toolIconCache.TryGetValue(resourcePath, out var cached)) return cached;
+            var tex = Resources.Load<Texture2D>(resourcePath);
+            if (tex != null) tex.filterMode = FilterMode.Point;
+            toolIconCache[resourcePath] = tex;
+            return tex;
+        }
+
+        private void DrawRetrievalSlot(Rect slot)
+        {
+            Panel(slot, 0.86f);
+            var style = G.Combat != null ? G.Combat.RetrievalType : RetrievalStyle.Orpheus;
+            string keyHint = (style == RetrievalStyle.Orpheus || style == RetrievalStyle.Demeter || style == RetrievalStyle.Zeus) ? "R" : "패시브";
+            OutlinedText(new Rect(slot.x + 6f, slot.y + 3f, 52f, 18f), keyHint, new GUIStyle(tiny) { fontSize = 12, fontStyle = FontStyle.Bold }, new Color(0.75f, 0.92f, 1f));
+            OutlinedText(new Rect(slot.xMax - 54f, slot.y + 3f, 48f, 18f), "보조무기", new GUIStyle(tiny) { fontSize = 11, alignment = TextAnchor.UpperRight }, new Color(0.7f, 0.7f, 0.7f));
+
+            var tex = LoadToolIcon(ArcheryArmoryDisplays.RetrievalResourcePath(style));
+            if (tex != null)
+            {
+                GUI.DrawTexture(new Rect(slot.x + (slot.width - 44f) * 0.5f, slot.y + 20f, 44f, 44f), tex, ScaleMode.ScaleToFit);
+            }
+            string shortName = ArcheryArmoryDisplays.RetrievalShortName(style);
+            OutlinedText(new Rect(slot.x + 4f, slot.yMax - 24f, slot.width - 8f, 20f), shortName, new GUIStyle(tiny) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }, Color.white);
+        }
+
+        private void DrawQuiverSlot(Rect slot)
+        {
+            Panel(slot, 0.86f);
+            var q = G.CurrentQuiver;
+            string capLabel = $"{QuiverStats.ArrowCount(q)}발";
+            OutlinedText(new Rect(slot.x + 6f, slot.y + 3f, 44f, 18f), capLabel, new GUIStyle(tiny) { fontSize = 12, fontStyle = FontStyle.Bold }, new Color(1f, 0.88f, 0.45f));
+            OutlinedText(new Rect(slot.xMax - 50f, slot.y + 3f, 44f, 18f), "화살통", new GUIStyle(tiny) { fontSize = 11, alignment = TextAnchor.UpperRight }, new Color(0.7f, 0.7f, 0.7f));
+
+            var tex = LoadToolIcon(QuiverStats.ResourcePath(q));
+            if (tex != null)
+            {
+                GUI.DrawTexture(new Rect(slot.x + (slot.width - 44f) * 0.5f, slot.y + 20f, 44f, 44f), tex, ScaleMode.ScaleToFit);
+            }
+            OutlinedText(new Rect(slot.x + 4f, slot.yMax - 24f, slot.width - 8f, 20f), QuiverStats.ShortName(q), new GUIStyle(tiny) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }, Color.white);
         }
 
         // ── 양피지 퀘스트 패널 ──

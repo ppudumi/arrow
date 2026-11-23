@@ -323,7 +323,16 @@ namespace pjs
             }
             UpdateFlash(dt);
             UpdateHpBarTrail(dt);
-            if (Status == null || Status.stunT <= 0f) UpdateStateMachine(dt);
+            bool hidden = (Room != null && Room.IsPlayerHidden) || (GameRoot.I != null && GameRoot.I.Room != null && GameRoot.I.Room.IsPlayerHidden);
+            if (hidden)
+            {
+                if (minoState != State.Idle) EnterState(State.Idle);
+                velocity.x = Mathf.MoveTowards(velocity.x, 0f, 30f * dt);
+            }
+            else if (Status == null || Status.stunT <= 0f)
+            {
+                UpdateStateMachine(dt);
+            }
             MoveAndCollide(dt);
         }
 
@@ -692,7 +701,7 @@ namespace pjs
                 : Mathf.Abs(diff.x) <= reachX;
             if (inX && diff.y >= -0.5f && diff.y <= reachY)
             {
-                if (playerCtrl != null && playerCtrl.IsDashing)
+                if (playerCtrl != null && playerCtrl.IsDashInvulnerable)
                 {
                     attackHitDealt = true;
                     DamagePopup.SpawnText(player.position + Vector3.up * 1.4f, "DODGE!", new Color(0.55f, 0.95f, 1f, 1f));

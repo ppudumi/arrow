@@ -873,6 +873,8 @@ namespace Laurel
             }
         }
 
+        public QuiverType CurrentQuiver { get; private set; } = QuiverType.Basic;
+
         /// <summary>로비 수련장: 고른 궁술 조합을 허수아비로 시험 (도전과 무관한 임시 상태)</summary>
         public void StartPractice()
         {
@@ -881,9 +883,10 @@ namespace Laurel
             PracticeRun = new RunState { stage = 1, seed = 1234 };
             StyleNames.TryParseLaunch(Profile.launch, out PracticeRun.launch);
             StyleNames.TryParseRetrieval(Profile.retrieval, out PracticeRun.retrieval);
+            PracticeRun.quiver = CurrentQuiver;
             var stats = PracticeRun.ComputeStats(Profile);
-            foreach (var code in DB.Balance.player.startArrows) PracticeRun.AddCard(code);
-            for (int i = 0; i < stats.extraStartArrows; i++) PracticeRun.AddCard(0);
+            int arrowCount = QuiverStats.ArrowCount(CurrentQuiver) + stats.extraStartArrows;
+            for (int i = 0; i < arrowCount; i++) PracticeRun.AddCard(0);
             Avatar.ApplyStats(stats, true);
             Combat.BeginRound(Room, PracticeRun, PracticeRun.launch, PracticeRun.retrieval);
         }
@@ -913,6 +916,19 @@ namespace Laurel
             if (!Profile.StyleUnlocked("retrieval", s.ToString())) { Sfx.Play("empty"); return; }
             Profile.retrieval = s.ToString();
             SaveStore.Save(Profile);
+            Sfx.Play("ui");
+            if (State == GameState.ArcheryTest && Combat != null && Combat.Active && PracticeRun != null)
+            {
+                PracticeRun.retrieval = s;
+                Combat.SwapRetrieval(s);
+                return;
+            }
+            if (State == GameState.ArcherySelect || State == GameState.Lobby || State == GameState.ArcheryTest) StartPractice();
+        }
+
+        public void SelectQuiver(QuiverType q)
+        {
+            CurrentQuiver = q;
             Sfx.Play("ui");
             if (State == GameState.ArcherySelect || State == GameState.Lobby || State == GameState.ArcheryTest) StartPractice();
         }
@@ -958,6 +974,7 @@ namespace Laurel
             Room.Enemies.Clear();
 
             PlacePlayer(Room);
+            ArcheryArmoryDisplays.SpawnInScene(Room);
             CameraRig.I.followY = true;
             Avatar.minHp = 1f; // 맞기는 하지만 쓰러지지 않는다
             StartPractice();

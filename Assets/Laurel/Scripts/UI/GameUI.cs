@@ -127,7 +127,12 @@ namespace Laurel
                 case GameState.ArcherySelect: DrawArcherySelect(); break;
                 case GameState.Records: DrawRecords(); break;
                 case GameState.Story: DrawStoryBackdrop(); DrawStory(); break;
-                case GameState.ArcheryTest: DrawWorldOverlay(); DrawArcheryTestBar(); DrawBottomLeftDropHud(); break; // 궁술 테스트 씬: 궁술 선택 버튼 + 좌하단 골드·레벨 연출 HUD
+                case GameState.ArcheryTest:
+                    DrawWorldOverlay();
+                    DrawArcheryTestBar();
+                    if (G.Combat != null && G.Combat.Active) DrawTopLeftOwnedArrows(G.Combat, 24f, 98f);
+                    DrawBottomLeftDropHud();
+                    break; // 궁술 테스트 씬: 궁술 선택 버튼 + 좌상단 보유 화살 + 좌하단 골드·레벨 연출 HUD
             }
             if (G.Paused) DrawPause();
             DrawToast();
@@ -205,7 +210,7 @@ namespace Laurel
             {
                 var p = WorldToGui(G.Combat.PlayerCenter + new Vector2(0f, 1.35f));
                 int cur = G.Combat.Quiver.Count;
-                int total = G.Combat.Bodies.Count;
+                int total = G.Combat.MaxQuiverCapacity;
                 var st = new GUIStyle(label) { fontSize = 22, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
                 Color c = cur > 0 ? new Color(1f, 0.94f, 0.72f) : new Color(1f, 0.45f, 0.35f);
                 string txt = $"{cur}/{total}";
@@ -217,6 +222,13 @@ namespace Laurel
                     var gp = WorldToGui(G.Combat.PlayerCenter + new Vector2(0f, 1.72f));
                     float prog = G.Combat.Launcher.ChargeProgress;
                     Color fill = Color.Lerp(new Color(1f, 0.85f, 0.3f), new Color(0.45f, 1f, 0.9f), prog);
+                    Bar(new Rect(gp.x - 42, gp.y - 5, 84, 10), prog, fill, new Color(0f, 0f, 0f, 0.65f));
+                }
+                else if (G.Combat.Retriever is DemeterHarvest dm && dm.IsCharging)
+                {
+                    var gp = WorldToGui(G.Combat.PlayerCenter + new Vector2(0f, 1.72f));
+                    float prog = dm.ChargeProgress;
+                    Color fill = Color.Lerp(new Color(0.45f, 0.95f, 0.4f), new Color(1f, 0.92f, 0.35f), prog);
                     Bar(new Rect(gp.x - 42, gp.y - 5, 84, 10), prog, fill, new Color(0f, 0f, 0f, 0.65f));
                 }
             }

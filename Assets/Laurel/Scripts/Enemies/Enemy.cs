@@ -10,7 +10,7 @@ namespace Laurel
     public class StatusSet
     {
         private readonly Enemy owner;
-        public float poisonT, poisonDps; private float poisonTick;
+        public float poisonT, poisonDps; private float poisonTick, poisonTickInterval;
         public float burnT, burnDps; private float burnTick;
         public float midasT; public float midasGoldCd;
         public int calamity;
@@ -27,7 +27,13 @@ namespace Laurel
         private StatusTuning St => DB.Balance.status;
         private float DurMul => owner.IsBoss ? St.bossDurationMul : 1f;
 
-        public void ApplyPoison(float dur, float dps) { poisonT = Mathf.Max(poisonT, dur * DurMul); poisonDps = Mathf.Max(poisonDps, dps); }
+        public void ApplyPoison(float dur, float dps, float tickInterval = 0f)
+        {
+            if (poisonT <= 0f) poisonTick = 0f;
+            poisonT = Mathf.Max(poisonT, dur * DurMul);
+            poisonDps = Mathf.Max(poisonDps, dps);
+            poisonTickInterval = tickInterval > 0f ? tickInterval : St.poisonTick;
+        }
 
         public void ApplyBurn(float dur, float dps)
         {
@@ -66,7 +72,8 @@ namespace Laurel
             if (poisonT > 0f)
             {
                 poisonT -= dt; poisonTick += dt;
-                if (poisonTick >= St.poisonTick) { poisonTick = 0f; owner.TakeDamage(poisonDps, "독", new Color(0.5f, 0.9f, 0.3f), false); }
+                float interval = poisonTickInterval > 0f ? poisonTickInterval : St.poisonTick;
+                if (poisonTick >= interval) { poisonTick -= interval; owner.TakeDamage(poisonDps, "독", new Color(0.5f, 0.9f, 0.3f), false); }
             }
             if (burnT > 0f)
             {
@@ -225,9 +232,19 @@ namespace Laurel
             float dt = Time.deltaTime;
             Status.Tick(dt);
             if (dead) return;
-            if (Status.stunT <= 0f) Think(dt);
+            if (Status.stunT <= 0f)
+            {
+                if (Room != null && Room.IsPlayerHidden)
+                {
+                    velocity.x = Mathf.MoveTowards(velocity.x, 0f, 30f * dt);
+                }
+                else
+                {
+                    Think(dt);
+                }
+            }
             ApplyMotion(dt);
-            ContactCheck(dt);
+            if (Room == null || !Room.IsPlayerHidden) ContactCheck(dt);
             if (flash > 0f) flash -= dt;
             if (bodySr != null)
             {
