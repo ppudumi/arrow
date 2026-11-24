@@ -69,7 +69,6 @@ namespace pjs
 
         [Header("Movement & Physics")]
         public LayerMask groundLayer = 1 << 8; // Terrain
-        public new float gravity = 40f;
         public float aggroRange = 30f;
         public float attackRange = 3.8f;
         public float idleDuration = 0.55f;
@@ -126,6 +125,11 @@ namespace pjs
         private float pendingAttackTime;
         private bool pendingNextHitCritical;
         private Vector2 lastHitDirection = Vector2.right;
+        private Vector2 jumpStartPos;
+        private Vector2 jumpLandPos;
+        private float jumpArcBonus;
+        private float jumpDuration;
+        private float jumpElapsed;
 
         private static readonly float[] Blink = { 0.045f, 0.035f, 0.035f };
 
@@ -141,6 +145,7 @@ namespace pjs
             halfSize = hitboxSize * 0.5f;
             MaxHp = maxHp;
             Hp = maxHp;
+            gravity = 40f;
             DisplayName = "미노타우로스";
             baseColor = Color.white;
             spawnPos = transform.position;
@@ -333,8 +338,12 @@ namespace pjs
             {
                 UpdateStateMachine(dt);
             }
-            MoveAndCollide(dt);
-            ApplyMinotourSeparation(dt);
+            bool inParabolicJump = minoState == State.WhileJump || minoState == State.WhileBigJump;
+            if (!inParabolicJump)
+            {
+                MoveAndCollide(dt);
+                ApplyMinotourSeparation(dt);
+            }
         }
 
         private void ApplyMinotourSeparation(float dt)
@@ -400,16 +409,14 @@ namespace pjs
                     if (stateTimer <= 0f)
                     {
                         FacePlayer();
-                        velocity = new Vector2(facing * jumpSpeedX, jumpSpeedY);
-                        grounded = false;
+                        StartParabolicJump(false);
                         EnterState(State.WhileJump);
                     }
                     break;
 
                 case State.WhileJump:
-                    if (grounded && velocity.y <= 0f)
+                    if (StepParabolicJump(dt))
                     {
-                        velocity.x = 0f;
                         EnterState(State.JumpLand);
                     }
                     break;
@@ -424,16 +431,14 @@ namespace pjs
                     if (stateTimer <= 0f)
                     {
                         FacePlayer();
-                        velocity = new Vector2(facing * bigJumpSpeedX, bigJumpSpeedY);
-                        grounded = false;
+                        StartParabolicJump(true);
                         EnterState(State.WhileBigJump);
                     }
                     break;
 
                 case State.WhileBigJump:
-                    if (grounded && velocity.y <= 0f)
+                    if (StepParabolicJump(dt))
                     {
-                        velocity.x = 0f;
                         attackHitDealt = false;
                         EnterState(State.JumpSmash);
                         TryDamagePlayer(smashDamage, 3.6f, 2.5f, false);
@@ -561,6 +566,80 @@ namespace pjs
             float dx = player.position.x - transform.position.x;
             if (Mathf.Abs(dx) > 0.1f) facing = dx >= 0f ? 1f : -1f;
             if (sr != null) sr.flipX = facing < 0f;
+        }
+
+        private void StartParabolicJump(bool bigJump)
+        {
+            jumpStartPos = transform.position;
+            jumpLandPos = PickJumpLandingPos();
+            float dx = Mathf.Abs(jumpLandPos.x - jumpStartPos.x);
+            jumpDuration = bigJump ? Mathf.Clamp(0.60f + dx * 0.04f, 0.60f, 1.05f) : Mathf.Clamp(0.45f + dx * 0.04f, 0.45f, 0.85f);
+            float peakOffset = bigJump ? Mathf.Clamp(3.6f + dx * 0.16f, 3.6f, 6.5f) : Mathf.Clamp(2.2f + dx * 0.12f, 2.2f, 4.5f);
+            float peakY = Mathf.Max(jumpStartPos.y, jumpLandPos.y) + peakOffset;
+            jumpArcBonus = peakY - 0.5f * (jumpStartPos.y + jumpLandPos.y);
+            jumpElapsed = 0f;
+            velocity = Vector2.zero;
+            grounded = false;
+        }
+
+        private bool StepParabolicJump(float dt)
+        {
+            jumpElapsed += dt;
+            float t = Mathf.Clamp01(jumpElapsed / Mathf.Max(0.01f, jumpDuration));
+            float x = Mathf.Lerp(jumpStartPos.x, jumpLandPos.x, t);
+            float y = Mathf.Lerp(jumpStartPos.y, jumpLandPos.y, t) + 4f * jumpArcBonus * t * (1f - t);
+            transform.position = new Vector3(x, y, transform.position.z);
+            if (t >= 1f)
+            {
+                grounded = true;
+                velocity = Vector2.zero;
+                return true;
+            }
+            return false;
+        }
+
+        private Vector2 PickJumpLandingPos()
+        {
+            float baseX = player != null ? player.position.x : transform.position.x + facing * 5f;
+            float baseY = player != null ? player.position.y : transform.position.y;
+            float margin = hitboxSize.x * 0.5f + 0.35f;
+            float minX = float.NegativeInfinity, maxX = float.PositiveInfinity;
+            if (arenaMap != null)
+            {
+                minX = arenaMap.arena.xMin + margin;
+                maxX = arenaMap.arena.xMax - margin;
+            }
+            else
+            {
+                var room = Room != null ? Room : (GameRoot.I != null ? GameRoot.I.Room : null);
+                if (room != null)
+                {
+                    minX = room.InnerBounds.xMin + margin;
+                    maxX = room.InnerBounds.xMax - margin;
+                }
+            }
+
+            baseX = Mathf.Clamp(baseX, minX, maxX);
+            float towardStart = Mathf.Sign(transform.position.x - baseX);
+            if (Mathf.Abs(towardStart) < 0.5f) towardStart = -facing;
+
+            Vector2 boxSize = new Vector2(hitboxSize.x * 0.92f, hitboxSize.y * 0.82f);
+            float[] offsets = { 0f, 0.5f, -0.5f, 1.0f, -1.0f, 1.6f, -1.6f, 2.2f, -2.2f, 3.0f, -3.0f };
+            for (int i = 0; i < offsets.Length; i++)
+            {
+                float candX = Mathf.Clamp(baseX + offsets[i] * towardStart, minX, maxX);
+                var hit = Physics2D.Raycast(new Vector2(candX, baseY + 1.2f), Vector2.down, 24f, groundLayer);
+                if (hit.collider == null || hit.collider.isTrigger) continue;
+
+                Vector2 candPos = new Vector2(candX, hit.point.y);
+                Vector2 center = candPos + hitboxOffset + Vector2.up * 0.08f;
+                var overlap = Physics2D.OverlapBox(center, boxSize, 0f, groundLayer);
+                if (overlap == null || overlap.isTrigger)
+                    return candPos;
+            }
+
+            var fallback = Physics2D.Raycast(new Vector2(transform.position.x, transform.position.y + 1.2f), Vector2.down, 24f, groundLayer);
+            return new Vector2(transform.position.x, (fallback.collider != null && !fallback.collider.isTrigger) ? fallback.point.y : transform.position.y);
         }
 
         private void MoveAndCollide(float dt)

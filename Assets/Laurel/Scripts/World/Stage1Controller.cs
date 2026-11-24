@@ -50,6 +50,8 @@ namespace Laurel
         private GUIStyle warnTitleStyle, warnBodyStyle, warnBtnStyle;
         private ArrowBody hoveredGroundArrow;
         private GUIStyle groundTitleStyle, groundDescStyle;
+        private float mapRevealT;
+        private const float MapRevealDuration = 0.45f;
 
         // Map_sheet.png (512x512) UV 좌표
         private static readonly Rect UvParchment = Uv(8, 326, 297, 174);
@@ -60,6 +62,8 @@ namespace Laurel
         private static readonly Rect UvBoss      = Uv(443, 470, 20, 23);
         private static readonly Rect UvDot       = Uv(317, 446, 8, 7);
         private static readonly Rect UvSun       = Uv(309, 372, 60, 60);
+        private static readonly Rect[] UvRolls   = { Uv(12, 115, 80, 199), Uv(92, 114, 69, 199), Uv(165, 115, 58, 198), Uv(233, 116, 48, 198) };
+        private static readonly Vector2[] RollSizes = { new Vector2(80f, 199f), new Vector2(69f, 199f), new Vector2(58f, 198f), new Vector2(48f, 198f) };
 
         private static Rect Uv(float x, float y, float w, float h) => new Rect(x / 512f, y / 512f, w / 512f, h / 512f);
 
@@ -350,6 +354,7 @@ namespace Laurel
 
         private void SetMapOpen(bool open, bool allowAdvance)
         {
+            if (open && !MapOpen) mapRevealT = 0f;
             MapOpen = open;
             canAdvanceFromMap = allowAdvance;
             if (root != null && root.Avatar != null) root.Avatar.SetInputEnabled(!open);
@@ -358,6 +363,9 @@ namespace Laurel
         private void Update()
         {
             if (IsLoading || Map == null || CurrentNode == null) return;
+
+            if (MapOpen && mapRevealT < 1f)
+                mapRevealT = Mathf.MoveTowards(mapRevealT, 1f, Time.unscaledDeltaTime / MapRevealDuration);
 
             if (!PortalOpen)
             {
@@ -517,16 +525,22 @@ namespace Laurel
             float scale = Mathf.Min(Screen.width / VW, Screen.height / VH);
             if (scale <= 0.001f) return;
 
+            float ease = 1f - Mathf.Pow(1f - Mathf.Clamp01(mapRevealT), 3f);
+
+            GUI.color = new Color(0f, 0f, 0f, 0.72f * Mathf.Clamp01(mapRevealT * 2f));
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
             Matrix4x4 prev = GUI.matrix;
             float ox = (Screen.width - VW * scale) * 0.5f;
             float oy = (Screen.height - VH * scale) * 0.5f;
             GUI.matrix = Matrix4x4.TRS(new Vector3(ox, oy, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
 
-            GUI.color = new Color(0f, 0f, 0f, 0.72f);
-            GUI.DrawTexture(new Rect(0f, 0f, VW, VH), Texture2D.whiteTexture);
-            GUI.color = Color.white;
+            var fullBoard = new Rect(VW * 0.5f - 620f, VH * 0.5f - 360f, 1240f, 720f);
+            float clipW = Mathf.Max(1f, fullBoard.width * ease);
+            GUI.BeginGroup(new Rect(fullBoard.x, fullBoard.y, clipW, fullBoard.height));
+            var board = new Rect(0f, 0f, fullBoard.width, fullBoard.height);
 
-            var board = new Rect(VW * 0.5f - 620f, VH * 0.5f - 360f, 1240f, 720f);
             if (mapSheet != null) GUI.DrawTextureWithTexCoords(board, mapSheet, UvParchment);
             else { GUI.color = new Color(0.88f, 0.78f, 0.6f, 1f); GUI.DrawTexture(board, Texture2D.whiteTexture); GUI.color = Color.white; }
 
@@ -553,39 +567,55 @@ namespace Laurel
                 }
             }
 
-            // 노드 배치 (Map_sheet 아이콘 사용)
+            // 노드 배치 (Map_sheet 원본 비율·크기 기준)
             foreach (var n in Map.nodes)
             {
                 Vector2 p = layout[n.id];
                 bool isCur = n.id == CurrentNode.id;
                 bool canPick = canAdvanceFromMap && choices.Contains(n);
-                float size = n.type == NodeType.Boss ? 68f : 52f;
+                Vector2 px = NodePxSize(n.type);
+                float baseScale = n.type == NodeType.Boss ? 2.9f : 2.5f;
+                Vector2 baseSize = px * baseScale;
 
                 if (isCur)
                 {
-                    float sunSize = size * 1.85f;
+                    float sunSize = 60f * 1.75f;
                     if (mapSheet != null) GUI.DrawTextureWithTexCoords(new Rect(p.x - sunSize * 0.5f, p.y - sunSize * 0.5f, sunSize, sunSize), mapSheet, UvSun);
                 }
 
-                float drawSize = canPick ? size * (1.08f + Mathf.Sin(Time.unscaledTime * 5f) * 0.08f) : size;
+                float pulse = canPick ? (1.08f + Mathf.Sin(Time.unscaledTime * 5f) * 0.08f) : 1f;
+                Vector2 drawSize = baseSize * pulse;
                 Color tint = (n.visited && !isCur)
                     ? new Color(0.55f, 0.5f, 0.45f, 0.85f)
                     : (canPick ? new Color(1f, 0.96f, 0.8f, 1f) : Color.white);
                 GUI.color = tint;
-                var iconRect = new Rect(p.x - drawSize * 0.5f, p.y - drawSize * 0.5f, drawSize, drawSize);
+                var iconRect = new Rect(p.x - drawSize.x * 0.5f, p.y - drawSize.y * 0.5f, drawSize.x, drawSize.y);
                 if (mapSheet != null) GUI.DrawTextureWithTexCoords(iconRect, mapSheet, NodeUv(n.type));
                 GUI.color = Color.white;
 
                 labelStyle.normal.textColor = isCur
                     ? new Color(0.15f, 0.08f, 0.03f)
                     : (canPick ? new Color(0.65f, 0.22f, 0.05f) : new Color(0.32f, 0.22f, 0.14f));
-                GUI.Label(new Rect(p.x - 45f, p.y + size * 0.5f + 2f, 90f, 22f), MapNode.TypeName(n.type), labelStyle);
+                GUI.Label(new Rect(p.x - 45f, p.y + baseSize.y * 0.5f + 2f, 90f, 22f), MapNode.TypeName(n.type), labelStyle);
 
-                if (!confirmArrowLossOpen && canPick && GUI.Button(new Rect(p.x - size * 0.7f, p.y - size * 0.7f, size * 1.4f, size * 1.4f), GUIContent.none, GUIStyle.none))
+                if (!confirmArrowLossOpen && mapRevealT >= 0.85f && canPick && GUI.Button(new Rect(p.x - baseSize.x * 0.7f, p.y - baseSize.y * 0.7f, baseSize.x * 1.4f, baseSize.y * 1.4f), GUIContent.none, GUIStyle.none))
                 {
                     TryEnterNode(n);
                     break;
                 }
+            }
+
+            GUI.EndGroup();
+
+            if (mapSheet != null && ease < 0.995f)
+            {
+                int idx = Mathf.Clamp(Mathf.FloorToInt(ease * UvRolls.Length), 0, UvRolls.Length - 1);
+                float pxScale = fullBoard.height / 174f;
+                float rollW = RollSizes[idx].x * pxScale;
+                float rollH = RollSizes[idx].y * pxScale;
+                float rollX = fullBoard.x + clipW - rollW * 0.45f;
+                float rollY = fullBoard.center.y - rollH * 0.5f;
+                GUI.DrawTextureWithTexCoords(new Rect(rollX, rollY, rollW, rollH), mapSheet, UvRolls[idx]);
             }
 
             GUI.matrix = prev;
@@ -665,13 +695,14 @@ namespace Laurel
             float scale = Mathf.Min(Screen.width / VW, Screen.height / VH);
             if (scale <= 0.001f) return;
 
+            GUI.color = new Color(0f, 0f, 0f, 0.72f);
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
             Matrix4x4 prev = GUI.matrix;
             float ox = (Screen.width - VW * scale) * 0.5f;
             float oy = (Screen.height - VH * scale) * 0.5f;
             GUI.matrix = Matrix4x4.TRS(new Vector3(ox, oy, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
-
-            GUI.color = new Color(0f, 0f, 0f, 0.72f);
-            GUI.DrawTexture(new Rect(0f, 0f, VW, VH), Texture2D.whiteTexture);
 
             var box = new Rect(VW * 0.5f - 310f, VH * 0.5f - 145f, 620f, 290f);
             GUI.color = new Color(0.14f, 0.12f, 0.10f, 0.98f);
@@ -741,11 +772,24 @@ namespace Laurel
             for (float t = 34f; t < len - 34f; t += 24f)
             {
                 Vector2 p = a + u * t;
-                var r = new Rect(p.x - 6f, p.y - 6f, 12f, 12f);
+                float dw = 8f * 1.5f, dh = 7f * 1.5f;
+                var r = new Rect(p.x - dw * 0.5f, p.y - dh * 0.5f, dw, dh);
                 if (mapSheet != null) GUI.DrawTextureWithTexCoords(r, mapSheet, UvDot);
                 else GUI.DrawTexture(r, Texture2D.whiteTexture);
             }
             GUI.color = Color.white;
+        }
+
+        private static Vector2 NodePxSize(NodeType t)
+        {
+            switch (t)
+            {
+                case NodeType.Question: return new Vector2(22f, 24f);
+                case NodeType.Reward: return new Vector2(22f, 20f);
+                case NodeType.Elite: return new Vector2(22f, 21f);
+                case NodeType.Boss: return new Vector2(20f, 23f);
+                default: return new Vector2(21f, 21f);
+            }
         }
 
         private static Rect NodeUv(NodeType t)
