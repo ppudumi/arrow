@@ -35,6 +35,8 @@ namespace Laurel
         public GameObject playerPrefab;
         [Tooltip("기존 캐릭터 화살 스프라이트 (Assets/pjs/Sprites/Character/Arrow.png)")]
         public Sprite arrowSprite;
+        [Tooltip("타이틀 화면 로고 스프라이트 (Assets/pjs/Sprites/Title/title.png)")]
+        public Sprite titleSprite;
         [Tooltip("튜토리얼 방 배경 이미지 (씬의 Backdrop_Tutorial 오브젝트). 비우면 코드로 만든 임시 배경을 쓴다")]
         public RoomBackdrop tutorialBackdrop;
         [Tooltip("튜토리얼 방 지형 모양 (씬의 TerrainStyle_Tutorial 오브젝트): 발판 두께·색·테두리. 비우면 예전 단색 지형")]
@@ -59,6 +61,8 @@ namespace Laurel
         public ArcheryTestArena ArcheryTest { get; private set; }
         public bool InArcheryTest => ArcheryTest != null;
         public static bool EnteredFromFlow { get; private set; }
+        public static bool IsBlitzMode { get; private set; }
+        private static Profile blitzProfile;
         public Stage1Controller Stage1 { get; private set; }
         public bool InStage1 => Stage1 != null;
 
@@ -122,10 +126,10 @@ namespace Laurel
             I = this;
             Application.targetFrameRate = 60;
             DB.Load();
-            // 궁술 테스트 씬 또는 단독 실행한 1스테이지 씬: 세이브를 읽지도 쓰지도 않는다
+            // 궁술 테스트 씬, 블리츠 시연 모드, 또는 단독 실행한 1스테이지 씬: 세이브를 읽지도 쓰지도 않는다
             ArcheryTest = FindAnyObjectByType<ArcheryTestArena>();
             Stage1 = FindAnyObjectByType<Stage1Controller>();
-            SaveStore.Disabled = InArcheryTest || (InStage1 && !EnteredFromFlow);
+            SaveStore.Disabled = InArcheryTest || IsBlitzMode || (InStage1 && !EnteredFromFlow);
             if (arrowSprite != null) Art.ArrowSprite = arrowSprite;
 
             cam = Camera.main;
@@ -147,7 +151,15 @@ namespace Laurel
             fxGo.AddComponent<Fx>();
             DontDestroyOnLoad(fxGo);
 
-            Profile = (InArcheryTest || (InStage1 && !EnteredFromFlow)) ? ArcheryTestArena.MakeProfile() : SaveStore.Load();
+            if (IsBlitzMode)
+            {
+                if (blitzProfile == null) blitzProfile = MakeBlitzProfile();
+                Profile = blitzProfile;
+            }
+            else
+            {
+                Profile = (InArcheryTest || (InStage1 && !EnteredFromFlow)) ? ArcheryTestArena.MakeProfile() : SaveStore.Load();
+            }
             CurrentQuiver = System.Enum.TryParse(Profile.quiver, out QuiverType pq) ? pq : QuiverType.Basic;
             Sfx.Volume = Profile.sfxVolume;
 
@@ -237,11 +249,63 @@ namespace Laurel
             toastT = time;
         }
 
+        public bool StatusOpen { get; private set; }
+
         private void SetState(GameState s)
         {
             State = s;
+            StatusOpen = false;
             bool playable = s == GameState.Node || s == GameState.Lobby || s == GameState.Tutorial || s == GameState.ArcheryTest;
             if (Avatar != null) Avatar.SetInputEnabled(playable && !Paused);
+        }
+
+        public void SetStatusOpen(bool open)
+        {
+            bool playable = State == GameState.Node || State == GameState.Lobby || State == GameState.Tutorial || State == GameState.ArcheryTest;
+            if (open && (!playable || Paused)) return;
+            StatusOpen = open;
+            Time.timeScale = (Paused || StatusOpen) ? 0f : 1f;
+            Avatar?.SetInputEnabled(playable && !Paused && !StatusOpen);
+            Sfx.Play("ui", 0.45f);
+        }
+
+        public void ToggleStatus() => SetStatusOpen(!StatusOpen);
+
+        public static int ArrowDismantleGold(ArrowCard c)
+        {
+            if (c == null || c.fromRelic) return 0;
+            int price = DB.Balance.economy.arrowPrice[Mathf.Clamp(c.Def.rarity, 0, DB.Balance.economy.arrowPrice.Length - 1)];
+            return Mathf.Max(5, Mathf.RoundToInt(price * 0.5f));
+        }
+
+        public bool DismantleArrow(ArrowCard card)
+        {
+            var r = Run ?? PracticeRun;
+            if (r == null || card == null || card.fromRelic || r.isTutorial) return false;
+            if (r.NonRelicCardCount <= 1) { Sfx.Play("empty"); ShowToast("마지막 화살은 분해할 수 없습니다"); return false; }
+
+            int gain = ArrowDismantleGold(card);
+            bool removed = false;
+            if (Combat != null && Combat.Active)
+            {
+                for (int i = 0; i < Combat.Bodies.Count; i++)
+                {
+                    var b = Combat.Bodies[i];
+                    if (b != null && b.Card == card)
+                    {
+                        removed = Combat.RemoveArrowPermanently(b);
+                        break;
+                    }
+                }
+            }
+            if (!removed) removed = r.RemoveCard(card);
+            if (!removed) return false;
+
+            r.gold += gain;
+            r.goldEarned += gain;
+            Sfx.Play("buy", 0.6f, 1.15f);
+            ShowToast($"{card.Def.name} 분해 (+{gain} G)");
+            return true;
         }
 
         private void DestroyRoom()
@@ -304,6 +368,9 @@ namespace Laurel
 
         public void GoTitle()
         {
+            IsBlitzMode = false;
+            blitzProfile = null;
+            SaveStore.Disabled = InArcheryTest;
             if (!SelfTestRunning && !InArcheryTest && LoadSeparatedScene("Laurel_Title")) return;
             DestroyRoom();
             Run = null;
@@ -314,6 +381,29 @@ namespace Laurel
             cam.backgroundColor = new Color(0.08f, 0.08f, 0.12f);
             CameraRig.I.Setup(new Rect(-20, -12, 40, 24), 8.5f, new Color(0.08f, 0.08f, 0.12f));
             SetState(GameState.Title);
+        }
+
+        /// <summary>발표 시연용 블리츠 프로필: 모든 회수 방식 · 트리플점프 · 대쉬(공격) 해금, 세이브 미사용</summary>
+        public static Profile MakeBlitzProfile()
+        {
+            var p = new Profile { tutorialDone = true, lobbyIntroSeen = true, nectar = 99 };
+            foreach (var n in DB.NectarNodes)
+                if (n.kind == "retrieval") p.SetLevel(n.id, 1);
+            p.SetLevel("double_jump", 1);
+            p.SetLevel("triple_jump", 1);
+            p.SetLevel("dash", 1);
+            return p;
+        }
+
+        public void StartBlitz()
+        {
+            IsBlitzMode = true;
+            blitzProfile = MakeBlitzProfile();
+            Profile = blitzProfile;
+            SaveStore.Disabled = true;
+            CurrentQuiver = QuiverType.Basic;
+            if (!SelfTestRunning && LoadSeparatedScene("Laurel_Lobby")) return;
+            GoLobby();
         }
 
         public bool CanContinue => SaveStore.Exists() && Profile.tutorialDone;
@@ -766,7 +856,7 @@ namespace Laurel
             if (Run.NonRelicCardCount >= DB.Balance.player.quiverMax) { ShowToast("화살통이 가득 찼습니다"); return false; }
             if (InStage1 && Combat != null && Combat.Active)
             {
-                if (!Combat.AddNewArrow(a.code)) { ShowToast("화살통이 가득 찼습니다 (바닥 화살을 [G]로 제거 가능)"); return false; }
+                if (!Combat.AddNewArrow(a.code)) { ShowToast("화살통이 가득 찼습니다 (Tab 상태창에서 분해 가능)"); return false; }
             }
             else
             {
@@ -1106,8 +1196,9 @@ namespace Laurel
             bool canPause = State == GameState.Node || State == GameState.Tutorial || State == GameState.Lobby;
             if (p && !canPause) return;
             Paused = p;
-            Time.timeScale = p ? 0f : 1f;
-            Avatar?.SetInputEnabled(!p && canPause);
+            if (p) StatusOpen = false;
+            Time.timeScale = (p || StatusOpen) ? 0f : 1f;
+            Avatar?.SetInputEnabled(!p && !StatusOpen && canPause);
         }
 
         private void Update()
@@ -1117,17 +1208,18 @@ namespace Laurel
 #if ENABLE_INPUT_SYSTEM
             var k = Keyboard.current;
             if (k == null || SelfTestRunning) return;
+            if (k.tabKey.wasPressedThisFrame)
+            {
+                bool canStatus = State == GameState.Node || State == GameState.Tutorial || State == GameState.Lobby || State == GameState.ArcheryTest;
+                if (canStatus && !Paused) ToggleStatus();
+            }
             if (k.escapeKey.wasPressedThisFrame)
             {
-                if (InStage1 && State == GameState.Reward) CancelStage1Reward();
+                if (StatusOpen) SetStatusOpen(false);
+                else if (InStage1 && State == GameState.Reward) CancelStage1Reward();
                 else if (State == GameState.NectarTree || State == GameState.ArcherySelect || State == GameState.Records) ClosePanel();
                 else if (State == GameState.ArcheryTest) OpenPanel(GameState.ArcherySelect); // 테스트 씬: 일시정지 대신 궁술 선택
                 else SetPaused(!Paused);
-            }
-            if (k.tabKey.wasPressedThisFrame && InArcheryTest)
-            {
-                if (State == GameState.ArcheryTest) OpenPanel(GameState.ArcherySelect);
-                else if (State == GameState.ArcherySelect) ClosePanel();
             }
             if (State == GameState.Story && (k.enterKey.wasPressedThisFrame || k.spaceKey.wasPressedThisFrame || k.eKey.wasPressedThisFrame)) AdvanceStory();
             if (k.f12Key.wasPressedThisFrame) { DevMode = !DevMode; ShowToast(DevMode ? "개발자 모드 켬 (F9 넥타르+20, F10 방 정리, F11 보스 해금 전체)" : "개발자 모드 끔"); }
@@ -1136,6 +1228,11 @@ namespace Laurel
                 if (k.f9Key.wasPressedThisFrame) AddNectar(20, "개발자 모드");
                 if (k.f10Key.wasPressedThisFrame && Room != null) Room.DebugKillAll();
                 if (k.f11Key.wasPressedThisFrame) { for (int s = 1; s <= 3; s++) if (!Profile.bossesDefeated.Contains(s)) Profile.bossesDefeated.Add(s); SaveStore.Save(Profile); ShowToast("보스 구매 자격 전체 해금 (개발자 모드)"); }
+            }
+            else if (IsBlitzMode)
+            {
+                if (k.f9Key.wasPressedThisFrame && Room != null) { Room.DebugKillAll(); ShowToast("블리츠: 현재 방 정리"); }
+                if (k.f10Key.wasPressedThisFrame && InStage1 && Stage1 != null) Stage1.DebugJumpToBoss();
             }
 #endif
         }

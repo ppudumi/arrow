@@ -107,7 +107,7 @@ namespace Laurel
             ChargeElapsed = 0f;
 
             Vector2 dir = combat.AimDirectionFrom(combat.MuzzlePosition, input.aimWorld);
-            float dmgMul = 1f + 0.5f * chargeRatio;
+            float dmgMul = 1f + 1.5f * chargeRatio;
             float speedAdd = ChargeMaxSpeedAdd * chargeRatio;
             var fired = combat.FireFront(dir, GravityFor(next.Card.Def), cd => HitResolver.NormalDamage(cd, combat.Attack) * dmgMul, speedAdd);
             if (fired.Count > 0) OnFired();

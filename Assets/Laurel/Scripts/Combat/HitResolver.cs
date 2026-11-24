@@ -47,6 +47,10 @@ namespace Laurel
                 dmg *= mino.headCritMultiplier;
                 mino.MarkNextHitCritical();
             }
+            if (enemy is WarlockEnemy warlock)
+            {
+                warlock.MarkHitPoint(point, dir);
+            }
             enemy.TakeDamage(dmg, form.name, form.tint, true);
             c.Stats.hitsLanded++;
             Fx.Burst(point, form.tint, 5, 4f, 0.12f, 0.3f);

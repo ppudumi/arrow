@@ -61,7 +61,14 @@ namespace Laurel
         private float hpTrailDelay;
         private float flashT = 1f;
         private bool pendingNextHitCritical;
+        private Vector2? pendingHitPoint;
         private Vector2 lastHitDirection = Vector2.right;
+
+        public void MarkHitPoint(Vector2 point, Vector2 dir)
+        {
+            pendingHitPoint = point;
+            if (dir.sqrMagnitude > 0.001f) lastHitDirection = dir.normalized;
+        }
 
         private Transform player;
         private PlayerAvatar playerAvatar;
@@ -355,7 +362,7 @@ namespace Laurel
             go.transform.position = new Vector3(origin.x, origin.y, -0.05f);
             var proj = go.AddComponent<WarlockGhostProjectile>();
             float bodyScale = Mathf.Abs(transform.localScale.x) * visualScale;
-            proj.Init(origin, initialVel, ghostDamage, bodyScale, ghostSprite, trailSprites, hitFxSprite, fleshSprites, groundLayer, sortingOrder, player, playerAvatar, playerCtrl);
+            proj.Init(origin, initialVel, ghostDamage, bodyScale, ghostSprite, trailSprites, hitFxSprite, fleshSprites, groundLayer, sortingOrder, player, playerAvatar, playerCtrl, this);
             Sfx.Play("swing", 0.55f, 0.75f);
         }
 
@@ -475,7 +482,9 @@ namespace Laurel
             Hp = Mathf.Max(0f, Hp - amount);
             UpdateHpBar();
             flashT = 0f;
-            SpawnHitFx(Center + new Vector3(Random.Range(-0.2f, 0.2f), Random.Range(-0.2f, 0.2f), 0f));
+            Vector2 fxPos = pendingHitPoint ?? (Vector2)(Center + new Vector3(Random.Range(-0.2f, 0.2f), Random.Range(-0.2f, 0.2f), 0f));
+            pendingHitPoint = null;
+            SpawnHitFx(fxPos);
 
             int dmgInt = Mathf.Max(1, Mathf.RoundToInt(amount));
             DamagePopup.Spawn(transform.position + Vector3.up * 1.4f, dmgInt, crit, crit ? new Color(1f, 0.88f, 0.25f, 1f) : color);
@@ -573,10 +582,11 @@ namespace Laurel
         private Transform player;
         private PlayerAvatar playerAvatar;
         private ProceduralCharacterController playerCtrl;
+        private WarlockEnemy ownerWarlock;
 
         public void Init(Vector2 start, Vector2 initialVel, float dmg, float scale, Sprite ghostSp, Sprite[] trails,
             Sprite hitFxSp, Sprite[] fleshSps, LayerMask ground, int sortOrder,
-            Transform pTf, PlayerAvatar pAv, ProceduralCharacterController pCtrl)
+            Transform pTf, PlayerAvatar pAv, ProceduralCharacterController pCtrl, WarlockEnemy owner = null)
         {
             velocity = initialVel;
             damage = dmg;
@@ -588,6 +598,7 @@ namespace Laurel
             player = pTf;
             playerAvatar = pAv;
             playerCtrl = pCtrl;
+            ownerWarlock = owner;
 
             gameObject.layer = Layers.Enemy;
             transform.position = new Vector3(start.x, start.y, -0.05f);
@@ -600,6 +611,32 @@ namespace Laurel
             sr = gameObject.AddComponent<SpriteRenderer>();
             sr.sprite = ghostSp != null ? ghostSp : Art.Circle;
             sr.sortingOrder = 22;
+        }
+
+        public bool TryGetReflectTarget(out Vector2 targetPos)
+        {
+            if (ownerWarlock != null && ownerWarlock.IsAlive)
+            {
+                targetPos = ownerWarlock.Center;
+                return true;
+            }
+            var room = GameRoot.I != null ? GameRoot.I.Room : null;
+            if (room != null)
+            {
+                float bestDist = float.MaxValue;
+                WarlockEnemy best = null;
+                foreach (var e in room.Enemies)
+                {
+                    if (e is WarlockEnemy w && w.IsAlive)
+                    {
+                        float d = Vector2.Distance(transform.position, w.Center);
+                        if (d < bestDist) { bestDist = d; best = w; }
+                    }
+                }
+                if (best != null) { targetPos = best.Center; return true; }
+            }
+            targetPos = default;
+            return false;
         }
 
         public void TakeLaserHit(int dmg, bool critical, Vector2 point, Vector2 dir)

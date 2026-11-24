@@ -136,8 +136,10 @@ namespace Laurel
                     DrawArcheryTestBar();
                     break;
             }
+            if (G.StatusOpen && !G.Paused) DrawPlayerStatusPanel();
             if (G.Paused) DrawPause();
             DrawToast();
+            if (GameRoot.IsBlitzMode) Text(new Rect(VW - 210, VH - 34, 115, 30), "<b>BLITZ</b>", small, new Color(0.45f, 0.92f, 1f));
             if (G.DevMode) Text(new Rect(VW - 90, VH - 34, 80, 30), "<b>DEV</b>", small, new Color(1f, 0.4f, 0.4f));
         }
 
@@ -160,8 +162,16 @@ namespace Laurel
                 float x = (i * 137.5f + Time.time * 6f) % VW;
                 Rect(new Rect(x, 700 + Mathf.Sin(i + Time.time * 0.5f) * 30f, 3, 380), new Color(0.9f, 0.75f, 0.35f, 0.06f));
             }
-            Text(new Rect(0, 210, VW, 110), "<color=#F5D27A>라 우 랄</color>", title);
-            Text(new Rect(0, 320, VW, 50), "LAUREL — 월계수가 된 님프와 저주받은 궁술의 신", center, new Color(0.85f, 0.8f, 0.7f));
+            if (G.titleSprite != null && G.titleSprite.texture != null)
+            {
+                var tex = G.titleSprite.texture;
+                Rect tr = G.titleSprite.textureRect;
+                Rect uv = new Rect(tr.x / tex.width, tr.y / tex.height, tr.width / tex.width, tr.height / tex.height);
+                float logoW = 680f;
+                float logoH = logoW * (tr.height / Mathf.Max(1f, tr.width));
+                GUI.DrawTextureWithTexCoords(new Rect(VW * 0.5f - logoW * 0.5f, 170f, logoW, logoH), tex, uv);
+            }
+            Text(new Rect(0, 355, VW, 50), "월계수가 된 님프와 저주받은 궁술의 신", center, new Color(0.85f, 0.8f, 0.7f));
             float bx = VW * 0.5f - 200;
             if (G.ConfirmNewGame)
             {
@@ -182,6 +192,8 @@ namespace Laurel
                 if (SaveStore.Exists() && G.Profile.tutorialDone) G.ConfirmNewGame = true; else G.NewGame();
             }
             y += 100;
+            if (Btn(new Rect(bx, y, 400, 75), "시연용 블리츠 (로비)", true, bigButton)) G.StartBlitz();
+            y += 95;
             if (Btn(new Rect(bx, y, 400, 70), "종료")) Application.Quit();
             Text(new Rect(20, VH - 80, VW - 40, 70), $"저장 위치: {SaveStore.FilePath}" + (SaveStore.LastLoadSource == "backup" ? "  (백업에서 복구됨)" : ""), tiny, new Color(0.6f, 0.6f, 0.6f));
             Text(new Rect(VW - 520, VH - 50, 500, 40), "조작: A/D 이동 · Space 점프 · Shift 대쉬 · 좌클릭 발사 · R 회수 · 우클릭/Q 버리기 · Esc 일시정지", tiny, new Color(0.7f, 0.7f, 0.7f));
@@ -722,6 +734,133 @@ namespace Laurel
             bool inRun = G.Run != null && !G.Run.isTutorial;
             if (G.State != GameState.Lobby && Btn(new Rect(r.x + 220, r.y + 410, 400, 60), inRun ? "도전 포기 (사망 처리 → 로비)" : "튜토리얼 그만두기 (타이틀)")) G.AbandonRun();
             if (Btn(new Rect(r.x + 220, r.y + 486, 400, 60), "타이틀로" + (inRun ? " (도전 포기)" : ""))) { if (inRun) G.AbandonRun(); G.GoTitle(); }
+        }
+
+        // ───────────── 플레이어 상태창 & 화살 슬롯 (Tab) ─────────────
+
+        private void DrawPlayerStatusPanel()
+        {
+            Rect(new Rect(0, 0, VW, VH), new Color(0, 0, 0, 0.72f));
+            var r = new Rect(VW * 0.5f - 620, 120, 1240, 820);
+            Panel(r, 0.96f);
+
+            Text(new Rect(r.x + 28, r.y + 18, 700, 44), "<b>플레이어 상태창 & 화살 슬롯</b>", header);
+            if (Btn(new Rect(r.xMax - 170, r.y + 18, 140, 44), "닫기 (Tab)")) { G.SetStatusOpen(false); return; }
+
+            var run = G.Run ?? G.PracticeRun;
+            var av = G.Avatar;
+
+            // 왼쪽: 플레이어 상태
+            var left = new Rect(r.x + 28, r.y + 76, 410, r.height - 104);
+            Panel(left, 0.75f);
+            float ly = left.y + 16;
+            Text(new Rect(left.x + 18, ly, left.width - 36, 32), "<b><color=#F5D27A>능력치 & 장비</color></b>", small);
+            ly += 40;
+
+            if (av != null)
+            {
+                var st = av.Stats;
+                string statText =
+                    $"체력: <b>{av.Hp:0} / {av.MaxHp:0}</b>\n" +
+                    $"공격력: <b>{st.attack:0.#}</b>\n" +
+                    $"방어력: <b>{st.defense:0.#}</b>\n" +
+                    $"공격속도: <b>+{st.attackSpeedBonus * 100f:0}%</b>\n" +
+                    $"이동속도: <b>{st.moveMul * 100f:0}%</b>\n" +
+                    $"점프: <b>{st.MaxJumps}단 점프</b>   대쉬: <b>{(st.dash ? "해금" : "잠김")}</b>\n" +
+                    $"재생: <b>{(st.regenPer5s > 0 ? $"+{st.regenPer5s:0.#}/5초" : "없음")}</b>   부활: <b>{(st.revive && (run == null || !run.reviveUsed) ? "가능" : "없음")}</b>";
+                Text(new Rect(left.x + 18, ly, left.width - 36, 230), statText, small);
+                ly += 235;
+            }
+
+            if (run != null)
+            {
+                string gearText =
+                    $"발사 궁술: <b>{StyleNames.Launch(run.launch)}</b>\n" +
+                    $"회수 방식: <b>{StyleNames.Retrieval(run.retrieval)}</b>\n" +
+                    $"화살통: <b>{QuiverStats.Name(run.quiver)}</b> ({QuiverStats.ArrowCount(run.quiver)}발)\n" +
+                    $"골드: <color=#F2C84B><b>{run.gold} G</b></color>   넥타르: <color=#C6A6FF><b>{G.Profile.nectar}</b></color>";
+                Text(new Rect(left.x + 18, ly, left.width - 36, 130), gearText, small);
+                ly += 136;
+
+                Text(new Rect(left.x + 18, ly, left.width - 36, 28), $"<b><color=#F5D27A>보유 유물 ({run.relics.Count})</color></b>", small);
+                ly += 30;
+                if (run.relics.Count == 0)
+                {
+                    Text(new Rect(left.x + 18, ly, left.width - 36, 26), "<color=#999999>보유한 유물이 없습니다</color>", tiny);
+                }
+                else
+                {
+                    foreach (var id in run.relics)
+                    {
+                        if (!DB.Relics.TryGetValue(id, out var rd)) continue;
+                        string hex = Hex(DB.RarityColors[Mathf.Clamp(rd.rarity, 0, DB.RarityColors.Length - 1)]);
+                        Text(new Rect(left.x + 18, ly, left.width - 36, 42), $"<color=#{hex}>◆ {rd.name}</color>\n<size=13><color=#BBBBBB>{rd.desc}</color></size>", tiny);
+                        ly += 44;
+                        if (ly > left.yMax - 40) break;
+                    }
+                }
+            }
+
+            // 오른쪽: 화살 슬롯 & 분해
+            var right = new Rect(left.xMax + 18, r.y + 76, r.xMax - 28 - (left.xMax + 18), r.height - 104);
+            Panel(right, 0.75f);
+            if (run == null)
+            {
+                Text(new Rect(right.x + 20, right.y + 20, 400, 34), "화살 슬롯 정보 없음", small);
+                return;
+            }
+
+            int cap = G.Combat != null && G.Combat.Active ? G.Combat.MaxQuiverCapacity : QuiverStats.ArrowCount(run.quiver);
+            Text(new Rect(right.x + 18, right.y + 14, right.width - 36, 34),
+                $"<b><color=#F5D27A>화살 슬롯 ({run.deck.Count} / {cap})</color></b>  <color=#BBBBBB>— 분해하면 화살이 제거되고 골드로 변환됩니다</color>", small);
+
+            // 화살 목록 (화살통 순서 우선, 나머지 필드 화살 포함)
+            var ordered = new List<ArrowCard>();
+            var seen = new HashSet<int>();
+            if (G.Combat != null && G.Combat.Active && G.Combat.Quiver != null)
+            {
+                foreach (var b in G.Combat.Quiver.Order)
+                {
+                    if (b != null && b.Card != null && seen.Add(b.Card.uid)) ordered.Add(b.Card);
+                }
+            }
+            for (int i = 0; i < run.deck.Count; i++)
+            {
+                var c = run.deck[i];
+                if (c != null && seen.Add(c.uid)) ordered.Add(c);
+            }
+
+            const int cols = 3;
+            float cellW = (right.width - 36 - (cols - 1) * 10f) / cols;
+            float cellH = 104f;
+            float startX = right.x + 18f, startY = right.y + 56f;
+            bool canDismantleAny = !run.isTutorial && run.NonRelicCardCount > 1;
+
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                int col = i % cols;
+                int row = i / cols;
+                float cx = startX + col * (cellW + 10f);
+                float cy = startY + row * (cellH + 10f);
+                if (cy + cellH > right.yMax - 14f) break;
+
+                var c = ordered[i];
+                var cell = new Rect(cx, cy, cellW, cellH);
+                Panel(cell, 0.92f);
+                Rect(new Rect(cell.x, cell.y, cell.width, 4f), DB.RarityColors[Mathf.Clamp(c.Def.rarity, 0, DB.RarityColors.Length - 1)]);
+
+                Text(new Rect(cell.x + 10, cell.y + 8, cell.width - 20, 26), $"<b>{c.Def.name}</b>", tiny);
+                Text(new Rect(cell.x + 10, cell.y + 32, cell.width - 20, 22), $"피해 {c.Damage:0.#}  <color=#AAAAAA>({c.Def.grade})</color>", tiny);
+
+                int gold = GameRoot.ArrowDismantleGold(c);
+                bool canDismantle = canDismantleAny && !c.fromRelic && gold > 0;
+                string btnLabel = c.fromRelic ? "유물 화살" : (run.isTutorial ? "튜토리얼" : (run.NonRelicCardCount <= 1 ? "마지막 화살" : $"분해 (+{gold} G)"));
+                if (Btn(new Rect(cell.x + 10, cell.yMax - 40, cell.width - 20, 32), btnLabel, canDismantle))
+                {
+                    G.DismantleArrow(c);
+                    return;
+                }
+            }
         }
     }
 }

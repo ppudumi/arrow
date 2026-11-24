@@ -158,7 +158,6 @@ namespace Laurel
             Avatar = avatar;
             Aim = GetComponent<Procedural2DAim>();
             playerColliders = GetComponentsInChildren<Collider2D>(true);
-            if (EquippedItem == null) EquippedItem = new BombItem();
         }
 
         // ───────────── 라운드(=노드) 시작·종료 ─────────────

@@ -469,8 +469,27 @@ namespace Laurel
                         transform.position = hit.point;
                         LastDirection = velocity.normalized;
                         int dmg = Mathf.Max(1, Mathf.RoundToInt(Shot != null ? Shot.damage : Card.Damage));
+                        bool isGhost = target is WarlockGhostProjectile;
+                        Vector2 warlockCenter = default;
+                        bool hasReflectTarget = target is WarlockGhostProjectile ghost && ghost.TryGetReflectTarget(out warlockCenter);
                         target.TakeLaserHit(dmg, Shot != null && Shot.isDashAttack, hit.point, LastDirection);
-                        Drop(new Vector2(-LastDirection.x * 2.5f, 5f));
+
+                        if (isGhost)
+                        {
+                            // 워록 투사체를 맞추면 화살이 멈추지 않고 워록 쪽으로 방향을 틀어 계속 비행
+                            Vector2 newDir = hasReflectTarget ? (warlockCenter - hit.point).normalized : LastDirection;
+                            if (newDir.sqrMagnitude < 0.001f) newDir = LastDirection;
+                            velocity = newDir * Mathf.Max(velocity.magnitude, 24f);
+                            gravity = 0f;
+                            traveled = 0f;
+                            transform.position = hit.point + newDir * 0.08f;
+                            AlignTo(velocity);
+                            Fx.Burst(hit.point, new Color(0.85f, 0.55f, 1f), 8, 5f, 0.14f, 0.3f);
+                        }
+                        else
+                        {
+                            Drop(new Vector2(-LastDirection.x * 2.5f, 5f));
+                        }
                     }
                     else
                     {

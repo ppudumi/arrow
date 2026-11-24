@@ -26,6 +26,7 @@ namespace Laurel
         public bool MapOpen { get; private set; }
         public bool PortalOpen { get; private set; }
         public bool IsLoading { get; private set; }
+        public int StageLoop { get; private set; }
 
         private GameRoot root;
         private readonly List<Enemy> activeEnemies = new List<Enemy>();
@@ -49,8 +50,6 @@ namespace Laurel
         private MapNode pendingNextNode;
         private bool pendingBossClear;
         private GUIStyle warnTitleStyle, warnBodyStyle, warnBtnStyle;
-        private ArrowBody hoveredGroundArrow;
-        private GUIStyle groundTitleStyle, groundDescStyle;
         private float mapRevealT;
         private const float MapRevealDuration = 0.45f;
 
@@ -68,14 +67,43 @@ namespace Laurel
 
         private static Rect Uv(float x, float y, float w, float h) => new Rect(x / 512f, y / 512f, w / 512f, h / 512f);
 
-        public void BeginStage(GameRoot g)
+        public void BeginStage(GameRoot g) => BeginStage(g, true);
+
+        public void BeginStage(GameRoot g, bool resetLoop)
         {
             root = g;
+            if (resetLoop) StageLoop = 0;
             int seed = PortalTravel.NewSeed();
             Map = MapData.GenerateStage1(seed);
             CurrentNode = Map.nodes[0];
             CurrentNode.visited = true;
             EnterNode(CurrentNode);
+        }
+
+        private void CompleteStage1AndLoop()
+        {
+            StageLoop++;
+            if (root != null)
+            {
+                if (root.Run != null) root.Run.stage = 1 + StageLoop;
+                root.Avatar?.Heal(root.Avatar.MaxHp * DB.Balance.economy.stageClearHealRatio, "스테이지 클리어");
+                root.AddNectar(DB.Balance.nectar.stageClearBonus[0], $"1스테이지 클리어 (+{StageLoop})");
+                root.ShowToast($"1스테이지 클리어! 강화된 1스테이지 (강화 +{StageLoop})를 시작합니다.");
+            }
+            BeginStage(root, false);
+        }
+
+        public void DebugJumpToBoss()
+        {
+            if (Map == null || Map.nodes == null || Map.nodes.Count == 0) return;
+            MapNode boss = null;
+            for (int i = 0; i < Map.nodes.Count; i++)
+                if (Map.nodes[i].type == NodeType.Boss) { boss = Map.nodes[i]; break; }
+            if (boss != null)
+            {
+                root?.ShowToast("블리츠: 1스테이지 보스방으로 이동");
+                EnterNode(boss);
+            }
         }
 
         private void EnterNode(MapNode node)
@@ -113,7 +141,7 @@ namespace Laurel
                     {
                         CameraRig.I.target = root.PlayerGO.transform;
                         CameraRig.I.followY = true;
-                        CameraRig.I.playSize = 7f;
+                        CameraRig.I.playSize = DB.Balance.world.cameraSize;
                         CameraRig.I.lookUp = 3.2f;
                         CameraRig.I.lookAhead = 2.5f;
                         CameraRig.I.fallLookDown = 2.5f;
@@ -138,7 +166,8 @@ namespace Laurel
             if (root != null && root.Avatar != null) root.Avatar.SetInputEnabled(true);
             IsLoading = false;
             loadRoutine = null;
-            root?.ShowToast($"1스테이지 — {MapNode.TypeName(node.type)} ({node.layer + 1}구역)");
+            string loopTag = StageLoop > 0 ? $" (강화 +{StageLoop})" : "";
+            root?.ShowToast($"1스테이지{loopTag} — {MapNode.TypeName(node.type)} ({node.layer + 1}구역)");
         }
 
         private void SetupPortal(RandomMapData d)
@@ -205,8 +234,10 @@ namespace Laurel
             // 전투 / 엘리트 / 보스 (첫 노드는 무조건 미노타우르 1마리, 이후 노드는 랜덤 배치)
             nodeHadCombat = true;
             var spawnRng = new System.Random(node.seed ^ 0x3A71F);
-            int count = (node.layer == 0 || node.type == NodeType.Boss) ? 1 : (node.type == NodeType.Elite ? 2 : spawnRng.Next(2, 4));
-            float hpMul = node.type == NodeType.Boss ? 2.2f : (node.type == NodeType.Elite ? 1.5f : 1f);
+            int extra = (StageLoop > 0 && node.type != NodeType.Boss && node.layer > 0) ? Mathf.Min(2, StageLoop) : 0;
+            int count = ((node.layer == 0 || node.type == NodeType.Boss) ? 1 : (node.type == NodeType.Elite ? 2 : spawnRng.Next(2, 4))) + extra;
+            float loopHpMul = 1f + StageLoop * 0.45f;
+            float hpMul = (node.type == NodeType.Boss ? 2.2f : (node.type == NodeType.Elite ? 1.5f : 1f)) * loopHpMul;
             float scaleMul = node.type == NodeType.Boss ? 1.35f : (node.type == NodeType.Elite ? 1.15f : 1f);
 
             for (int i = 0; i < count; i++)
@@ -438,9 +469,7 @@ namespace Laurel
                     return;
                 }
 
-                if (root != null && root.State != GameState.Node) { hoveredGroundArrow = null; return; }
-
-                hoveredGroundArrow = !MapOpen ? ArcheryArmoryDisplays.FindHoveredGroundArrow(root?.Combat) : null;
+                if (root != null && root.State != GameState.Node) return;
 
                 if (k.mKey.wasPressedThisFrame)
                 {
@@ -449,15 +478,6 @@ namespace Laurel
                 else if (MapOpen && k.escapeKey.wasPressedThisFrame)
                 {
                     SetMapOpen(false, false);
-                }
-                else if (!MapOpen && hoveredGroundArrow != null && k.gKey.wasPressedThisFrame)
-                {
-                    Vector3 pos = hoveredGroundArrow.transform.position;
-                    Color c = hoveredGroundArrow.Card.Def.tint;
-                    root?.Combat?.RemoveArrowPermanently(hoveredGroundArrow);
-                    Fx.Burst(pos, c, 8, 4f, 0.12f, 0.3f);
-                    Sfx.Play("wall", 0.6f, 1.2f);
-                    hoveredGroundArrow = null;
                 }
                 else if (!MapOpen && arrowChestAvailable && root != null && root.PlayerGO != null
                     && Vector2.Distance(root.PlayerGO.transform.position, arrowChestPos + Vector3.up * 0.5f) <= 2.1f
@@ -487,8 +507,7 @@ namespace Laurel
                             }
                             else
                             {
-                                root.ShowToast("1스테이지 클리어! 새 지도를 생성합니다.");
-                                BeginStage(root);
+                                CompleteStage1AndLoop();
                             }
                         }
                         else
@@ -520,29 +539,7 @@ namespace Laurel
 
             if (!MapOpen && root != null && root.State == GameState.Node && root.PlayerGO != null && Camera.main != null)
             {
-                if (hoveredGroundArrow != null)
-                {
-                    Vector3 sc = Camera.main.WorldToScreenPoint(hoveredGroundArrow.transform.position + Vector3.up * 0.9f);
-                    if (sc.z >= 0f)
-                    {
-                        if (groundTitleStyle == null)
-                        {
-                            groundTitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
-                            groundDescStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter, wordWrap = true };
-                        }
-                        float sx = sc.x, sy = Screen.height - sc.y;
-                        float w = 220f, h = 54f;
-                        var r = new Rect(sx - w * 0.5f, sy - h, w, h);
-                        GUI.color = new Color(0.08f, 0.08f, 0.12f, 0.9f);
-                        GUI.DrawTexture(r, Texture2D.whiteTexture);
-                        GUI.color = Color.white;
-                        groundTitleStyle.normal.textColor = hoveredGroundArrow.Card.Def.tint;
-                        GUI.Label(new Rect(r.x + 4f, r.y + 3f, r.width - 8f, 22f), hoveredGroundArrow.Card.Def.name, groundTitleStyle);
-                        groundDescStyle.normal.textColor = new Color(0.95f, 0.92f, 0.72f);
-                        GUI.Label(new Rect(r.x + 4f, r.y + 26f, r.width - 8f, 22f), "[G] 제거", groundDescStyle);
-                    }
-                }
-                else if (arrowChestAvailable && Vector2.Distance(root.PlayerGO.transform.position, arrowChestPos + Vector3.up * 0.5f) <= 2.2f)
+                if (arrowChestAvailable && Vector2.Distance(root.PlayerGO.transform.position, arrowChestPos + Vector3.up * 0.5f) <= 2.2f)
                 {
                     DrawWorldPrompt(arrowChestPos + Vector3.up * 1.9f, "[W / F] 화살 상자 열기");
                 }
@@ -724,8 +721,7 @@ namespace Laurel
 
             if (bossClear)
             {
-                root?.ShowToast("1스테이지 클리어! 새 지도를 생성합니다.");
-                BeginStage(root);
+                CompleteStage1AndLoop();
             }
             else if (next != null)
             {

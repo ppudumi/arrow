@@ -268,7 +268,7 @@ namespace Laurel
 
         [Header("플레이 카메라 (Inspector 에서 조정)")]
         [Tooltip("튜토리얼·전투방·로비의 줌 = 화면 세로 절반 (월드 유닛). 클수록 넓게 보이고 캐릭터가 작아진다. 0 이면 balance.json 의 world.cameraSize. 보스전은 world.bossCameraSize")]
-        public float playSize = 7f;
+        public float playSize = 10f;
         [Tooltip("플레이어보다 이만큼 위를 비춘다. 위쪽 발판이 먼저 보이게 (이전 1.2)")]
         public float lookUp = 2f;
         [Tooltip("달리는 방향 앞쪽을 미리 비추는 최대 거리 (방이 화면보다 넓을 때만 효과)")]

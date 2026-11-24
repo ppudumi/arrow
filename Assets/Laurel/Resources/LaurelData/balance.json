@@ -49,7 +49,7 @@
     "enemyGoldMul": 1.0
   },
 
-  "world": { "arenaSize": 22, "wallThickness": 2, "cameraSize": 7, "bossCameraSize": 9, "lobbyWidth": 30 },
+  "world": { "arenaSize": 22, "wallThickness": 2, "cameraSize": 10, "bossCameraSize": 11.5, "lobbyWidth": 30 },
 
   "nectar": { "tutorialClear": 3, "stageClearBonus": [2, 3, 5] }
 }

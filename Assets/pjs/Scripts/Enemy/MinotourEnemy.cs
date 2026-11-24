@@ -48,7 +48,7 @@ namespace pjs
         public float maxHp = 100f;
         public Vector2 hitboxOffset = new Vector2(0f, 0.85f);
         public Vector2 hitboxSize = new Vector2(1.6f, 1.7f);
-        public float visualScale = 2.0f;
+        public float visualScale = 1.0f;
         public int sortingOrder = 10;
 
         [Header("Head Critical Hitbox (머리 치명타)")]
@@ -903,23 +903,9 @@ namespace pjs
             fsr.sprite = sprite;
             fsr.sortingOrder = sortingOrder;
 
-            var rb = go.AddComponent<Rigidbody2D>();
-            rb.gravityScale = 2.5f;
-            rb.linearVelocity = new Vector2(
-                Random.Range(-4f, 4f) + hitDir.x * 2f,
-                Random.Range(5f, 10f));
-            rb.angularVelocity = Random.Range(-360f, 360f);
-
-            var box = go.AddComponent<BoxCollider2D>();
-            box.size = sprite.bounds.size * 0.7f;
-            box.excludeLayers = ~Layers.TerrainMask;
-            if (player != null)
-            {
-                foreach (var pc in player.GetComponentsInChildren<Collider2D>(true))
-                    Physics2D.IgnoreCollision(box, pc);
-            }
-
-            Destroy(go, 4f);
+            // Collider2D를 붙이지 않고 지형 레이캐스트로만 착지시켜 플레이어·등반 판정과 절대 충돌하지 않게 한다
+            var vel = new Vector2(Random.Range(-4f, 4f) + hitDir.x * 2f, Random.Range(5f, 10f));
+            go.AddComponent<Laurel.WarlockFleshFragment>().Init(fsr, vel, Random.Range(-360f, 360f), groundLayer);
         }
     }
 }

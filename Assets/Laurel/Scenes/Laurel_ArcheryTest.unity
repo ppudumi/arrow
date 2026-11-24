@@ -819,7 +819,7 @@ MonoBehaviour:
   maxHp: 200
   hitboxOffset: {x: 0, y: 0.85}
   hitboxSize: {x: 1.6, y: 1.7}
-  visualScale: 2
+  visualScale: 1
   sortingOrder: 10
   headHitboxOffset: {x: 0, y: 2.05}
   headHitboxSize: {x: 1.1, y: 0.7}
@@ -17199,7 +17199,7 @@ MonoBehaviour:
   followY: 1
   focus2: {fileID: 0}
   focus2Weight: 0.4
-  playSize: 7
+  playSize: 10
   lookUp: 3.2
   lookAhead: 2.5
   fallLookDown: 2.5

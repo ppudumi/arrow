@@ -38,7 +38,6 @@ namespace Laurel
         private bool lobbyMode;
         private readonly List<Pedestal> pedestals = new List<Pedestal>();
         private Pedestal nearestAvailable;
-        private ArrowBody hoveredGroundArrow;
         private bool wasInSafeRoom;
         private GUIStyle promptTitleStyle, promptDescStyle;
         private static Sprite arrowDisplaySprite;
@@ -312,53 +311,13 @@ namespace Laurel
                 }
             }
 
-            // 땅에 떨어진 화살 마우스 오버 탐색 (궁술 테스트 전용)
-            hoveredGroundArrow = lobbyMode ? null : FindHoveredGroundArrow(g.Combat);
-
 #if ENABLE_INPUT_SYSTEM
             var k = Keyboard.current;
             bool canInteract = g.State == GameState.ArcheryTest || g.State == GameState.Lobby;
-            if (k != null && canInteract)
+            if (k != null && canInteract && nearestAvailable != null && k.fKey.wasPressedThisFrame)
             {
-                if (!lobbyMode && hoveredGroundArrow != null && k.gKey.wasPressedThisFrame)
-                {
-                    Vector3 pos = hoveredGroundArrow.transform.position;
-                    Color c = hoveredGroundArrow.Card.Def.tint;
-                    g.Combat?.RemoveArrowPermanently(hoveredGroundArrow);
-                    Fx.Burst(pos, c, 8, 4f, 0.12f, 0.3f);
-                    Sfx.Play("wall", 0.6f, 1.2f);
-                    hoveredGroundArrow = null;
-                }
-                else if (nearestAvailable != null && k.fKey.wasPressedThisFrame)
-                {
-                    EquipPedestal(nearestAvailable);
-                }
+                EquipPedestal(nearestAvailable);
             }
-#endif
-        }
-
-        public static ArrowBody FindHoveredGroundArrow(PlayerCombat combat)
-        {
-            if (combat == null || !combat.Active || Camera.main == null) return null;
-#if ENABLE_INPUT_SYSTEM
-            var m = Mouse.current;
-            if (m == null) return null;
-            Vector2 ms = m.position.ReadValue();
-            Vector3 mw = Camera.main.ScreenToWorldPoint(new Vector3(ms.x, ms.y, Mathf.Abs(Camera.main.transform.position.z)));
-            ArrowBody best = null;
-            float bestD = HoverRange;
-            Vector2 playerPos = combat.PlayerCenter;
-            for (int i = 0; i < combat.Bodies.Count; i++)
-            {
-                var b = combat.Bodies[i];
-                if (b == null || b.State != ArrowState.Grounded) continue;
-                if (Vector2.Distance(playerPos, b.transform.position) > GroundArrowPlayerRange) continue;
-                float d = Vector2.Distance(mw, b.transform.position);
-                if (d < bestD) { bestD = d; best = b; }
-            }
-            return best;
-#else
-            return null;
 #endif
         }
 
@@ -387,7 +346,7 @@ namespace Laurel
                 if (g.Combat == null || !g.Combat.HasQuiverSpace)
                 {
                     Sfx.Play("empty");
-                    g.ShowToast("화살통이 가득 찼습니다 (G로 화살 분해 가능)");
+                    g.ShowToast("화살통이 가득 찼습니다 (Tab 상태창에서 분해 가능)");
                     return;
                 }
                 g.Combat.AddNewArrow(p.arrowCode);
@@ -407,25 +366,6 @@ namespace Laurel
             {
                 promptTitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
                 promptDescStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter, wordWrap = true };
-            }
-
-            if (hoveredGroundArrow != null)
-            {
-                Vector3 sc = cam.WorldToScreenPoint(hoveredGroundArrow.transform.position + Vector3.up * 0.9f);
-                if (sc.z >= 0f)
-                {
-                    float sx = sc.x, sy = Screen.height - sc.y;
-                    float w = 220f, h = 54f;
-                    var r = new Rect(sx - w * 0.5f, sy - h, w, h);
-                    GUI.color = new Color(0.08f, 0.08f, 0.12f, 0.9f);
-                    GUI.DrawTexture(r, Texture2D.whiteTexture);
-                    GUI.color = Color.white;
-                    promptTitleStyle.normal.textColor = hoveredGroundArrow.Card.Def.tint;
-                    GUI.Label(new Rect(r.x + 4f, r.y + 3f, r.width - 8f, 22f), hoveredGroundArrow.Card.Def.name, promptTitleStyle);
-                    promptDescStyle.normal.textColor = new Color(0.95f, 0.92f, 0.72f);
-                    GUI.Label(new Rect(r.x + 4f, r.y + 26f, r.width - 8f, 22f), "[G] 제거", promptDescStyle);
-                }
-                return;
             }
 
             if (nearestAvailable == null) return;

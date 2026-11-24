@@ -468,7 +468,7 @@ MonoBehaviour:
   followY: 1
   focus2: {fileID: 0}
   focus2Weight: 0.4
-  playSize: 7
+  playSize: 10
   lookUp: 2
   lookAhead: 2.5
   fallLookDown: 2.5
