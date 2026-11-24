@@ -85,6 +85,25 @@ namespace Laurel
             return c;
         }
 
+        private bool TextBtn(Rect r, string text, int fontSize = 34)
+        {
+            bool hover = Event.current != null && r.Contains(Event.current.mousePosition);
+            var st = new GUIStyle(GUIStyle.none)
+            {
+                fontSize = fontSize,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true
+            };
+            Color col = hover ? new Color(0.98f, 0.85f, 0.45f) : new Color(0.92f, 0.89f, 0.82f);
+            st.normal.textColor = col;
+            st.hover.textColor = new Color(0.98f, 0.85f, 0.45f);
+            st.active.textColor = Color.white;
+            bool c = GUI.Button(r, hover ? $"▶  {text}  ◀" : text, st);
+            if (c) Sfx.Play("ui", 0.5f);
+            return c;
+        }
+
         private void Text(Rect r, string t, GUIStyle st = null, Color? color = null)
         {
             var s = st ?? label;
@@ -181,20 +200,22 @@ namespace Laurel
                 if (Btn(new Rect(bx + 220, 610, 200, 70), "취소")) G.ConfirmNewGame = false;
                 return;
             }
-            float y = 460;
+            float y = 450;
             if (G.CanContinue)
             {
-                if (Btn(new Rect(bx, y, 400, 80), "이어하기 (로비)", true, bigButton)) G.Continue();
-                y += 100;
+                if (TextBtn(new Rect(bx, y, 400, 64), "이어하기 (로비)", 36)) G.Continue();
+                y += 78;
             }
-            if (Btn(new Rect(bx, y, 400, 80), "새 게임", true, bigButton))
+            if (TextBtn(new Rect(bx, y, 400, 64), "새 게임", 36))
             {
                 if (SaveStore.Exists() && G.Profile.tutorialDone) G.ConfirmNewGame = true; else G.NewGame();
             }
-            y += 100;
-            if (Btn(new Rect(bx, y, 400, 75), "시연용 블리츠 (로비)", true, bigButton)) G.StartBlitz();
-            y += 95;
-            if (Btn(new Rect(bx, y, 400, 70), "종료")) Application.Quit();
+            y += 78;
+            if (TextBtn(new Rect(bx, y, 400, 60), "시연용 블리츠 (로비)", 32)) G.StartBlitz();
+            y += 74;
+            if (TextBtn(new Rect(bx, y, 400, 60), "아처리 테스트", 32)) G.OpenArcheryTest();
+            y += 74;
+            if (TextBtn(new Rect(bx, y, 400, 56), "종료", 30)) Application.Quit();
             Text(new Rect(20, VH - 80, VW - 40, 70), $"저장 위치: {SaveStore.FilePath}" + (SaveStore.LastLoadSource == "backup" ? "  (백업에서 복구됨)" : ""), tiny, new Color(0.6f, 0.6f, 0.6f));
             Text(new Rect(VW - 520, VH - 50, 500, 40), "조작: A/D 이동 · Space 점프 · Shift 대쉬 · 좌클릭 발사 · R 회수 · 우클릭/Q 버리기 · Esc 일시정지", tiny, new Color(0.7f, 0.7f, 0.7f));
         }
@@ -681,6 +702,7 @@ namespace Laurel
             foreach (var s in StyleNames.AllRetrieval) if (p.StyleUnlocked("retrieval", s.ToString())) rr++;
             Text(new Rect(60, 700, 1200, 40), $"사용 가능한 조합: {l} × {rr} = <b>{l * rr}</b> / 30", small);
             if (Btn(new Rect(60, VH - 120, 360, 70), "닫기 (Esc)", true, bigButton)) G.ClosePanel();
+            if (G.InArcheryTest && Btn(new Rect(440, VH - 120, 300, 70), "타이틀로", true, bigButton)) G.GoTitle();
         }
 
         /// <summary>궁술 테스트 씬 화면: 왼쪽 위 '궁술 선택' 버튼(현재 조합 표시) 하나만</summary>
@@ -713,6 +735,7 @@ namespace Laurel
                 $"구매한 유니크 스킬: {(p.HasSkill("doubleJump") ? "더블점프 " : "")}{(p.HasSkill("dash") ? "대쉬 " : "")}{(p.HasSkill("tripleJump") ? "에로스의 날개" : "")}\n\n" +
                 $"저장 파일: {SaveStore.FilePath}\n마지막 저장: {p.lastSavedUtc}\n" + (SaveStore.LastError != null ? $"<color=#FF8080>{SaveStore.LastError}</color>" : ""), label);
             if (Btn(new Rect(60, VH - 120, 360, 70), "닫기 (Esc)", true, bigButton)) G.ClosePanel();
+            if (G.InArcheryTest && Btn(new Rect(440, VH - 120, 300, 70), "타이틀로", true, bigButton)) G.GoTitle();
         }
 
         // ───────────── 일시정지·토스트 ─────────────

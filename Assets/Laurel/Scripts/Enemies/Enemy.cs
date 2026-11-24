@@ -378,7 +378,8 @@ namespace Laurel
             flash = 0.08f;
             bool frenzy = GameRoot.I?.Avatar?.Controller?.IsFrenzy ?? false;
             Color popColor = frenzy ? new Color(0.45f, 0.88f, 1f, 1f) : color;
-            Fx.Text(Center + Vector3.up * (halfSize.y + 0.2f), amount.ToString("0.#"), popColor, isArrowHit ? 28 : 22);
+            int dmgInt = Mathf.Max(1, Mathf.RoundToInt(amount));
+            DamagePopup.Spawn(Center + Vector3.up * (halfSize.y + 0.2f), dmgInt, frenzy, popColor);
             if (isArrowHit && Status.resonanceDamage > 0f && Room != null)
             {
                 float rd = Status.resonanceDamage;
@@ -396,7 +397,7 @@ namespace Laurel
             if (dead) return;
             Hp -= amount;
             DamageTaken += amount;
-            Fx.Text(Center + Vector3.up * (halfSize.y + 0.5f), "-" + amount.ToString("0"), new Color(0.75f, 0.85f, 1f), 22);
+            DamagePopup.Spawn(Center + Vector3.up * (halfSize.y + 0.5f), Mathf.Max(1, Mathf.RoundToInt(amount)), false, new Color(0.75f, 0.85f, 1f));
             if (Hp <= 0f) Die();
         }
 
@@ -411,7 +412,7 @@ namespace Laurel
             Room.SpawnGold(Center, g);
         }
 
-        public void Knockback(Vector2 v)
+        public virtual void Knockback(Vector2 v)
         {
             if (IsBoss) v *= DB.Balance.status.bossKnockbackMul;
             kb += v;

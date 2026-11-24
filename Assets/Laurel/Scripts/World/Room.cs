@@ -99,7 +99,7 @@ namespace Laurel
             for (int i = Enemies.Count - 1; i >= 0; i--)
             {
                 var e = Enemies[i];
-                if (e != null && !(e is TrainingDummy))
+                if (e != null && !(e is TrainingDummy) && !(e is ArcheryTestEnemy))
                 {
                     Destroy(e.gameObject);
                     Enemies.RemoveAt(i);
@@ -109,7 +109,7 @@ namespace Laurel
             for (int i = 0; i < allEnemies.Length; i++)
             {
                 var e = allEnemies[i];
-                if (e != null && !(e is TrainingDummy)) Destroy(e.gameObject);
+                if (e != null && !(e is TrainingDummy) && !(e is ArcheryTestEnemy)) Destroy(e.gameObject);
             }
             for (int i = projectiles.Count - 1; i >= 0; i--)
             {

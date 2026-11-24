@@ -47,6 +47,10 @@ namespace Laurel
                 dmg *= mino.headCritMultiplier;
                 mino.MarkNextHitCritical();
             }
+            else if (enemy is ArcheryTestEnemy testEnemy && src != HitSource.Pull && testEnemy.IsHeadHit(part, point))
+            {
+                dmg *= testEnemy.headCritMultiplier;
+            }
             if (enemy is WarlockEnemy warlock)
             {
                 warlock.MarkHitPoint(point, dir);

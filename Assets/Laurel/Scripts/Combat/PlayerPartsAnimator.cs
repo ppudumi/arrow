@@ -60,16 +60,9 @@ namespace Laurel
         {
             if (skirtRenderer == null) return;
             bool grounded = ctrl == null || ctrl.IsGrounded;
-            float vx = rb != null ? Mathf.Abs(rb.linearVelocity.x) : 0f;
             Sprite s;
             if (ctrl != null && ctrl.IsSpinning) s = skirtSpin;
             else if (!grounded) s = skirtJump;
-            else if (vx > runThreshold && skirtRun != null && skirtRun.Length > 0)
-            {
-                float baseSpeed = ctrl != null ? Mathf.Max(0.1f, ctrl.moveSpeed) : 10f;
-                runPhase += Time.deltaTime * runFps * Mathf.Clamp(vx / baseSpeed, 0.5f, 1.6f);
-                s = skirtRun[(int)runPhase % skirtRun.Length];
-            }
             else { s = skirtIdle; runPhase = 0f; }
             if (s != null) skirtRenderer.sprite = s;
         }

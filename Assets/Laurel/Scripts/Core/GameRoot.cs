@@ -371,7 +371,7 @@ namespace Laurel
             IsBlitzMode = false;
             blitzProfile = null;
             SaveStore.Disabled = InArcheryTest;
-            if (!SelfTestRunning && !InArcheryTest && LoadSeparatedScene("Laurel_Title")) return;
+            if (!SelfTestRunning && LoadSeparatedScene("Laurel_Title")) return;
             DestroyRoom();
             Run = null;
             Paused = false;
@@ -404,6 +404,13 @@ namespace Laurel
             CurrentQuiver = QuiverType.Basic;
             if (!SelfTestRunning && LoadSeparatedScene("Laurel_Lobby")) return;
             GoLobby();
+        }
+
+        public void OpenArcheryTest()
+        {
+            IsBlitzMode = false;
+            blitzProfile = null;
+            LoadSeparatedScene("Laurel_ArcheryTest");
         }
 
         public bool CanContinue => SaveStore.Exists() && Profile.tutorialDone;

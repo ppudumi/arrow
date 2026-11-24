@@ -297,6 +297,8 @@ namespace Laurel
         private Vector2 look;
         private Rigidbody2D targetBody;
         private float normalOrthoSize = 7f;
+        private const float MinZoomOrtho = 4f;
+        private const float MaxZoomOrtho = 18f;
         private bool roomLocked;
         private Vector2 roomLockCenter;
         private float roomLockOrthoSize;
@@ -360,6 +362,19 @@ namespace Laurel
         private void LateUpdate()
         {
             float dt = Time.unscaledDeltaTime;
+#if ENABLE_INPUT_SYSTEM
+            var g = GameRoot.I;
+            bool allowWheelZoom = g == null || (!g.Paused && !g.StatusOpen && (g.State == GameState.Node || g.State == GameState.Lobby || g.State == GameState.Tutorial || g.State == GameState.ArcheryTest));
+            if (allowWheelZoom && !roomLocked && Mouse.current != null)
+            {
+                float scrollY = Mouse.current.scroll.ReadValue().y;
+                if (Mathf.Abs(scrollY) > 0.01f)
+                {
+                    float step = Mathf.Sign(scrollY) * 0.9f;
+                    normalOrthoSize = Mathf.Clamp(normalOrthoSize - step, MinZoomOrtho, MaxZoomOrtho);
+                }
+            }
+#endif
             if (roomLocked)
             {
                 if (Cam != null) Cam.orthographicSize = Mathf.Lerp(Cam.orthographicSize, roomLockOrthoSize, 1f - Mathf.Exp(-8f * dt));
@@ -369,6 +384,12 @@ namespace Laurel
             else
             {
                 if (Cam != null) Cam.orthographicSize = Mathf.Lerp(Cam.orthographicSize, normalOrthoSize, 1f - Mathf.Exp(-8f * dt));
+                float currentOrtho = Cam != null ? Cam.orthographicSize : normalOrthoSize;
+                float baseOrtho = PlaySize;
+                // 확대(줌인)할수록 오프셋 가중치를 줄여 플레이어가 화면 중앙에 가까워지게 한다.
+                float zoomOffsetWeight = baseOrtho > MinZoomOrtho
+                    ? Mathf.Clamp01((currentOrtho - MinZoomOrtho) / (baseOrtho - MinZoomOrtho))
+                    : 1f;
                 // 1) 플레이어 이동·낙하 미리보기 + 부드러운 플레이어 추적
                 Vector2 lookWant = Vector2.zero;
                 Vector3 cursorOffset = Vector3.zero;
@@ -392,13 +413,15 @@ namespace Laurel
                         {
                             float t = Mathf.Clamp01(dist / Mathf.Max(0.1f, cursorLookRange));
                             Vector2 dir = toCursor / dist;
-                            cursorOffset = new Vector3(dir.x, dir.y * cursorLookVerticalWeight, 0f) * (cursorLookAhead * t);
+                            cursorOffset = new Vector3(dir.x, dir.y * cursorLookVerticalWeight, 0f) * (cursorLookAhead * t * zoomOffsetWeight);
                         }
                     }
                 }
                 look = Vector2.Lerp(look, lookWant, 1f - Mathf.Exp(-lookSmoothing * dt));
-                Vector3 wantPlayer = target != null ? target.position + Vector3.up * lookUp + (Vector3)look : (Vector3)bounds.center;
-                if (focus2 != null && target != null) wantPlayer = Vector3.Lerp(wantPlayer, focus2.position, focus2Weight);
+                Vector3 wantPlayer = target != null
+                    ? target.position + Vector3.up * (lookUp * zoomOffsetWeight) + (Vector3)(look * zoomOffsetWeight)
+                    : (Vector3)bounds.center;
+                if (focus2 != null && target != null) wantPlayer = Vector3.Lerp(wantPlayer, focus2.position, focus2Weight * zoomOffsetWeight);
                 playerFollowPos = Vector3.Lerp(playerFollowPos, wantPlayer, 1f - Mathf.Exp(-followSmoothing * dt));
                 basePos = Clamp(playerFollowPos + cursorOffset);
             }
