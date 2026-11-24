@@ -1312,7 +1312,115 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Laurel.Stage1Controller
   mapGenerator: {fileID: 290558058}
   minotourTemplate: {fileID: 1990000004}
+  warlockTemplate: {fileID: 1991000004}
   mapSheet: {fileID: 2800000, guid: ac7ae9262e2829043b91d47bb06bbe41, type: 3}
+--- !u!1 &1991000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1991000002}
+  - component: {fileID: 1991000003}
+  - component: {fileID: 1991000004}
+  m_Layer: 9
+  m_Name: WarlockTemplate
+  m_TagString: Enemy
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1991000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1991000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!61 &1991000003
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1991000001}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0.88}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 0.95, y: 1.75}
+  m_EdgeRadius: 0
+--- !u!114 &1991000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1991000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2c3d4e5f6a74890b1c2d3e4f5a60022, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laurel.WarlockEnemy
+  idleMoveSprite: {fileID: -1301815183739471747, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  castingSprite: {fileID: -8907479003510519193, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  ghostSprite: {fileID: -9039604529551206129, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  trailSprites:
+  - {fileID: 8869689620529254371, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  - {fileID: -474679065048123901, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  - {fileID: 7631320569472925010, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  hitFxSprite: {fileID: 1073824786504393253, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  fleshSprites:
+  - {fileID: -8155076294053192904, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  - {fileID: 3569661353309892410, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  - {fileID: -2800130793295934593, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  - {fileID: 7251208949749148819, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  - {fileID: 8306392979929032122, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  - {fileID: 8336282399552811617, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
+  - {fileID: 2435187446477001854, guid: 9bbc77c86775ace4982322ad5896e3ce, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -1326,3 +1434,4 @@ SceneRoots:
   - {fileID: 807156023}
   - {fileID: 2103053406}
   - {fileID: 1990000002}
+  - {fileID: 1991000002}

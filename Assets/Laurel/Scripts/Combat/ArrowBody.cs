@@ -677,19 +677,11 @@ namespace Laurel
 
         public bool Remove(ArrowBody a) => order.Remove(a);
 
-        /// <summary>같은 프레임에 회수된 화살은 '동시 회수'로 보고 무작위로 섞어 뒤에 붙인다. 1발이면 순서대로(순차 회수).</summary>
+        /// <summary>획득·회수된 화살을 큐의 맨 뒤에 순서대로 넣는다(FIFO).</summary>
         public List<ArrowBody> AddRecoveredBatch(List<ArrowBody> batch)
         {
             var added = new List<ArrowBody>(batch.Count);
             foreach (var b in batch) if (b != null && !order.Contains(b) && !added.Contains(b)) added.Add(b);
-            if (added.Count > 1)
-            {
-                for (int i = added.Count - 1; i > 0; i--)
-                {
-                    int j = rng.Next(i + 1);
-                    var t = added[i]; added[i] = added[j]; added[j] = t;
-                }
-            }
             order.AddRange(added);
             return added;
         }

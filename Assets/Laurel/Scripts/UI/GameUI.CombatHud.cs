@@ -335,26 +335,36 @@ namespace Laurel
 
         private void DrawTopLeftOwnedArrows(PlayerCombat c, float startX, float startY)
         {
-            const float cellW = 34f, cellH = 38f, gapX = 4f, gapY = 6f;
-            const float arrowW = 40f, arrowH = 9f;
+            const float cellW = 36f, cellH = 42f, gapX = 5f, gapY = 6f;
+            const float arrowW = 38f, arrowH = 9f;
             const int perRow = 10;
-            int idx = 0;
-            Matrix4x4 prevMatrix = GUI.matrix;
-            for (int i = 0; i < c.Bodies.Count; i++)
-            {
-                var b = c.Bodies[i];
-                if (b == null || b.State == ArrowState.Consumed || b.Card == null) continue;
-                var d = b.Card.Def;
-                int col = idx % perRow;
-                int row = idx / perRow;
-                float cx = startX + col * (cellW + gapX) + cellW * 0.5f;
-                float cy = startY + row * (cellH + gapY) + cellH * 0.5f;
+            int cap = Mathf.Max(1, c.MaxQuiverCapacity);
+            var queue = c.Quiver != null ? c.Quiver.Order : null;
+            int count = queue != null ? queue.Count : 0;
 
-                bool inQuiver = b.State == ArrowState.InQuiver;
+            Matrix4x4 prevMatrix = GUI.matrix;
+            for (int i = 0; i < cap; i++)
+            {
+                int col = i % perRow;
+                int row = i / perRow;
+                float slotX = startX + col * (cellW + gapX);
+                float slotY = startY + row * (cellH + gapY);
+
+                // 화살통 최대 수용량만큼 검은 직사각형 슬롯 그리기
+                GUI.matrix = prevMatrix;
+                Rect(new Rect(slotX - 1f, slotY - 1f, cellW + 2f, cellH + 2f), new Color(0.22f, 0.2f, 0.18f, 0.85f));
+                Rect(new Rect(slotX, slotY, cellW, cellH), new Color(0.05f, 0.05f, 0.06f, 0.92f));
+
+                if (i >= count) continue;
+                var b = queue[i];
+                if (b == null || b.Card == null) continue;
+
+                var d = b.Card.Def;
+                float cx = slotX + cellW * 0.5f;
+                float cy = slotY + cellH * 0.5f;
                 Color baseCol = d.code == 0 ? new Color(0.88f, 0.82f, 0.68f, 1f) : d.tint;
-                Color bodyCol = inQuiver ? baseCol : new Color(baseCol.r * 0.3f, baseCol.g * 0.3f, baseCol.b * 0.3f, 0.85f);
-                Color tipCol = inQuiver ? Color.Lerp(baseCol, Color.white, 0.35f) : new Color(bodyCol.r * 1.15f, bodyCol.g * 1.15f, bodyCol.b * 1.15f, 0.85f);
-                Color edgeCol = inQuiver ? new Color(0.05f, 0.04f, 0.04f, 0.92f) : new Color(0.03f, 0.03f, 0.03f, 0.7f);
+                Color tipCol = Color.Lerp(baseCol, Color.white, 0.35f);
+                Color edgeCol = new Color(0.05f, 0.04f, 0.04f, 0.92f);
 
                 GUI.matrix = prevMatrix
                     * Matrix4x4.TRS(new Vector3(cx, cy, 0f), Quaternion.Euler(0f, 0f, -45f), Vector3.one)
@@ -363,9 +373,8 @@ namespace Laurel
                 float x = cx - arrowW * 0.5f;
                 float y = cy - arrowH * 0.5f;
                 Rect(new Rect(x - 1f, y - 1f, arrowW + 2f, arrowH + 2f), edgeCol);
-                Rect(new Rect(x, y, arrowW - 7f, arrowH), ScreenColor(bodyCol));
+                Rect(new Rect(x, y, arrowW - 7f, arrowH), ScreenColor(baseCol));
                 Rect(new Rect(x + arrowW - 7f, y, 7f, arrowH), ScreenColor(tipCol));
-                idx++;
             }
             GUI.matrix = prevMatrix;
         }

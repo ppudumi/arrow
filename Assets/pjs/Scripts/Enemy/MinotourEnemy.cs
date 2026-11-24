@@ -45,7 +45,7 @@ namespace pjs
         public Sprite flesh3Sprite;
 
         [Header("Stats & Hitbox")]
-        public float maxHp = 200f;
+        public float maxHp = 100f;
         public Vector2 hitboxOffset = new Vector2(0f, 0.85f);
         public Vector2 hitboxSize = new Vector2(1.6f, 1.7f);
         public float visualScale = 2.0f;

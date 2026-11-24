@@ -18,6 +18,7 @@ namespace Laurel
     {
         public RandomMapGenerator mapGenerator;
         public MinotourEnemy minotourTemplate;
+        public WarlockEnemy warlockTemplate;
         public Texture2D mapSheet;
 
         public MapData Map { get; private set; }
@@ -201,16 +202,59 @@ namespace Laurel
                 }
             }
 
-            // 전투 / 엘리트 / 보스 (첫 노드는 무조건 미노타우르 1마리)
+            // 전투 / 엘리트 / 보스 (첫 노드는 무조건 미노타우르 1마리, 이후 노드는 랜덤 배치)
             nodeHadCombat = true;
-            int count = (node.layer == 0 || node.type == NodeType.Boss) ? 1 : (node.type == NodeType.Elite ? 1 : 2);
+            var spawnRng = new System.Random(node.seed ^ 0x3A71F);
+            int count = (node.layer == 0 || node.type == NodeType.Boss) ? 1 : (node.type == NodeType.Elite ? 2 : spawnRng.Next(2, 4));
             float hpMul = node.type == NodeType.Boss ? 2.2f : (node.type == NodeType.Elite ? 1.5f : 1f);
             float scaleMul = node.type == NodeType.Boss ? 1.35f : (node.type == NodeType.Elite ? 1.15f : 1f);
 
             for (int i = 0; i < count; i++)
             {
-                Vector2 pos = PickEnemySpawn(d, i, count);
-                SpawnMinotour(pos, hpMul, scaleMul);
+                if (node.layer == 0 || node.type == NodeType.Boss)
+                {
+                    SpawnMinotour(PickEnemySpawn(d, i, count), hpMul, scaleMul);
+                    continue;
+                }
+
+                Vector2 pos = PickRandomEnemySpawn(d, spawnRng);
+                bool pickWarlock = warlockTemplate != null && (minotourTemplate == null || spawnRng.Next(2) == 0);
+                if (pickWarlock) SpawnWarlock(pos, hpMul, scaleMul);
+                else SpawnMinotour(pos, hpMul, scaleMul);
+            }
+        }
+
+        private static Vector2 PickRandomEnemySpawn(RandomMapData d, System.Random rng)
+        {
+            int minX = Mathf.Clamp(d.spawn.x + 10, 4, d.width - 5);
+            int maxX = Mathf.Max(minX + 1, d.width - 4);
+            var candidates = new List<Vector2>();
+            for (int attempt = 0; attempt < 24; attempt++)
+            {
+                int x = rng.Next(minX, maxX);
+                for (int y = d.height - 2; y >= 1; y--)
+                {
+                    if (d.solid[x, y - 1] && !d.solid[x, y] && !d.solid[x, y + 1])
+                        candidates.Add(new Vector2(x + 0.5f, y + 0.05f));
+                }
+                if (candidates.Count > 0)
+                    return candidates[rng.Next(candidates.Count)];
+            }
+            return PickEnemySpawn(d, 0, 1);
+        }
+
+        private void SpawnWarlock(Vector2 pos, float hpMul, float scaleMul)
+        {
+            if (warlockTemplate == null) return;
+            var go = Instantiate(warlockTemplate.gameObject, pos, Quaternion.identity);
+            go.name = "WarlockEnemy";
+            go.transform.localScale = Vector3.one * scaleMul;
+            go.SetActive(true);
+            var w = go.GetComponent<WarlockEnemy>();
+            if (w != null)
+            {
+                w.maxHp *= hpMul;
+                activeEnemies.Add(w);
             }
         }
 
