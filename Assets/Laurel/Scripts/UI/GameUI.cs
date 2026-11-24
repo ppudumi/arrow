@@ -114,18 +114,10 @@ namespace Laurel
             switch (G.State)
             {
                 case GameState.Title: DrawTitle(); break;
-                case GameState.Tutorial: DrawWorldOverlay(); DrawCombatHud(); break; // 전투 HUD(공용): GameUI.CombatHud.cs
+                case GameState.Tutorial:
                 case GameState.Node:
                     DrawWorldOverlay();
-                    if (G.InStage1)
-                    {
-                        if (G.Combat != null && G.Combat.Active) DrawTopLeftOwnedArrows(G.Combat, 24f, 24f);
-                        DrawBottomLeftDropHud();
-                    }
-                    else
-                    {
-                        DrawCombatHud();
-                    }
+                    DrawUnifiedCombatHud();
                     break;
                 case GameState.Map: DrawMap(); break;
                 case GameState.Reward: DrawWorldOverlay(); DrawReward(); break;
@@ -140,10 +132,9 @@ namespace Laurel
                 case GameState.Story: DrawStoryBackdrop(); DrawStory(); break;
                 case GameState.ArcheryTest:
                     DrawWorldOverlay();
+                    DrawUnifiedCombatHud();
                     DrawArcheryTestBar();
-                    if (G.Combat != null && G.Combat.Active) DrawTopLeftOwnedArrows(G.Combat, 24f, 98f);
-                    DrawBottomLeftDropHud();
-                    break; // 궁술 테스트 씬: 궁술 선택 버튼 + 좌상단 보유 화살 + 좌하단 골드·레벨 연출 HUD
+                    break;
             }
             if (G.Paused) DrawPause();
             DrawToast();
@@ -153,7 +144,7 @@ namespace Laurel
         private void DrawStoryBackdrop()
         {
             var back = G.StoryReturnState;
-            if (back == GameState.Node || back == GameState.Tutorial) { DrawWorldOverlay(); DrawCombatHud(); }
+            if (back == GameState.Node || back == GameState.Tutorial) { DrawWorldOverlay(); DrawUnifiedCombatHud(); }
             else if (back == GameState.Lobby) DrawWorldOverlay();
             else if (back == GameState.Map) DrawMap();
             else Rect(new Rect(0, 0, VW, VH), new Color(0.05f, 0.05f, 0.08f, 1f));
@@ -687,7 +678,7 @@ namespace Laurel
             StyleNames.TryParseLaunch(p.launch, out var l);
             StyleNames.TryParseRetrieval(p.retrieval, out var r);
             // 밝은 숲 배경 위에서도 읽히도록 불투명한 어두운 패널 + 밝은 글자, 그 위에 투명 버튼
-            var r0 = new Rect(24, 24, 640, 64);
+            var r0 = new Rect(VW * 0.5f - 320f, 20f, 640f, 64f);
             bool hover = r0.Contains(Event.current.mousePosition);
             // 불투명 + 선형 보정 (반투명이면 Linear 공간 합성에서 회색으로 바래 밝은 하늘 배경에서 안 읽힘)
             Rect(r0, ScreenColor(hover ? new Color(0.2f, 0.15f, 0.1f, 1f) : new Color(0.1f, 0.075f, 0.06f, 1f)));

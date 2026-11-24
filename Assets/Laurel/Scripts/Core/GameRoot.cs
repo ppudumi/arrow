@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Procedural2D;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -57,6 +58,7 @@ namespace Laurel
         /// <summary>궁술 테스트 씬(Laurel_ArcheryTest)이면 그 씬의 설정. null 이면 일반 게임</summary>
         public ArcheryTestArena ArcheryTest { get; private set; }
         public bool InArcheryTest => ArcheryTest != null;
+        public static bool EnteredFromFlow { get; private set; }
         public Stage1Controller Stage1 { get; private set; }
         public bool InStage1 => Stage1 != null;
 
@@ -120,10 +122,10 @@ namespace Laurel
             I = this;
             Application.targetFrameRate = 60;
             DB.Load();
-            // 궁술 테스트 씬: 세이브를 읽지도 쓰지도 않는다 (정적 값이라 일반 씬에서는 반드시 끈다)
+            // 궁술 테스트 씬 또는 단독 실행한 1스테이지 씬: 세이브를 읽지도 쓰지도 않는다
             ArcheryTest = FindAnyObjectByType<ArcheryTestArena>();
             Stage1 = FindAnyObjectByType<Stage1Controller>();
-            SaveStore.Disabled = InArcheryTest || InStage1;
+            SaveStore.Disabled = InArcheryTest || (InStage1 && !EnteredFromFlow);
             if (arrowSprite != null) Art.ArrowSprite = arrowSprite;
 
             cam = Camera.main;
@@ -145,7 +147,8 @@ namespace Laurel
             fxGo.AddComponent<Fx>();
             DontDestroyOnLoad(fxGo);
 
-            Profile = (InArcheryTest || InStage1) ? ArcheryTestArena.MakeProfile() : SaveStore.Load();
+            Profile = (InArcheryTest || (InStage1 && !EnteredFromFlow)) ? ArcheryTestArena.MakeProfile() : SaveStore.Load();
+            CurrentQuiver = System.Enum.TryParse(Profile.quiver, out QuiverType pq) ? pq : QuiverType.Basic;
             Sfx.Volume = Profile.sfxVolume;
 
             if (playerPrefab == null) Debug.LogError("[Laurel] GameRoot.playerPrefab 이 연결되지 않았습니다.");
@@ -159,18 +162,16 @@ namespace Laurel
             if (InArcheryTest) { StartArcheryTest(); return; }
             if (InStage1) { StartStage1Scene(); return; }
             if (HasArg("-laurelSelfTest") || ArgValue("-laurelPersistPhase") != null) { gameObject.AddComponent<SelfTest>(); return; }
+            string scene = SceneManager.GetActiveScene().name;
+            if (scene == "Laurel_Tutorial") { StartTutorial(); return; }
+            if (scene == "Laurel_Lobby") { GoLobby(); return; }
             GoTitle();
         }
 
         private void StartStage1Scene()
         {
             Run = new RunState { stage = 1, seed = Random.Range(1, 999999), startTime = Time.time };
-            Run.gold = DB.Balance.player.startGold;
-            StyleNames.TryParseLaunch(Profile.launch, out Run.launch);
-            StyleNames.TryParseRetrieval(Profile.retrieval, out Run.retrieval);
-            var stats = Run.ComputeStats(Profile);
-            foreach (var code in DB.Balance.player.startArrows) Run.AddCard(code);
-            Avatar.ApplyStats(stats, true);
+            InitPlayerForRun(Run);
 
             Room = FindAnyObjectByType<Room>();
             if (Room == null)
@@ -188,7 +189,7 @@ namespace Laurel
 
         private void OnDestroy()
         {
-            if (I == this && InArcheryTest) SaveStore.Disabled = false;
+            if (I == this && (InArcheryTest || InStage1)) SaveStore.Disabled = false;
         }
 
         public static bool HasArg(string a)
@@ -291,8 +292,19 @@ namespace Laurel
 
         // ───────────── 타이틀·스토리 ─────────────
 
+        private bool LoadSeparatedScene(string sceneName)
+        {
+            if (SceneManager.GetActiveScene().name == sceneName) return false;
+            if (!Application.CanStreamedLevelBeLoaded(sceneName)) return false;
+            EnteredFromFlow = true;
+            SetState(GameState.Boot);
+            SceneManager.LoadScene(sceneName);
+            return true;
+        }
+
         public void GoTitle()
         {
+            if (!SelfTestRunning && !InArcheryTest && LoadSeparatedScene("Laurel_Title")) return;
             DestroyRoom();
             Run = null;
             Paused = false;
@@ -311,14 +323,29 @@ namespace Laurel
             SaveStore.DeleteAll();
             Profile = new Profile();
             SaveStore.Save(Profile);
-            PlayStory("intro", StartTutorial);
+            PlayStory("intro", () =>
+            {
+                if (!SelfTestRunning && LoadSeparatedScene("Laurel_Tutorial")) return;
+                StartTutorial();
+            });
         }
 
         public void Continue()
         {
             Profile = SaveStore.Load();
-            if (Profile.tutorialDone) GoLobby();
-            else PlayStory("intro", StartTutorial);
+            if (Profile.tutorialDone)
+            {
+                if (!SelfTestRunning && LoadSeparatedScene("Laurel_Lobby")) return;
+                GoLobby();
+            }
+            else
+            {
+                PlayStory("intro", () =>
+                {
+                    if (!SelfTestRunning && LoadSeparatedScene("Laurel_Tutorial")) return;
+                    StartTutorial();
+                });
+            }
         }
 
         public void PlayStory(string id, System.Action done)
@@ -341,8 +368,8 @@ namespace Laurel
                 var d = storyDone;
                 storyDone = null;
                 StoryQueue.Clear();
-                if (State == GameState.Story) SetState(StoryReturnState);
                 d?.Invoke();
+                if (State == GameState.Story) SetState(StoryReturnState);
             }
         }
 
@@ -354,14 +381,30 @@ namespace Laurel
 
         // ───────────── 튜토리얼 ─────────────
 
+        private void InitPlayerForRun(RunState run)
+        {
+            run.gold = DB.Balance.player.startGold;
+            StyleNames.TryParseLaunch(Profile.launch, out run.launch);
+            StyleNames.TryParseRetrieval(Profile.retrieval, out run.retrieval);
+            if (!Profile.StyleUnlocked("launch", run.launch.ToString())) run.launch = LaunchStyle.Apollo;
+            if (!Profile.StyleUnlocked("retrieval", run.retrieval.ToString())) run.retrieval = RetrievalStyle.Basic;
+            run.quiver = CurrentQuiver;
+            var stats = run.ComputeStats(Profile);
+            var startArrows = DB.Balance.player.startArrows;
+            int baseCount = run.quiver == QuiverType.Basic ? startArrows.Length : QuiverStats.ArrowCount(run.quiver);
+            for (int i = 0; i < baseCount; i++) run.AddCard(i < startArrows.Length ? startArrows[i] : 0);
+            for (int i = 0; i < stats.extraStartArrows; i++) run.AddCard(0);
+            Avatar.ApplyStats(stats, true);
+        }
+
         public void StartTutorial()
         {
             DestroyRoom();
             Run = new RunState { isTutorial = true, stage = 0, seed = Random.Range(1, 999999), startTime = Time.time };
-            var t = DB.Balance.tutorial;
-            foreach (var code in t.arrows) Run.AddCard(code);
-            StyleNames.TryParseLaunch(t.launch, out Run.launch);
-            StyleNames.TryParseRetrieval(t.retrieval, out Run.retrieval);
+            InitPlayerForRun(Run);
+            // 저주받기 전 신의 힘은 유물 형태로 부여, 회수는 오르페우스 장착
+            Run.AddRelic("apollo_divinity");
+            Run.retrieval = RetrievalStyle.Orpheus;
             Avatar.ApplyStats(Run.ComputeStats(Profile), true);
 
             var theme = RoomTheme.Tutorial;
@@ -391,7 +434,9 @@ namespace Laurel
             switch (TutorialStep)
             {
                 case 0:
-                    if (tutMoved > 6f && tutJumped && tutDoubleJumped && tutDashed) AdvanceTutorial();
+                    bool needDouble = Avatar.Stats.doubleJump;
+                    bool needDash = Avatar.Stats.dash;
+                    if (tutMoved > 6f && tutJumped && (!needDouble || tutDoubleJumped) && (!needDash || tutDashed)) AdvanceTutorial();
                     break;
                 case 1:
                     if (Room.AliveCount == 0) AdvanceTutorial();
@@ -461,6 +506,7 @@ namespace Laurel
             {
                 // 저주: 튜토리얼 능력을 잃고 저주 후 능력치(=본게임 기본 상태)로 본게임 시작
                 Fx.Burst(PlayerGO.transform.position, new Color(1f, 0.85f, 0.3f), 40, 9f, 0.3f, 1f);
+                if (!SelfTestRunning && LoadSeparatedScene("Laurel_Stage1")) return;
                 StartRun(true);
             });
         }
@@ -472,20 +518,19 @@ namespace Laurel
 
         public void StartRun(bool fromCurse = false)
         {
+            if (!InStage1 && !SelfTestRunning && Application.CanStreamedLevelBeLoaded("Laurel_Stage1"))
+            {
+                Profile.runs++;
+                SaveStore.Save(Profile);
+                LoadSeparatedScene("Laurel_Stage1");
+                return;
+            }
             DestroyRoom();
             PendingTutorialLookCombat = fromCurse;
             Profile.runs++;
             SaveStore.Save(Profile);
             Run = new RunState { stage = 1, seed = Random.Range(1, 999999), startTime = Time.time };
-            Run.gold = DB.Balance.player.startGold;
-            StyleNames.TryParseLaunch(Profile.launch, out Run.launch);
-            StyleNames.TryParseRetrieval(Profile.retrieval, out Run.retrieval);
-            if (!Profile.StyleUnlocked("launch", Run.launch.ToString())) Run.launch = LaunchStyle.Apollo;
-            if (!Profile.StyleUnlocked("retrieval", Run.retrieval.ToString())) Run.retrieval = RetrievalStyle.Basic;
-            var stats = Run.ComputeStats(Profile);
-            foreach (var code in DB.Balance.player.startArrows) Run.AddCard(code);
-            for (int i = 0; i < stats.extraStartArrows; i++) Run.AddCard(0);
-            Avatar.ApplyStats(stats, true);
+            InitPlayerForRun(Run);
             Run.map = MapData.Generate(DB.Stage(1), Run.seed);
             Run.currentNode = -1;
             PlayerGO.SetActive(false);
@@ -863,15 +908,6 @@ namespace Laurel
         private void OnPlayerDied()
         {
             if (Run == null) return;
-            if (InStage1)
-            {
-                Avatar.ApplyStats(Run.ComputeStats(Profile), true);
-                Combat.BeginRound(Room, Run, Run.launch, Run.retrieval);
-                Stage1.BeginStage(this);
-                ShowToast("쓰러졌습니다 — 1스테이지를 다시 시작합니다");
-                Sfx.Play("hurt", 1f, 0.6f);
-                return;
-            }
             if (Run.isTutorial)
             {
                 // 튜토리얼에서는 패널티 없이 다시 일어선다
@@ -909,13 +945,6 @@ namespace Laurel
         {
             Paused = false;
             Time.timeScale = 1f;
-            if (InStage1)
-            {
-                Avatar.ApplyStats(Run.ComputeStats(Profile), true);
-                Combat.BeginRound(Room, Run, Run.launch, Run.retrieval);
-                Stage1.BeginStage(this);
-                return;
-            }
             if (Run != null && Run.isTutorial) { DestroyRoom(); Run = null; GoTitle(); return; }
             LastDeathCause = "도전 포기";
             EndRun(false);
@@ -935,7 +964,7 @@ namespace Laurel
 
         public void GoLobby()
         {
-            if (InStage1) return;
+            if (!SelfTestRunning && LoadSeparatedScene("Laurel_Lobby")) return;
             DestroyRoom();
             Run = null;
             Paused = false;
@@ -946,6 +975,7 @@ namespace Laurel
             if (lobbyDecor != null) lobbyDecor.Apply(Room);
             CameraRig.I.followY = true;
             StartPractice();
+            ArcheryArmoryDisplays.SpawnLobbyInScene(Room);
             for (int i = 0; i < 2; i++) SpawnDummy(Room, new Vector2(Room.InnerBounds.xMax - 3f - i * 3f, Room.InnerBounds.yMin + 0.9f), true);
             SetState(GameState.Lobby);
             if (!Profile.lobbyIntroSeen)
@@ -1012,6 +1042,11 @@ namespace Laurel
         public void SelectQuiver(QuiverType q)
         {
             CurrentQuiver = q;
+            if (Profile != null)
+            {
+                Profile.quiver = q.ToString();
+                SaveStore.Save(Profile);
+            }
             Sfx.Play("ui");
             if (State == GameState.ArcherySelect || State == GameState.Lobby || State == GameState.ArcheryTest) StartPractice();
         }

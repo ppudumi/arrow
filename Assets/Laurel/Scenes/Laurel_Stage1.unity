@@ -894,7 +894,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   gravity: 40
-  aggroRange: 30
+  aggroRange: 13
   attackRange: 3.8
   idleDuration: 0.55
   attackDamage: 15

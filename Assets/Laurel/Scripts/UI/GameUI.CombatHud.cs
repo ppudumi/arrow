@@ -239,6 +239,73 @@ namespace Laurel
             Text(r, t, st, ScreenColor(c));
         }
 
+        private void DrawUnifiedCombatHud()
+        {
+            var av = G.Avatar;
+            if (av == null) return;
+            InitHudArt();
+
+            // 1) 체력 용기 (라우렐 메인 HUD)
+            float ratio = av.Hp / Mathf.Max(1f, av.MaxHp);
+            if (hpShown < 0f) hpShown = ratio;
+            hpShown = Mathf.MoveTowards(hpShown, ratio, Time.unscaledDeltaTime * 1.5f);
+            float s = FlaskSize;
+            var fr = new Rect(HudX, 18f, s, s);
+            GUI.DrawTexture(fr, flaskBack);
+            float v = FlaskFillV(hpShown);
+            if (hpShown > 0.0001f)
+            {
+                GUI.DrawTextureWithTexCoords(new Rect(fr.x, fr.y + (1f - v) * s, s, v * s), flaskLiquid, new Rect(0f, 0f, 1f, v));
+                if (hpShown < 0.999f)
+                {
+                    float band = 2f / FlaskPx;
+                    float b0 = Mathf.Max(0f, v - band);
+                    GUI.DrawTextureWithTexCoords(new Rect(fr.x, fr.y + (1f - v) * s, s, (v - b0) * s), flaskSurface, new Rect(0f, b0, 1f, v - b0));
+                }
+            }
+            GUI.DrawTexture(fr, flaskGlass);
+            var hpStyle = new GUIStyle(label) { fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+            float cy = fr.y + (FlaskCy / (float)FlaskPx) * s;
+            OutlinedText(new Rect(fr.x + (FlaskCx / (float)FlaskPx) * s - 80, cy - 18, 160, 36), $"{av.Hp:0} / {av.MaxHp:0}", hpStyle, Color.white);
+
+            // 2) 골드 · 넥타르 (체력 오른쪽 가로 배치)
+            var numStyle = new GUIStyle(label) { fontSize = 30, fontStyle = FontStyle.Bold, wordWrap = false, alignment = TextAnchor.MiddleLeft };
+            float x = fr.xMax + 18f;
+            int gold = G.Run != null ? G.Run.gold : 0;
+            x = DrawCurrency(x, cy, goldIcon, gold.ToString(), numStyle, new Color(1f, 0.9f, 0.55f));
+            x += 26f;
+            DrawCurrency(x, cy, nectarIcon, G.Profile.nectar.ToString(), numStyle, new Color(0.86f, 0.76f, 1f));
+
+            // 3) 퀘스트 패널 (CurrentQuest().Count > 0 일 때만 표시) + 화살 현황 큐 슬롯
+            float topY = fr.yMax + 12f;
+            var quest = CurrentQuest();
+            if (quest.Count > 0) topY = DrawQuestPanel(quest, topY) + 10f;
+
+            var c = G.Combat;
+            if (c != null && c.Active)
+            {
+                DrawTopLeftOwnedArrows(c, HudX, topY);
+                if (c.Launcher is OdysseusLaunch od && od.Charging)
+                    Bar(new Rect(VW * 0.5f - 120, VH * 0.5f - 120, 240, 12), od.ChargeRatio, new Color(1f, 0.85f, 0.3f), new Color(0, 0, 0, 0.6f));
+            }
+
+            // 4) 보스 체력 패널
+            var room = G.Room;
+            if (ShowEnemyHealth && room != null && room.Boss != null && room.Boss.IsAlive)
+            {
+                var b = room.Boss;
+                Panel(new Rect(VW * 0.5f - 420, 160, 840, 64));
+                Text(new Rect(VW * 0.5f - 410, 162, 600, 30), $"<b>{b.DisplayName}</b>  <color=#BBBBBB>{(b.Phase == 2 ? "2페이즈 · " : "")}{b.PatternName}</color>  {b.Status.Badges()}", small);
+                Bar(new Rect(VW * 0.5f - 410, 194, 820, 20), b.Hp / b.MaxHp, new Color(0.9f, 0.3f, 0.35f), new Color(0.15f, 0.05f, 0.05f));
+            }
+
+            // 5) 유물: 오른쪽 위
+            DrawTopRightRelics();
+
+            // 6) 좌하단 HUD (회수 방식 · 화살통 · 레벨/골드 · 아이템)
+            DrawBottomLeftDropHud();
+        }
+
         private void DrawCombatHud()
         {
             var av = G.Avatar;
@@ -318,19 +385,53 @@ namespace Laurel
             else if (G.Run != null) DrawDeckStrip(G.Run);
 
             // 유물: 오른쪽 위 (상태 패널이 빠진 자리)
-            if (G.Run != null && G.Run.relics.Count > 0)
-            {
-                float y = 20;
-                Text(new Rect(VW - 300, y, 280, 26), "<b>유물</b>", tiny);
-                foreach (var id in G.Run.relics)
-                {
-                    y += 24;
-                    var r = DB.Relics[id];
-                    Text(new Rect(VW - 300, y, 290, 26), $"<color=#{Hex(DB.RarityColors[r.rarity])}>◆</color> {r.name}", tiny);
-                }
-            }
+            DrawTopRightRelics();
 
             DrawBottomLeftDropHud();
+        }
+
+        private void DrawTopRightRelics()
+        {
+            if (G.Run == null || G.Run.relics.Count == 0) return;
+
+            const float padX = 14f, padY = 10f, panelW = 312f, rowH = 28f, headerH = 30f;
+            float panelX = VW - panelW - 20f;
+            float panelY = 18f;
+
+            var items = new List<RelicDef>();
+            foreach (var id in G.Run.relics)
+                if (DB.Relics.TryGetValue(id, out var rd)) items.Add(rd);
+            if (items.Count == 0) return;
+
+            float panelH = padY * 2f + headerH + items.Count * rowH;
+            Panel(new Rect(panelX, panelY, panelW, panelH), 0.85f);
+
+            var headStyle = new GUIStyle(small) { fontSize = 19, fontStyle = FontStyle.Bold };
+            OutlinedText(new Rect(panelX + padX, panelY + padY, panelW - padX * 2f, headerH), $"보유 유물 ({items.Count})", headStyle, new Color(1f, 0.9f, 0.55f));
+
+            var rowStyle = new GUIStyle(small) { fontSize = 18, alignment = TextAnchor.MiddleLeft, wordWrap = false };
+            RelicDef hovered = null;
+            float y = panelY + padY + headerH;
+            Vector2 mouse = Event.current != null ? Event.current.mousePosition : new Vector2(-9999f, -9999f);
+            foreach (var r in items)
+            {
+                var rowRect = new Rect(panelX + padX, y, panelW - padX * 2f, rowH);
+                if (rowRect.Contains(mouse)) hovered = r;
+                string hex = Hex(ScreenColor(DB.RarityColors[Mathf.Clamp(r.rarity, 0, DB.RarityColors.Length - 1)]));
+                OutlinedText(rowRect, $"<color=#{hex}>◆</color> {r.name}", rowStyle, Color.white, 1.2f);
+                y += rowH;
+            }
+
+            if (hovered != null)
+            {
+                const float tipW = 340f;
+                var tipStyle = new GUIStyle(tiny) { fontSize = 16, wordWrap = true };
+                string tipText = $"<b>{hovered.name}</b> <color=#CCCCCC>({hovered.grade})</color>\n{hovered.desc}";
+                float tipH = Mathf.Max(54f, tipStyle.CalcHeight(new GUIContent(tipText), tipW - 24f) + 20f);
+                var tipRect = new Rect(VW - tipW - 20f, panelY + panelH + 8f, tipW, tipH);
+                Panel(tipRect, 0.94f);
+                Text(new Rect(tipRect.x + 12f, tipRect.y + 10f, tipW - 24f, tipH - 16f), tipText, tipStyle);
+            }
         }
 
         private void DrawTopLeftOwnedArrows(PlayerCombat c, float startX, float startY)

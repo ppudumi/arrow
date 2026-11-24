@@ -10,6 +10,7 @@
     { "id": "laurel_leaf",  "code": 101, "temp": true, "name": "월계수 잎",          "tag": "체력",   "grade": "일반", "effect": "maxHp",     "p1": 15,   "desc": "[임시] 최대 체력 +15" },
     { "id": "delphi_incense","code": 102, "temp": true, "name": "델포이의 향",       "tag": "이동",   "grade": "희귀", "effect": "moveSpeed", "p1": 0.08, "desc": "[임시] 이동속도 +8%" },
     { "id": "golden_fleece","code": 103, "temp": true, "name": "황금 양털 조각",     "tag": "재화",   "grade": "고급", "effect": "goldGain",  "p1": 0.25, "desc": "[임시] 골드 획득 +25%" },
-    { "id": "asclepius",    "code": 104, "temp": true, "name": "아스클레피오스의 지팡이","tag": "회복", "grade": "영웅", "effect": "nodeHeal",  "p1": 6,    "desc": "[임시] 전투 노드를 정리할 때마다 체력 6 회복" }
+    { "id": "asclepius",    "code": 104, "temp": true, "name": "아스클레피오스의 지팡이","tag": "회복", "grade": "영웅", "effect": "nodeHeal",  "p1": 6,    "desc": "[임시] 전투 노드를 정리할 때마다 체력 6 회복" },
+    { "id": "apollo_divinity", "code": 105, "temp": true, "name": "태양신의 권능", "tag": "권능", "grade": "전설", "effect": "tutorialPower", "p1": 1, "desc": "저주받기 전 신의 힘. 체력 +200, 공격력 +5, 방어력 +3, 공속 +50%, 이속 +10%, 더블점프·대쉬" }
   ]
 }

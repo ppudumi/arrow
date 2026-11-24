@@ -121,7 +121,11 @@ namespace Laurel
         public static List<RelicDef> RelicChoices(System.Random rng, RunState run, int n)
         {
             var pool = new List<RelicDef>();
-            foreach (var r in DB.Relics.Values) if (!run.HasRelic(r.id)) pool.Add(r);
+            foreach (var r in DB.Relics.Values)
+            {
+                if (r.effect == "tutorialPower" || run.HasRelic(r.id)) continue;
+                pool.Add(r);
+            }
             var list = new List<RelicDef>();
             while (list.Count < n && pool.Count > 0)
             {

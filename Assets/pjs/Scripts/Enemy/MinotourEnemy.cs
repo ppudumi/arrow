@@ -69,7 +69,7 @@ namespace pjs
 
         [Header("Movement & Physics")]
         public LayerMask groundLayer = 1 << 8; // Terrain
-        public float aggroRange = 30f;
+        public float aggroRange = 13f;
         public float attackRange = 3.8f;
         public float idleDuration = 0.55f;
 
@@ -466,7 +466,7 @@ namespace pjs
 
             float dx = Mathf.Abs(player.position.x - transform.position.x);
             float dy = Mathf.Abs(player.position.y - transform.position.y);
-            if (dx > aggroRange)
+            if (Vector2.Distance(player.position, transform.position) > aggroRange)
             {
                 EnterState(State.Idle);
                 return;
@@ -833,8 +833,17 @@ namespace pjs
                 && Mathf.Abs(local.y - hy) <= headHitboxSize.y * 0.5f + 0.05f;
         }
 
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = new Color(1f, 0.35f, 0.2f, 0.3f);
+            Gizmos.DrawWireSphere(transform.position, aggroRange);
+        }
+
         private void OnDrawGizmosSelected()
         {
+            Gizmos.color = new Color(1f, 0.35f, 0.2f, 0.85f);
+            Gizmos.DrawWireSphere(transform.position, aggroRange);
+
             Gizmos.color = new Color(1f, 0.85f, 0.15f, 0.95f);
             Vector2 hOff = new Vector2(headHitboxOffset.x * facing, headHitboxOffset.y);
             Vector2 hSize = headHitboxSize;
@@ -903,6 +912,12 @@ namespace pjs
 
             var box = go.AddComponent<BoxCollider2D>();
             box.size = sprite.bounds.size * 0.7f;
+            box.excludeLayers = ~Layers.TerrainMask;
+            if (player != null)
+            {
+                foreach (var pc in player.GetComponentsInChildren<Collider2D>(true))
+                    Physics2D.IgnoreCollision(box, pc);
+            }
 
             Destroy(go, 4f);
         }

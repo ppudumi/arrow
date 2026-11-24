@@ -35,6 +35,7 @@ namespace Laurel
         }
 
         private Room room;
+        private bool lobbyMode;
         private readonly List<Pedestal> pedestals = new List<Pedestal>();
         private Pedestal nearestAvailable;
         private ArrowBody hoveredGroundArrow;
@@ -48,7 +49,17 @@ namespace Laurel
             var go = new GameObject("ArcheryArmoryDisplays");
             go.transform.SetParent(room.transform, false);
             var mgr = go.AddComponent<ArcheryArmoryDisplays>();
-            mgr.Init(room);
+            mgr.Init(room, false);
+        }
+
+        /// <summary>로비 씬용: 화살통 3종과 회수 방식(보조무기) 진열대만 배치한다.</summary>
+        public static void SpawnLobbyInScene(Room room)
+        {
+            if (room == null) return;
+            var go = new GameObject("LobbyArmoryDisplays");
+            go.transform.SetParent(room.transform, false);
+            var mgr = go.AddComponent<ArcheryArmoryDisplays>();
+            mgr.Init(room, true);
         }
 
         public static string RetrievalResourcePath(RetrievalStyle s)
@@ -117,17 +128,22 @@ namespace Laurel
             return null;
         }
 
-        private void Init(Room r)
+        private void Init(Room r, bool isLobby)
         {
             room = r;
+            lobbyMode = isLobby;
 
             var subAnchor = FindAnchor("sub_weapon_pos", "보조무기위치", "보조무기 위치");
-            Vector3 subOrigin = subAnchor != null ? subAnchor.position : new Vector3(-56.95f, -1.93f, 0f);
+            Vector3 defaultSub = isLobby ? new Vector3(r.InnerBounds.xMin + 8.0f, r.InnerBounds.yMin, 0f) : new Vector3(-56.95f, -1.93f, 0f);
+            Vector3 subOrigin = subAnchor != null ? subAnchor.position : defaultSub;
             SpawnRetrievalRack(subOrigin);
 
             var quiverAnchor = FindAnchor("quiver_pos", "화살통 위치", "화살통위치");
-            Vector3 quiverOrigin = quiverAnchor != null ? quiverAnchor.position : new Vector3(-56.91f, -7.91f, 0f);
+            Vector3 defaultQuiver = isLobby ? new Vector3(r.InnerBounds.xMin + 1.8f, r.InnerBounds.yMin, 0f) : new Vector3(-56.91f, -7.91f, 0f);
+            Vector3 quiverOrigin = quiverAnchor != null ? quiverAnchor.position : defaultQuiver;
             SpawnQuiverRack(quiverOrigin);
+
+            if (isLobby) return;
 
             var arrowAnchor = FindAnchor("arrow_pos", "arrows_pos", "화살위치", "화살 위치");
             Vector3 arrowOrigin = arrowAnchor != null ? arrowAnchor.position : new Vector3(-44f, 1.5f, 0f);
@@ -235,27 +251,30 @@ namespace Laurel
 
             Vector2 playerPos = room.Player.transform.position;
 
-            // 안전 방 판정: 왼쪽 방에 있으면 적에게 보이지 않으며, 진입 시 적·바닥 보상 모두 제거
-            bool inSafeRoom = playerPos.x < SafeRoomMaxX;
-            room.IsPlayerHidden = inSafeRoom;
-            if (inSafeRoom && !wasInSafeRoom)
+            if (!lobbyMode)
             {
-                room.ClearEnemiesAndDrops();
-            }
-            if (CameraRig.I != null && CameraRig.I.Cam != null)
-            {
-                if (inSafeRoom)
+                // 안전 방 판정: 왼쪽 방에 있으면 적에게 보이지 않으며, 진입 시 적·바닥 보상 모두 제거
+                bool inSafeRoom = playerPos.x < SafeRoomMaxX;
+                room.IsPlayerHidden = inSafeRoom;
+                if (inSafeRoom && !wasInSafeRoom)
                 {
-                    float aspect = Mathf.Max(0.5f, CameraRig.I.Cam.aspect);
-                    float ortho = Mathf.Max(10f, 18f / aspect);
-                    CameraRig.I.SetRoomLock(new Vector2(-44f, -1.5f), ortho);
+                    room.ClearEnemiesAndDrops();
                 }
-                else if (wasInSafeRoom)
+                if (CameraRig.I != null && CameraRig.I.Cam != null)
                 {
-                    CameraRig.I.ClearRoomLock();
+                    if (inSafeRoom)
+                    {
+                        float aspect = Mathf.Max(0.5f, CameraRig.I.Cam.aspect);
+                        float ortho = Mathf.Max(10f, 18f / aspect);
+                        CameraRig.I.SetRoomLock(new Vector2(-44f, -1.5f), ortho);
+                    }
+                    else if (wasInSafeRoom)
+                    {
+                        CameraRig.I.ClearRoomLock();
+                    }
                 }
+                wasInSafeRoom = inSafeRoom;
             }
-            wasInSafeRoom = inSafeRoom;
 
             // 진열대 아이콘 상태 및 가장 가까운 선택 가능 진열대 탐색
             nearestAvailable = null;
@@ -293,14 +312,15 @@ namespace Laurel
                 }
             }
 
-            // 땅에 떨어진 화살 마우스 오버 탐색
-            hoveredGroundArrow = FindHoveredGroundArrow(g.Combat);
+            // 땅에 떨어진 화살 마우스 오버 탐색 (궁술 테스트 전용)
+            hoveredGroundArrow = lobbyMode ? null : FindHoveredGroundArrow(g.Combat);
 
 #if ENABLE_INPUT_SYSTEM
             var k = Keyboard.current;
-            if (k != null && g.State == GameState.ArcheryTest)
+            bool canInteract = g.State == GameState.ArcheryTest || g.State == GameState.Lobby;
+            if (k != null && canInteract)
             {
-                if (hoveredGroundArrow != null && k.gKey.wasPressedThisFrame)
+                if (!lobbyMode && hoveredGroundArrow != null && k.gKey.wasPressedThisFrame)
                 {
                     Vector3 pos = hoveredGroundArrow.transform.position;
                     Color c = hoveredGroundArrow.Card.Def.tint;
@@ -353,6 +373,12 @@ namespace Laurel
             }
             else if (p.kind == PedestalKind.Retrieval)
             {
+                if (lobbyMode && g.Profile != null && !g.Profile.StyleUnlocked("retrieval", p.retrieval.ToString()))
+                {
+                    Sfx.Play("empty");
+                    g.ShowToast($"{StyleNames.Retrieval(p.retrieval)} — 넥타르 강화에서 해금하세요");
+                    return;
+                }
                 g.SelectRetrieval(p.retrieval);
                 g.ShowToast($"{StyleNames.Retrieval(p.retrieval)} 장착");
             }
@@ -373,7 +399,7 @@ namespace Laurel
 
         private void OnGUI()
         {
-            if (GameRoot.I == null || GameRoot.I.State != GameState.ArcheryTest) return;
+            if (GameRoot.I == null || (GameRoot.I.State != GameState.ArcheryTest && GameRoot.I.State != GameState.Lobby)) return;
             var cam = Camera.main;
             if (cam == null) return;
 
@@ -419,8 +445,9 @@ namespace Laurel
                 }
                 else if (nearestAvailable.kind == PedestalKind.Retrieval)
                 {
-                    title = $"[F] {StyleNames.Retrieval(nearestAvailable.retrieval)}";
-                    desc = StyleNames.RetrievalDesc(nearestAvailable.retrieval);
+                    bool unlocked = !lobbyMode || GameRoot.I.Profile == null || GameRoot.I.Profile.StyleUnlocked("retrieval", nearestAvailable.retrieval.ToString());
+                    title = unlocked ? $"[F] {StyleNames.Retrieval(nearestAvailable.retrieval)}" : $"{StyleNames.Retrieval(nearestAvailable.retrieval)} (잠김)";
+                    desc = unlocked ? StyleNames.RetrievalDesc(nearestAvailable.retrieval) : "로비 넥타르 강화에서 해금할 수 있습니다";
                 }
                 else
                 {

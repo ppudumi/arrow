@@ -355,7 +355,7 @@ namespace Laurel
             go.transform.position = new Vector3(origin.x, origin.y, -0.05f);
             var proj = go.AddComponent<WarlockGhostProjectile>();
             float bodyScale = Mathf.Abs(transform.localScale.x) * visualScale;
-            proj.Init(origin, initialVel, ghostDamage, bodyScale, ghostSprite, trailSprites, player, playerAvatar, playerCtrl);
+            proj.Init(origin, initialVel, ghostDamage, bodyScale, ghostSprite, trailSprites, hitFxSprite, fleshSprites, groundLayer, sortingOrder, player, playerAvatar, playerCtrl);
             Sfx.Play("swing", 0.55f, 0.75f);
         }
 
@@ -554,8 +554,8 @@ namespace Laurel
         }
     }
 
-    /// <summary>워록이 발사하는 느린 유도 영혼(ghost) 투사체</summary>
-    public class WarlockGhostProjectile : MonoBehaviour
+    /// <summary>워록이 발사하는 느린 유도 영혼(ghost) 투사체 (화살로 격추 가능)</summary>
+    public class WarlockGhostProjectile : MonoBehaviour, ILaserTarget
     {
         private Vector2 velocity;
         private float speed = 5.6f;
@@ -563,27 +563,82 @@ namespace Laurel
         private float life = 4.8f;
         private float damage;
         private float trailTimer;
+        private bool destroyed;
         private Sprite[] trailSprites;
+        private Sprite hitFxSprite;
+        private Sprite[] fleshSprites;
+        private LayerMask groundLayer;
+        private int sortingOrder = 10;
         private SpriteRenderer sr;
         private Transform player;
         private PlayerAvatar playerAvatar;
         private ProceduralCharacterController playerCtrl;
 
         public void Init(Vector2 start, Vector2 initialVel, float dmg, float scale, Sprite ghostSp, Sprite[] trails,
+            Sprite hitFxSp, Sprite[] fleshSps, LayerMask ground, int sortOrder,
             Transform pTf, PlayerAvatar pAv, ProceduralCharacterController pCtrl)
         {
             velocity = initialVel;
             damage = dmg;
             trailSprites = trails;
+            hitFxSprite = hitFxSp;
+            fleshSprites = fleshSps;
+            groundLayer = ground;
+            sortingOrder = sortOrder;
             player = pTf;
             playerAvatar = pAv;
             playerCtrl = pCtrl;
 
+            gameObject.layer = Layers.Enemy;
             transform.position = new Vector3(start.x, start.y, -0.05f);
             transform.localScale = Vector3.one * scale;
+
+            var col = gameObject.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            col.radius = 0.25f;
+
             sr = gameObject.AddComponent<SpriteRenderer>();
             sr.sprite = ghostSp != null ? ghostSp : Art.Circle;
             sr.sortingOrder = 22;
+        }
+
+        public void TakeLaserHit(int dmg, bool critical, Vector2 point, Vector2 dir)
+        {
+            if (destroyed) return;
+            destroyed = true;
+
+            if (hitFxSprite != null)
+            {
+                var fxGo = new GameObject("WarlockGhost_HitFx");
+                fxGo.transform.position = new Vector3(point.x, point.y, -0.08f);
+                fxGo.transform.rotation = Quaternion.Euler(0f, 0f, Random.Range(-22f, 22f));
+                var hsr = fxGo.AddComponent<SpriteRenderer>();
+                hsr.sprite = hitFxSprite;
+                hsr.sortingOrder = sortingOrder + 12;
+                fxGo.AddComponent<WarlockHitFx>().Init(hsr, transform.localScale.x, 0.22f);
+            }
+
+            if (fleshSprites != null && fleshSprites.Length > 0)
+            {
+                int startIdx = fleshSprites.Length >= 4 ? 3 : 0;
+                for (int i = startIdx; i < fleshSprites.Length; i++)
+                {
+                    var sp = fleshSprites[i];
+                    if (sp == null) continue;
+                    var fGo = new GameObject($"GhostFlesh_{i}");
+                    fGo.transform.position = new Vector3(transform.position.x + Random.Range(-0.15f, 0.15f), transform.position.y + Random.Range(-0.15f, 0.15f), -0.02f);
+                    fGo.transform.localScale = transform.localScale;
+                    var fsr = fGo.AddComponent<SpriteRenderer>();
+                    fsr.sprite = sp;
+                    fsr.sortingOrder = sortingOrder + 2;
+                    Vector2 vel = dir.normalized * Random.Range(2f, 5f) + new Vector2(Random.Range(-3f, 3f), Random.Range(4f, 9f));
+                    fGo.AddComponent<WarlockFleshFragment>().Init(fsr, vel, Random.Range(-380f, 380f), groundLayer);
+                }
+            }
+
+            Fx.Burst(point, new Color(0.65f, 0.35f, 0.95f), 10, 5f, 0.14f, 0.3f);
+            Sfx.Play("hit", 0.75f, Random.Range(0.95f, 1.15f));
+            Destroy(gameObject);
         }
 
         private void Update()

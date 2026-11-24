@@ -257,6 +257,7 @@ namespace Laurel
                 for (int i = 0; i < Mathf.RoundToInt(r.p1); i++) AddCard(41, true);
             }
             if (r.effect == "maxHp") hp += r.p1;
+            if (r.effect == "tutorialPower") hp += Mathf.Max(0f, DB.Balance.tutorial.maxHp - DB.Balance.player.maxHp);
         }
 
         public int NonRelicCardCount
@@ -269,18 +270,11 @@ namespace Laurel
             }
         }
 
-        /// <summary>능력치 계산: 기본(또는 튜토리얼) + 넥타르 강화 + 유물 + 도전 중 보너스</summary>
+        /// <summary>능력치 계산: 기본 + 넥타르 강화 + 유물 + 도전 중 보너스</summary>
         public PlayerStats ComputeStats(Profile profile)
         {
             var b = DB.Balance;
             var s = new PlayerStats();
-            if (isTutorial)
-            {
-                var t = b.tutorial;
-                s.maxHp = t.maxHp; s.attack = t.attack; s.defense = t.defense; s.attackSpeedBonus = t.attackSpeed;
-                s.moveMul = t.moveSpeedMul; s.doubleJump = t.doubleJump; s.dash = t.dash;
-                return s;
-            }
             s.maxHp = b.player.maxHp + profile.StatBonus("maxHp") + bonusMaxHp + RelicSum("maxHp");
             s.attack = b.player.attack + profile.StatBonus("attack") + RelicSum("attack");
             s.defense = b.player.defense + profile.StatBonus("defense");
@@ -292,6 +286,17 @@ namespace Laurel
             s.doubleJump = profile.HasSkill("doubleJump");
             s.dash = profile.HasSkill("dash");
             s.tripleJump = profile.HasSkill("tripleJump");
+            if (RelicWithEffect("tutorialPower") != null)
+            {
+                var t = b.tutorial;
+                s.maxHp += Mathf.Max(0f, t.maxHp - b.player.maxHp);
+                s.attack += Mathf.Max(0f, t.attack - b.player.attack);
+                s.defense += Mathf.Max(0f, t.defense - b.player.defense);
+                s.attackSpeedBonus += Mathf.Max(0f, t.attackSpeed - b.player.attackSpeed);
+                s.moveMul += Mathf.Max(0f, t.moveSpeedMul - b.player.moveSpeedMul);
+                if (t.doubleJump) s.doubleJump = true;
+                if (t.dash) s.dash = true;
+            }
             return s;
         }
     }

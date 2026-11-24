@@ -30,6 +30,7 @@ namespace Laurel
         public List<int> bossesDefeated = new List<int>();
         public string launch = "Apollo";
         public string retrieval = "Orpheus";
+        public string quiver = "Basic";
         public int runs, deaths, clears, bestStage, kills;
         public float sfxVolume = 0.6f;
         public string lastSavedUtc;
@@ -143,6 +144,7 @@ namespace Laurel
             if (p.nectar < 0) p.nectar = 0;
             if (string.IsNullOrEmpty(p.launch)) p.launch = "Apollo";
             if (string.IsNullOrEmpty(p.retrieval)) p.retrieval = "Orpheus";
+            if (string.IsNullOrEmpty(p.quiver)) p.quiver = "Basic";
             return p;
         }
 

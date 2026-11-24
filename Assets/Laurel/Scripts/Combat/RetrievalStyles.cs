@@ -72,18 +72,13 @@ namespace Laurel
         }
     }
 
-    /// <summary>기본 — 줍기: 화살이 적에게 박히지 않고 떨어진다. R을 누르면 모든 화살을 불러온다.</summary>
+    /// <summary>기본 — 줍기: 화살이 적에게 박히지 않고 바닥에 떨어진다. 가까이 가면 자동으로 줍는다.</summary>
     public class BasicPickup : RetrievalBehaviour
     {
         public BasicPickup(PlayerCombat c) : base(c) { }
         public override RetrievalStyle Style => RetrievalStyle.Basic;
         public override bool ArrowsStickToEnemies => false;
-        public override void Tick(CombatInput input, float dt)
-        {
-            base.Tick(input, dt);
-            if (input.recallDown) PullAllFieldArrows(24f, 1.5f, "줍기");
-        }
-        public override string StatusText() => "바닥의 화살 줍기 / R: 모든 화살 불러오기";
+        public override string StatusText() => "바닥의 화살 가까이 가서 줍기";
     }
 
     /// <summary>오르페우스 — 부르기: R을 누르고 있는 동안 필드의 모든 화살이 고정된 빠른 속도로 Slerp 호를 그리며 돌아온다.</summary>
@@ -165,7 +160,6 @@ namespace Laurel
         public override void Tick(CombatInput input, float dt)
         {
             base.Tick(input, dt);
-            if (input.recallDown) PullAllFieldArrows(26f, 1.5f, "뽑기");
             if (combat.Room == null) return;
             Vector2 p = combat.PlayerCenter;
             foreach (var enemy in combat.Room.Enemies)
@@ -538,8 +532,7 @@ namespace Laurel
             Fx.Circle(center, Cfg.zeusRadius, new Color(0.6f, 0.85f, 1f, 0.6f), 0.05f, 0.3f);
             if (scratch.Count == 0)
             {
-                int fallbackPulled = PullAllFieldArrows(28f, 1.4f, "뇌우");
-                combat.Log(fallbackPulled > 0 ? $"뇌우: {fallbackPulled}발 귀환" : "뇌우: 범위 안에 화살 없음 (대기시간 소모 안 함)");
+                combat.Log("뇌우: 범위 안에 화살 없음 (대기시간 소모 안 함)");
                 return;
             }
 
