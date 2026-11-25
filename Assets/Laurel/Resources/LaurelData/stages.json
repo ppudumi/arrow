@@ -9,7 +9,7 @@
       "mixWeights": { "C": 50, "R": 20, "S": 15, "F": 15 },
       "normal": ["sprout", "boarlet", "crow", "satyr"],
       "elite": ["boarlet", "satyr"],
-      "enemyCount": [3, 4], "waves": [1, 2],
+      "enemyCount": [6, 8], "waves": [1, 2],
       "boss": "boar", "unlockSkill": "double_jump",
       "goldPerNode": [14, 22], "goldElite": 40, "goldBoss": 70,
       "nectarCombat": 1, "nectarElite": 2
@@ -22,7 +22,7 @@
       "mixWeights": { "C": 50, "R": 20, "S": 10, "F": 20 },
       "normal": ["frog", "naiad", "reedshooter", "crow", "boarlet"],
       "elite": ["frog", "reedshooter", "naiad"],
-      "enemyCount": [4, 5], "waves": [1, 2],
+      "enemyCount": [8, 10], "waves": [1, 2],
       "boss": "achelous", "unlockSkill": "dash",
       "goldPerNode": [18, 28], "goldElite": 50, "goldBoss": 90,
       "nectarCombat": 1, "nectarElite": 3
@@ -35,7 +35,7 @@
       "mixWeights": { "C": 50, "R": 25, "S": 10, "F": 15 },
       "normal": ["cupid", "harpy", "golem", "thorn", "naiad"],
       "elite": ["golem", "harpy", "thorn"],
-      "enemyCount": [5, 6], "waves": [2, 2],
+      "enemyCount": [10, 12], "waves": [2, 2],
       "boss": "eros", "unlockSkill": "triple_jump",
       "goldPerNode": [22, 34], "goldElite": 60, "goldBoss": 0,
       "nectarCombat": 2, "nectarElite": 3

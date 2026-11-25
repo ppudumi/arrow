@@ -491,10 +491,8 @@ namespace Laurel
             var r = new Rect(20f, VH - 114f, 152f, 90f);
             Panel(r, 0.82f);
             var lvStyle = new GUIStyle(label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            var goldStyle = new GUIStyle(label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            OutlinedText(new Rect(r.x + 12f, r.y + 8f, r.width - 24f, 30f), $"LV. {G.DisplayLevel}", lvStyle, new Color(0.55f, 0.96f, 1f));
-            Bar(new Rect(r.x + 12f, r.y + 42f, r.width - 24f, 8f), G.DisplayExpInLevel / 100f, new Color(0.35f, 0.92f, 1f), new Color(0.08f, 0.1f, 0.14f, 0.9f));
-            OutlinedText(new Rect(r.x + 12f, r.y + 52f, r.width - 24f, 30f), $"GOLD  {G.DisplayGold}", goldStyle, new Color(1f, 0.88f, 0.35f));
+            OutlinedText(new Rect(r.x + 12f, r.y + 16f, r.width - 24f, 30f), $"LV. {G.DisplayLevel}", lvStyle, new Color(0.55f, 0.96f, 1f));
+            Bar(new Rect(r.x + 12f, r.y + 52f, r.width - 24f, 10f), G.DisplayExpInLevel / 100f, new Color(0.35f, 0.92f, 1f), new Color(0.08f, 0.1f, 0.14f, 0.9f));
 
             // 옆 아이템 슬롯
             var slot = new Rect(r.xMax + 8f, r.y, 76f, 90f);

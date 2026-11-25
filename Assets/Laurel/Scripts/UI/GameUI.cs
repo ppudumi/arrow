@@ -12,6 +12,7 @@ namespace Laurel
         private Font font;
         private GUIStyle label, small, title, header, button, bigButton, box, center, tiny, rich;
         private Texture2D white;
+        private Texture2D statusPanelTex, statusCardTex;
         private float scale = 1f;
         private float VW => Screen.width / scale;
         private const float VH = 1080f;
@@ -35,6 +36,8 @@ namespace Laurel
             }
             catch { font = null; }
             white = Texture2D.whiteTexture;
+            statusPanelTex = Resources.Load<Texture2D>("LaurelUI/status_panel_bg");
+            statusCardTex = Resources.Load<Texture2D>("LaurelUI/status_card_frame");
             label = new GUIStyle(GUI.skin.label) { font = font, fontSize = 22, richText = true, wordWrap = true };
             label.normal.textColor = new Color(0.95f, 0.93f, 0.88f);
             small = new GUIStyle(label) { fontSize = 18 };
@@ -314,39 +317,53 @@ namespace Laurel
         {
             var rw = G.Reward;
             if (rw == null) return;
+            Rect(new Rect(0, 0, VW, VH), new Color(0, 0, 0, 0.72f));
             // 세로형 화살 카드가 들어가도록 패널을 위아래로 넓게 쓴다
             var r = new Rect(VW * 0.5f - 700, 40, 1400, 1000);
-            Panel(r, 0.95f);
-            Text(new Rect(r.x + 30, r.y + 20, 1000, 50), $"<b>{rw.title}</b>", header);
+            if (statusPanelTex != null) GUI.DrawTexture(r, statusPanelTex, ScaleMode.StretchToFill);
+            else Panel(r, 0.95f);
+
+            float padX = 56f, padTop = 48f, padBottom = 52f;
+            Text(new Rect(r.x + padX, r.y + padTop, 1000, 48), $"<b><color=#F5D27A>{rw.title}</color></b>", header);
             string earned = "";
             if (rw.gold > 0) earned += $"골드 +{rw.gold}   ";
             if (rw.nectar > 0) earned += $"넥타르 +{rw.nectar} (저장됨)";
-            Text(new Rect(r.x + 30, r.y + 74, 1000, 30), earned, small, new Color(1f, 0.85f, 0.5f));
+            float y = r.y + padTop + 56f;
+            if (!string.IsNullOrEmpty(earned))
+            {
+                Text(new Rect(r.x + padX, y, 1000, 30), earned, small, new Color(1f, 0.85f, 0.5f));
+                y += 38f;
+            }
+            else
+            {
+                y += 12f;
+            }
 
-            float y = r.y + 120;
             if (rw.relics.Count > 0)
             {
-                Text(new Rect(r.x + 30, y, 900, 34), rw.relicTaken ? "<color=#888888>유물 선택 완료</color>" : "<b>유물 하나를 고르세요</b>", small);
-                y += 40;
+                Text(new Rect(r.x + padX, y, 900, 34), rw.relicTaken ? "<color=#888888>유물 선택 완료</color>" : "<b><color=#F5D27A>유물 하나를 고르세요</color></b>", small);
+                if (!rw.relicTaken && rw.title.StartsWith("보상방") && StatusBtn(new Rect(r.xMax - padX - 250, y - 4, 250, 40), $"대신 골드 {rw.skipGold}")) G.TakeRewardGold();
+                y += 42f;
+                float cardW = 416f, cardGap = 20f;
                 for (int i = 0; i < rw.relics.Count; i++)
                 {
                     var rd = rw.relics[i];
-                    var cell = new Rect(r.x + 30 + i * 450, y, 430, 170);
-                    Rect(cell, new Color(0.13f, 0.12f, 0.16f));
-                    Rect(new Rect(cell.x, cell.y, cell.width, 5), DB.RarityColors[rd.rarity]);
-                    Text(new Rect(cell.x + 14, cell.y + 12, 400, 30), $"<b>{rd.name}</b>  <color=#{Hex(DB.RarityColors[rd.rarity])}>{rd.grade}</color>", small);
-                    Text(new Rect(cell.x + 14, cell.y + 46, 400, 80), rd.desc, tiny);
-                    if (Btn(new Rect(cell.x + 14, cell.y + 124, 160, 38), "가져가기", !rw.relicTaken)) G.TakeRewardRelic(rd);
+                    var cell = new Rect(r.x + padX + i * (cardW + cardGap), y, cardW, 184f);
+                    if (statusCardTex != null) { var oc = GUI.color; GUI.color = new Color(0.92f, 0.9f, 0.88f, 0.96f); GUI.DrawTexture(cell, statusCardTex, ScaleMode.StretchToFill); GUI.color = oc; }
+                    else Rect(cell, new Color(0.13f, 0.12f, 0.16f));
+                    Rect(new Rect(cell.x + 14, cell.y + 10, cell.width - 28, 4), DB.RarityColors[rd.rarity]);
+                    Text(new Rect(cell.x + 18, cell.y + 18, cell.width - 36, 30), $"<b>{rd.name}</b>  <color=#{Hex(DB.RarityColors[rd.rarity])}>{rd.grade}</color>", small);
+                    Text(new Rect(cell.x + 18, cell.y + 52, cell.width - 36, 76), rd.desc, tiny);
+                    if (StatusBtn(new Rect(cell.x + 18, cell.y + 132, 160, 38), "가져가기", !rw.relicTaken)) G.TakeRewardRelic(rd);
                 }
-                if (!rw.relicTaken && rw.title.StartsWith("보상방") && Btn(new Rect(r.x + 1380 - 280, y - 44, 250, 40), $"대신 골드 {rw.skipGold}")) G.TakeRewardGold();
-                y += 180;
+                y += 196f;
             }
             if (rw.arrows.Count > 0)
             {
                 bool full = G.InStage1
                     ? (G.Combat == null || !G.Combat.HasQuiverSpace)
                     : (G.Run.NonRelicCardCount >= DB.Balance.player.quiverMax);
-                Text(new Rect(r.x + 30, y, 1300, 34), rw.arrowTaken ? "<color=#888888>화살 선택 완료</color>" : (full ? "<color=#FF9080>화살통이 가득 차 더 받을 수 없습니다</color>" : "<b>화살 하나를 고르세요</b> <color=#AAAAAA>(덱 = 화살통에 1장 추가)</color>"), small);
+                Text(new Rect(r.x + padX, y, 1288, 34), rw.arrowTaken ? "<color=#888888>화살 선택 완료</color>" : (full ? "<color=#FF9080>화살통이 가득 차 더 받을 수 없습니다</color>" : "<b><color=#F5D27A>화살 하나를 고르세요</color></b> <color=#AAAAAA>(덱 = 화살통에 1장 추가)</color>"), small);
                 y += 40;
                 y += 52;
                 cardZoom = rw.relics.Count > 0 ? 4 : 5;
@@ -356,7 +373,7 @@ namespace Laurel
                 cardZoom = 4;
             }
             bool nothingTaken = !rw.arrowTaken && (rw.relics.Count == 0 || !rw.relicTaken) && rw.skipGold > 0;
-            if (Btn(new Rect(r.x + r.width - 330, r.y + r.height - 80, 300, 60), nothingTaken ? $"건너뛰기 (골드 +{rw.skipGold})" : (G.InStage1 ? "닫기" : "지도로"), true, bigButton)) G.FinishReward();
+            if (StatusBtn(new Rect(r.xMax - padX - 280, r.yMax - padBottom - 56, 280, 56), nothingTaken ? $"건너뛰기 (골드 +{rw.skipGold})" : (G.InStage1 ? "닫기" : "지도로"))) G.FinishReward();
         }
 
         // ───────────── 화살 선택 카드 ─────────────
@@ -765,23 +782,46 @@ namespace Laurel
 
         // ───────────── 플레이어 상태창 & 화살 슬롯 (Tab) ─────────────
 
+        private bool StatusBtn(Rect r, string txt, bool enabled = true)
+        {
+            if (statusCardTex == null) return Btn(r, txt, enabled);
+            bool hover = enabled && r.Contains(Event.current.mousePosition);
+            var old = GUI.color;
+            GUI.color = !enabled ? new Color(0.5f, 0.48f, 0.45f, 0.8f) : (hover ? new Color(1.18f, 1.12f, 0.96f, 1f) : new Color(0.95f, 0.92f, 0.86f, 1f));
+            GUI.DrawTexture(r, statusCardTex, ScaleMode.StretchToFill);
+            GUI.color = old;
+            var st = new GUIStyle(center)
+            {
+                font = font,
+                fontSize = r.height >= 40f ? 20 : 15,
+                fontStyle = FontStyle.Bold,
+                richText = true
+            };
+            st.normal.textColor = enabled ? (hover ? new Color(1f, 0.94f, 0.72f) : new Color(0.96f, 0.88f, 0.68f)) : new Color(0.55f, 0.52f, 0.48f);
+            GUI.Label(r, txt, st);
+            return enabled && GUI.Button(r, GUIContent.none, GUIStyle.none);
+        }
+
         private void DrawPlayerStatusPanel()
         {
             Rect(new Rect(0, 0, VW, VH), new Color(0, 0, 0, 0.72f));
-            var r = new Rect(VW * 0.5f - 620, 120, 1240, 820);
-            Panel(r, 0.96f);
+            var r = new Rect(VW * 0.5f - 650, 100, 1300, 860);
+            if (statusPanelTex != null) GUI.DrawTexture(r, statusPanelTex, ScaleMode.StretchToFill);
+            else Panel(r, 0.96f);
 
-            Text(new Rect(r.x + 28, r.y + 18, 700, 44), "<b>플레이어 상태창 & 화살 슬롯</b>", header);
-            if (Btn(new Rect(r.xMax - 170, r.y + 18, 140, 44), "닫기 (Tab)")) { G.SetStatusOpen(false); return; }
+            float padX = 56f, padTop = 48f, padBottom = 52f;
+            Text(new Rect(r.x + padX, r.y + padTop, 700, 44), "<b><color=#F5D27A>플레이어 상태창 & 화살 슬롯</color></b>", header);
+            if (StatusBtn(new Rect(r.xMax - padX - 154, r.y + padTop, 154, 44), "닫기 (Tab)")) { G.SetStatusOpen(false); return; }
 
             var run = G.Run ?? G.PracticeRun;
             var av = G.Avatar;
 
             // 왼쪽: 플레이어 상태
-            var left = new Rect(r.x + 28, r.y + 76, 410, r.height - 104);
-            Panel(left, 0.75f);
-            float ly = left.y + 16;
-            Text(new Rect(left.x + 18, ly, left.width - 36, 32), "<b><color=#F5D27A>능력치 & 장비</color></b>", small);
+            var left = new Rect(r.x + padX, r.y + padTop + 60f, 392, r.height - padTop - padBottom - 60f);
+            if (statusCardTex != null) { var oc = GUI.color; GUI.color = new Color(0.92f, 0.9f, 0.88f, 0.96f); GUI.DrawTexture(left, statusCardTex, ScaleMode.StretchToFill); GUI.color = oc; }
+            else Panel(left, 0.75f);
+            float ly = left.y + 26;
+            Text(new Rect(left.x + 28, ly, left.width - 56, 32), "<b><color=#F5D27A>능력치 & 장비</color></b>", small);
             ly += 40;
 
             if (av != null)
@@ -795,8 +835,8 @@ namespace Laurel
                     $"이동속도: <b>{st.moveMul * 100f:0}%</b>\n" +
                     $"점프: <b>{st.MaxJumps}단 점프</b>   대쉬: <b>{(st.dash ? "해금" : "잠김")}</b>\n" +
                     $"재생: <b>{(st.regenPer5s > 0 ? $"+{st.regenPer5s:0.#}/5초" : "없음")}</b>   부활: <b>{(st.revive && (run == null || !run.reviveUsed) ? "가능" : "없음")}</b>";
-                Text(new Rect(left.x + 18, ly, left.width - 36, 230), statText, small);
-                ly += 235;
+                Text(new Rect(left.x + 28, ly, left.width - 56, 224), statText, small);
+                ly += 226;
             }
 
             if (run != null)
@@ -806,14 +846,14 @@ namespace Laurel
                     $"회수 방식: <b>{StyleNames.Retrieval(run.retrieval)}</b>\n" +
                     $"화살통: <b>{QuiverStats.Name(run.quiver)}</b> ({QuiverStats.ArrowCount(run.quiver)}발)\n" +
                     $"골드: <color=#F2C84B><b>{run.gold} G</b></color>   넥타르: <color=#C6A6FF><b>{G.Profile.nectar}</b></color>";
-                Text(new Rect(left.x + 18, ly, left.width - 36, 130), gearText, small);
-                ly += 136;
+                Text(new Rect(left.x + 28, ly, left.width - 56, 126), gearText, small);
+                ly += 130;
 
-                Text(new Rect(left.x + 18, ly, left.width - 36, 28), $"<b><color=#F5D27A>보유 유물 ({run.relics.Count})</color></b>", small);
+                Text(new Rect(left.x + 28, ly, left.width - 56, 28), $"<b><color=#F5D27A>보유 유물 ({run.relics.Count})</color></b>", small);
                 ly += 30;
                 if (run.relics.Count == 0)
                 {
-                    Text(new Rect(left.x + 18, ly, left.width - 36, 26), "<color=#999999>보유한 유물이 없습니다</color>", tiny);
+                    Text(new Rect(left.x + 28, ly, left.width - 56, 26), "<color=#999999>보유한 유물이 없습니다</color>", tiny);
                 }
                 else
                 {
@@ -821,24 +861,25 @@ namespace Laurel
                     {
                         if (!DB.Relics.TryGetValue(id, out var rd)) continue;
                         string hex = Hex(DB.RarityColors[Mathf.Clamp(rd.rarity, 0, DB.RarityColors.Length - 1)]);
-                        Text(new Rect(left.x + 18, ly, left.width - 36, 42), $"<color=#{hex}>◆ {rd.name}</color>\n<size=13><color=#BBBBBB>{rd.desc}</color></size>", tiny);
+                        Text(new Rect(left.x + 28, ly, left.width - 56, 42), $"<color=#{hex}>◆ {rd.name}</color>\n<size=13><color=#BBBBBB>{rd.desc}</color></size>", tiny);
                         ly += 44;
-                        if (ly > left.yMax - 40) break;
+                        if (ly > left.yMax - 44) break;
                     }
                 }
             }
 
             // 오른쪽: 화살 슬롯 & 분해
-            var right = new Rect(left.xMax + 18, r.y + 76, r.xMax - 28 - (left.xMax + 18), r.height - 104);
-            Panel(right, 0.75f);
+            var right = new Rect(left.xMax + 20, left.y, r.xMax - padX - (left.xMax + 20), left.height);
+            if (statusCardTex != null) { var oc = GUI.color; GUI.color = new Color(0.92f, 0.9f, 0.88f, 0.96f); GUI.DrawTexture(right, statusCardTex, ScaleMode.StretchToFill); GUI.color = oc; }
+            else Panel(right, 0.75f);
             if (run == null)
             {
-                Text(new Rect(right.x + 20, right.y + 20, 400, 34), "화살 슬롯 정보 없음", small);
+                Text(new Rect(right.x + 28, right.y + 26, 400, 34), "화살 슬롯 정보 없음", small);
                 return;
             }
 
             int cap = G.Combat != null && G.Combat.Active ? G.Combat.MaxQuiverCapacity : QuiverStats.ArrowCount(run.quiver);
-            Text(new Rect(right.x + 18, right.y + 14, right.width - 36, 34),
+            Text(new Rect(right.x + 28, right.y + 24, right.width - 56, 34),
                 $"<b><color=#F5D27A>화살 슬롯 ({run.deck.Count} / {cap})</color></b>  <color=#BBBBBB>— 분해하면 화살이 제거되고 골드로 변환됩니다</color>", small);
 
             // 화살 목록 (화살통 순서 우선, 나머지 필드 화살 포함)
@@ -858,31 +899,32 @@ namespace Laurel
             }
 
             const int cols = 3;
-            float cellW = (right.width - 36 - (cols - 1) * 10f) / cols;
-            float cellH = 104f;
-            float startX = right.x + 18f, startY = right.y + 56f;
+            float cellW = (right.width - 56 - (cols - 1) * 12f) / cols;
+            float cellH = 114f;
+            float startX = right.x + 28f, startY = right.y + 66f;
             bool canDismantleAny = !run.isTutorial && run.NonRelicCardCount > 1;
 
             for (int i = 0; i < ordered.Count; i++)
             {
                 int col = i % cols;
                 int row = i / cols;
-                float cx = startX + col * (cellW + 10f);
-                float cy = startY + row * (cellH + 10f);
-                if (cy + cellH > right.yMax - 14f) break;
+                float cx = startX + col * (cellW + 12f);
+                float cy = startY + row * (cellH + 12f);
+                if (cy + cellH > right.yMax - 24f) break;
 
                 var c = ordered[i];
                 var cell = new Rect(cx, cy, cellW, cellH);
-                Panel(cell, 0.92f);
-                Rect(new Rect(cell.x, cell.y, cell.width, 4f), DB.RarityColors[Mathf.Clamp(c.Def.rarity, 0, DB.RarityColors.Length - 1)]);
+                if (statusCardTex != null) GUI.DrawTexture(cell, statusCardTex, ScaleMode.StretchToFill);
+                else Panel(cell, 0.92f);
+                Rect(new Rect(cell.x + 12, cell.y + 10, cell.width - 24, 4f), DB.RarityColors[Mathf.Clamp(c.Def.rarity, 0, DB.RarityColors.Length - 1)]);
 
-                Text(new Rect(cell.x + 10, cell.y + 8, cell.width - 20, 26), $"<b>{c.Def.name}</b>", tiny);
-                Text(new Rect(cell.x + 10, cell.y + 32, cell.width - 20, 22), $"피해 {c.Damage:0.#}  <color=#AAAAAA>({c.Def.grade})</color>", tiny);
+                Text(new Rect(cell.x + 16, cell.y + 18, cell.width - 32, 24), $"<b>{c.Def.name}</b>", tiny);
+                Text(new Rect(cell.x + 16, cell.y + 42, cell.width - 32, 22), $"피해 {c.Damage:0.#}  <color=#AAAAAA>({c.Def.grade})</color>", tiny);
 
                 int gold = GameRoot.ArrowDismantleGold(c);
                 bool canDismantle = canDismantleAny && !c.fromRelic && gold > 0;
                 string btnLabel = c.fromRelic ? "유물 화살" : (run.isTutorial ? "튜토리얼" : (run.NonRelicCardCount <= 1 ? "마지막 화살" : $"분해 (+{gold} G)"));
-                if (Btn(new Rect(cell.x + 10, cell.yMax - 40, cell.width - 20, 32), btnLabel, canDismantle))
+                if (StatusBtn(new Rect(cell.x + 16, cell.yMax - 42, cell.width - 32, 30), btnLabel, canDismantle))
                 {
                     G.DismantleArrow(c);
                     return;

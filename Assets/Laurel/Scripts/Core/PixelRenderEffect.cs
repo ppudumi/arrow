@@ -25,7 +25,7 @@ namespace Laurel
         public static bool IsPointerOverPixelSlider { get; private set; }
         public static int GlobalPixelSize { get; private set; } = 3;
         public static int GlobalOutlineThickness { get; private set; } = 1;
-        public static PixelRenderMode GlobalRenderMode { get; private set; } = PixelRenderMode.FullScene;
+        public static PixelRenderMode GlobalRenderMode { get; private set; } = PixelRenderMode.OutlineOnly;
         private static bool globalInitialized;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -39,7 +39,7 @@ namespace Laurel
         public int pixelSize = 3;
         [Range(MinOutlineThickness, MaxOutlineThickness)]
         public int outlineThickness = 1;
-        public PixelRenderMode renderMode = PixelRenderMode.FullScene;
+        public PixelRenderMode renderMode = PixelRenderMode.OutlineOnly;
         public Camera subCam;
 
         private const int PlayerOutlineRenderLayer = 31;

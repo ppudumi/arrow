@@ -72,28 +72,22 @@ namespace Laurel
         [ContextMenu("같은 시드로 다시 생성 (Play 중)")]
         private void RegenerateSameSeed() { if (Application.isPlaying) Generate(lastSeed); }
 
-        /// <summary>상점 노드용: 랜덤 지형 타일 없이 짧은 평지와 양쪽 외벽만 만든다.</summary>
-        public void GenerateFlatShop(int width = 26, int height = 16)
+        /// <summary>상점 노드용: 랜덤 지형과 양쪽 벽 타일맵 없이 평지 바닥만 만든다.</summary>
+        public void GenerateFlatShop(int width = 36, int height = 16)
         {
             Clear();
             generationCount++;
-            int wall = settings != null ? Mathf.Max(1, settings.wallThickness) : 2;
             const int floorY = 2;
 
             var d = new RandomMapData { width = width, height = height, solid = new bool[width, height] };
             for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < height; y++)
-                {
-                    bool isWall = x < wall || x >= width - wall;
-                    bool isFloor = y < floorY;
-                    d.solid[x, y] = isWall || isFloor;
-                }
-            }
-            d.spawn = new Vector2Int(wall + 2, floorY);
-            d.portal = new Vector2Int(width - wall - 3, floorY);
+                for (int y = 0; y < floorY; y++)
+                    d.solid[x, y] = true;
+
+            d.spawn = new Vector2Int(2, floorY);
+            d.portal = new Vector2Int(width - 3, floorY);
             Data = d;
-            Paint(d);
+            PaintFlatFloor(d, floorY);
 
             ScenePortal.PlaceAtPortal(player, new Vector2(d.spawn.x + 0.5f, d.spawn.y));
             if (player != null)
@@ -107,6 +101,21 @@ namespace Laurel
                 ceiling.size = new Vector2(d.width + 20f, 2f);
             }
             LayoutBackdrop();
+        }
+
+        private void PaintFlatFloor(RandomMapData d, int floorY)
+        {
+            if (tilemap == null || terrainTile == null) return;
+            int pad = Mathf.Max(2, outsidePadding);
+            var positions = new System.Collections.Generic.List<Vector3Int>();
+            for (int x = -pad; x < d.width + pad; x++)
+                for (int y = -pad; y < floorY; y++)
+                    positions.Add(new Vector3Int(x, y, 0));
+
+            var tiles = new TileBase[positions.Count];
+            for (int i = 0; i < tiles.Length; i++) tiles[i] = terrainTile;
+            tilemap.SetTiles(positions.ToArray(), tiles);
+            tilemap.RefreshAllTiles();
         }
 
         /// <summary>이전 맵을 지우고 seed 로 새 맵을 만든다</summary>
@@ -189,7 +198,20 @@ namespace Laurel
 
         // ── 배경: 카메라를 parallax 만큼 따라가는 1스테이지 배경. 화면이 맵 끝까지 가도 이미지가 끊기지 않을 폭으로 늘린다 ──
 
-        private void LayoutBackdrop()
+        /// <summary>상점 룸처럼 타일맵은 쓰지 않고 배경·패럴랙스 기준 크기만 설정한다.</summary>
+        public void PrepareShopBackdrop(int width = 36, int height = 16)
+        {
+            Data = new RandomMapData
+            {
+                width = width,
+                height = height,
+                spawn = new Vector2Int(2, 2),
+                portal = new Vector2Int(width - 3, 2)
+            };
+            LayoutBackdrop();
+        }
+
+        public void LayoutBackdrop()
         {
             if (backdropRoot == null || backdropImage == null || backdropImage.sprite == null || Data == null) return;
             var cam = cameraRig != null ? cameraRig.Cam : Camera.main;

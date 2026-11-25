@@ -911,7 +911,7 @@ namespace Laurel
 
         public void ResetStage1Shop() => ShopOffers = null;
 
-        public void OpenStage1Shop(int seed)
+        public void EnsureStage1ShopOffers(int seed)
         {
             if (Run == null) return;
             if (ShopOffers == null)
@@ -920,6 +920,12 @@ namespace Laurel
                 ShopOffers = Loot.BuildShop(rng, Run);
                 ShopRerolls = 0;
             }
+        }
+
+        public void OpenStage1Shop(int seed)
+        {
+            if (Run == null) return;
+            EnsureStage1ShopOffers(seed);
             ShopRemoveMode = false;
             SetState(GameState.Shop);
         }

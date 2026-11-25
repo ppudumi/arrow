@@ -373,7 +373,15 @@ namespace pjs
             {
                 case State.Idle:
                     velocity.x = Mathf.MoveTowards(velocity.x, 0f, 30f * dt);
-                    if (stateTimer <= 0f) ChooseNextAction();
+                    if (player != null && (hasDetectedPlayer || Vector2.Distance(player.position, transform.position) <= aggroRange))
+                    {
+                        hasDetectedPlayer = true;
+                        ChooseNextAction();
+                    }
+                    else if (stateTimer <= 0f)
+                    {
+                        ChooseNextAction();
+                    }
                     break;
 
                 case State.DashApproach:
@@ -401,7 +409,11 @@ namespace pjs
                 case State.Attack:
                     velocity.x = Mathf.MoveTowards(velocity.x, 0f, 12f * dt);
                     if (!attackHitDealt) TryDamagePlayer(attackDamage, 2.8f, 2.0f, true);
-                    if (stateTimer <= 0f) EnterState(State.Idle);
+                    if (stateTimer <= 0f)
+                    {
+                        if (hasDetectedPlayer) ChooseNextAction();
+                        else EnterState(State.Idle);
+                    }
                     break;
 
                 case State.JumpReady:
@@ -423,7 +435,11 @@ namespace pjs
 
                 case State.JumpLand:
                     velocity.x = 0f;
-                    if (stateTimer <= 0f) EnterState(State.Idle);
+                    if (stateTimer <= 0f)
+                    {
+                        if (hasDetectedPlayer) ChooseNextAction();
+                        else EnterState(State.Idle);
+                    }
                     break;
 
                 case State.BigJumpReady:
@@ -450,7 +466,11 @@ namespace pjs
                 case State.JumpSmash:
                     velocity.x = 0f;
                     if (!attackHitDealt) TryDamagePlayer(smashDamage, 3.6f, 2.5f, false);
-                    if (stateTimer <= 0f) EnterState(State.Idle);
+                    if (stateTimer <= 0f)
+                    {
+                        if (hasDetectedPlayer) ChooseNextAction();
+                        else EnterState(State.Idle);
+                    }
                     break;
             }
         }
@@ -466,10 +486,14 @@ namespace pjs
 
             float dx = Mathf.Abs(player.position.x - transform.position.x);
             float dy = Mathf.Abs(player.position.y - transform.position.y);
-            if (Vector2.Distance(player.position, transform.position) > aggroRange)
+            if (!hasDetectedPlayer)
             {
-                EnterState(State.Idle);
-                return;
+                if (Vector2.Distance(player.position, transform.position) > aggroRange)
+                {
+                    EnterState(State.Idle);
+                    return;
+                }
+                hasDetectedPlayer = true;
             }
 
             // 근거리: 짧은 거리 대시 공격
@@ -502,6 +526,8 @@ namespace pjs
             pendingAttackTime = shortAttackTime;
             EnterState(State.AttackReady);
         }
+
+        private bool hasDetectedPlayer;
 
         private void EnterState(State next)
         {

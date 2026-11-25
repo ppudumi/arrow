@@ -8,7 +8,7 @@ namespace Laurel
         public Sprite idleSprite;
         public Sprite attackReadySprite;
         public Sprite attackSprite;
-        public float maxHp = 200f;
+        public float maxHp = 100f;
         public float attackRange = 3.8f;
         public float attackDamage = 15f;
         public float attackReadyTime = 0.36f;

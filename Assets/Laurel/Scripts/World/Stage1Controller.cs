@@ -20,8 +20,13 @@ namespace Laurel
         public MinotourEnemy minotourTemplate;
         public WarlockEnemy warlockTemplate;
         public Texture2D mapSheet;
-        [Tooltip("Assets/pjs/Sprites/shop.png 슬라이스: [0]마차, [1]의자, [2]아이템 받침대")]
+        [Tooltip("Assets/pjs/Sprites/caravan.png 슬라이스: [0]마차1, [1]발판, [2]마차2")]
         public Sprite[] shopSprites;
+        [Header("상점 룸 (씬 배치 오브젝트)")]
+        public GameObject shopRoom;
+        public Transform shopSpawnPoint;
+        public Transform shopPortalPoint;
+        public Transform[] shopStandPoints;
 
         public MapData Map { get; private set; }
         public MapNode CurrentNode { get; private set; }
@@ -43,10 +48,26 @@ namespace Laurel
         private bool relicChestAvailable;
         private RewardData cachedArrowReward;
         private RewardData cachedRelicReward;
+        private class ShopStandItem
+        {
+            public Vector3 pos;
+            public ShopOffer offer;
+            public SpriteRenderer iconSr;
+        }
+
         private GameObject shopRoot;
-        private Vector3 shopInteractPos;
+        private Vector3 leftWagonPos;
+        private Vector3 rightWagonPos;
+        private Vector3 rightBubblePos;
+        private string bubbleText;
+        private float bubbleTimer;
+        private float bubbleElapsed;
+        private GUIStyle bubbleStyle;
+        private Texture2D shopParchmentTex;
+        private GUIStyle shopTitleStyle, shopPriceStyle, shopDescStyle, shopHintStyle;
         private bool shopAvailable;
-        private Texture2D shopMapIcon;
+        private readonly List<ShopStandItem> shopStands = new List<ShopStandItem>();
+        private static Sprite shopArrowSprite;
         private bool canAdvanceFromMap;
         private bool nodeHadCombat;
         private string loadingText = "맵 생성 중...";
@@ -66,12 +87,18 @@ namespace Laurel
         private static readonly Rect UvReward    = Uv(380, 472, 22, 20);
         private static readonly Rect UvElite     = Uv(413, 471, 22, 21);
         private static readonly Rect UvBoss      = Uv(443, 470, 20, 23);
+        private static readonly Rect UvShop      = Uv(474, 470, 22, 21);
         private static readonly Rect UvDot       = Uv(317, 446, 8, 7);
         private static readonly Rect UvSun       = Uv(309, 372, 60, 60);
         private static readonly Rect[] UvRolls   = { Uv(12, 115, 80, 199), Uv(92, 114, 69, 199), Uv(165, 115, 58, 198), Uv(233, 116, 48, 198) };
         private static readonly Vector2[] RollSizes = { new Vector2(80f, 199f), new Vector2(69f, 199f), new Vector2(58f, 198f), new Vector2(48f, 198f) };
 
         private static Rect Uv(float x, float y, float w, float h) => new Rect(x / 512f, y / 512f, w / 512f, h / 512f);
+
+        private void Awake()
+        {
+            if (shopRoom != null) shopRoom.SetActive(false);
+        }
 
         public void BeginStage(GameRoot g) => BeginStage(g, true);
 
@@ -136,33 +163,70 @@ namespace Laurel
             yield return null;
 
             if (mapGenerator == null) mapGenerator = FindAnyObjectByType<RandomMapGenerator>();
-            if (mapGenerator != null)
+            if (node.type == NodeType.Shop && shopRoom != null)
             {
-                if (root != null && root.PlayerGO != null) mapGenerator.player = root.PlayerGO.transform;
-                if (node.type == NodeType.Shop) mapGenerator.GenerateFlatShop(26, 16);
-                else mapGenerator.Generate(node.seed);
-                var d = mapGenerator.Data;
-                if (d != null && root != null && root.Room != null)
+                if (mapGenerator != null)
                 {
-                    root.Room.InitStaticArena(RoomTheme.FromStage(DB.Stage(1)), d.width, d.height, new Vector2(d.spawn.x + 0.5f, d.spawn.y));
-                    if (CameraRig.I != null)
+                    mapGenerator.Clear();
+                    if (root != null && root.PlayerGO != null) mapGenerator.player = root.PlayerGO.transform;
+                }
+                shopRoom.SetActive(true);
+                Vector2 spawnPos = shopSpawnPoint != null ? (Vector2)shopSpawnPoint.position : new Vector2(2.5f, 2f);
+                if (root != null && root.PlayerGO != null)
+                    ScenePortal.PlaceAtPortal(root.PlayerGO.transform, spawnPos);
+                if (root != null && root.Room != null)
+                    root.Room.InitStaticArena(RoomTheme.FromStage(DB.Stage(1)), 36f, 16f, spawnPos);
+                if (CameraRig.I != null)
+                {
+                    CameraRig.I.target = root != null && root.PlayerGO != null ? root.PlayerGO.transform : null;
+                    CameraRig.I.followY = true;
+                    CameraRig.I.playSize = DB.Balance.world.cameraSize;
+                    CameraRig.I.lookUp = 3.2f;
+                    CameraRig.I.lookAhead = 2.5f;
+                    CameraRig.I.fallLookDown = 2.5f;
+                    CameraRig.I.fallSpeedThreshold = 8f;
+                    CameraRig.I.lookSmoothing = 10f;
+                    CameraRig.I.followSmoothing = 10f;
+                    CameraRig.I.cursorLookAhead = 1.4f;
+                    CameraRig.I.cursorLookRange = 12f;
+                    CameraRig.I.cursorLookVerticalWeight = 1f;
+                    CameraRig.I.Setup(new Rect(0f, 0f, 36f, 16f), CameraRig.I.PlaySize, Color.black);
+                }
+                if (mapGenerator != null) mapGenerator.PrepareShopBackdrop(36, 16);
+                SetupShopScenePortal();
+                BindSceneShopOffers();
+                OpenPortal();
+            }
+            else
+            {
+                if (shopRoom != null) shopRoom.SetActive(false);
+                if (mapGenerator != null)
+                {
+                    if (root != null && root.PlayerGO != null) mapGenerator.player = root.PlayerGO.transform;
+                    mapGenerator.Generate(node.seed);
+                    var d = mapGenerator.Data;
+                    if (d != null && root != null && root.Room != null)
                     {
-                        CameraRig.I.target = root.PlayerGO.transform;
-                        CameraRig.I.followY = true;
-                        CameraRig.I.playSize = DB.Balance.world.cameraSize;
-                        CameraRig.I.lookUp = 3.2f;
-                        CameraRig.I.lookAhead = 2.5f;
-                        CameraRig.I.fallLookDown = 2.5f;
-                        CameraRig.I.fallSpeedThreshold = 8f;
-                        CameraRig.I.lookSmoothing = 10f;
-                        CameraRig.I.followSmoothing = 10f;
-                        CameraRig.I.cursorLookAhead = 1.4f;
-                        CameraRig.I.cursorLookRange = 12f;
-                        CameraRig.I.cursorLookVerticalWeight = 1f;
-                        CameraRig.I.Setup(new Rect(0f, 0f, d.width, d.height), CameraRig.I.PlaySize, Color.black);
+                        root.Room.InitStaticArena(RoomTheme.FromStage(DB.Stage(1)), d.width, d.height, new Vector2(d.spawn.x + 0.5f, d.spawn.y));
+                        if (CameraRig.I != null)
+                        {
+                            CameraRig.I.target = root.PlayerGO.transform;
+                            CameraRig.I.followY = true;
+                            CameraRig.I.playSize = DB.Balance.world.cameraSize;
+                            CameraRig.I.lookUp = 3.2f;
+                            CameraRig.I.lookAhead = 2.5f;
+                            CameraRig.I.fallLookDown = 2.5f;
+                            CameraRig.I.fallSpeedThreshold = 8f;
+                            CameraRig.I.lookSmoothing = 10f;
+                            CameraRig.I.followSmoothing = 10f;
+                            CameraRig.I.cursorLookAhead = 1.4f;
+                            CameraRig.I.cursorLookRange = 12f;
+                            CameraRig.I.cursorLookVerticalWeight = 1f;
+                            CameraRig.I.Setup(new Rect(0f, 0f, d.width, d.height), CameraRig.I.PlaySize, Color.black);
+                        }
+                        SetupPortal(d);
+                        SpawnNodeEncounter(node, d);
                     }
-                    SetupPortal(d);
-                    SpawnNodeEncounter(node, d);
                 }
             }
 
@@ -249,14 +313,15 @@ namespace Laurel
             nodeHadCombat = true;
             var spawnRng = new System.Random(node.seed ^ 0x3A71F);
             int extra = (StageLoop > 0 && node.type != NodeType.Boss && node.layer > 0) ? Mathf.Min(2, StageLoop) : 0;
-            int count = ((node.layer == 0 || node.type == NodeType.Boss) ? 1 : (node.type == NodeType.Elite ? 2 : spawnRng.Next(2, 4))) + extra;
+            int baseCount = node.type == NodeType.Boss ? 1 : (node.layer == 0 ? 2 : (node.type == NodeType.Elite ? 4 : spawnRng.Next(4, 8)));
+            int count = baseCount + extra * 2;
             float loopHpMul = 1f + StageLoop * 0.45f;
-            float hpMul = (node.type == NodeType.Boss ? 2.2f : (node.type == NodeType.Elite ? 1.5f : 1f)) * loopHpMul;
+            float hpMul = 0.5f * (node.type == NodeType.Boss ? 2.2f : (node.type == NodeType.Elite ? 1.5f : 1f)) * loopHpMul;
             float scaleMul = node.type == NodeType.Boss ? 1.35f : (node.type == NodeType.Elite ? 1.15f : 1f);
 
             for (int i = 0; i < count; i++)
             {
-                if (node.layer == 0 || node.type == NodeType.Boss)
+                if (node.type == NodeType.Boss)
                 {
                     SpawnMinotour(PickEnemySpawn(d, i, count), hpMul, scaleMul);
                     continue;
@@ -427,9 +492,87 @@ namespace Laurel
             root.OpenStage1Reward(cachedRelicReward);
         }
 
+        private void SetupShopScenePortal()
+        {
+            if (portalGo == null)
+            {
+                portalGo = new GameObject("Stage1_EndPortal");
+                Art.Quad(portalGo.transform, "Frame", Art.Square, new Color32(0x2A, 0x1E, 0x14, 0xFF), new Vector2(1.8f, 2.6f), 12, new Vector3(0f, 1.3f, 0f));
+                portalGlow = Art.Quad(portalGo.transform, "Core", Art.Soft, new Color(0.45f, 0.92f, 1f, 0.9f), new Vector2(1.3f, 2.1f), 13, new Vector3(0f, 1.3f, 0f));
+            }
+            Vector3 p = shopPortalPoint != null ? shopPortalPoint.position : new Vector3(33.5f, 2f, 0f);
+            portalPos = new Vector3(p.x, p.y, -0.05f);
+            portalGo.transform.position = portalPos;
+            portalGo.SetActive(false);
+
+            arrowChestAvailable = false;
+            if (arrowChestGo != null) arrowChestGo.SetActive(false);
+            relicChestAvailable = false;
+            if (relicChestGo != null) relicChestGo.SetActive(false);
+        }
+
+        private void BindSceneShopOffers()
+        {
+            ClearShopProps();
+            shopRoot = new GameObject("Stage1_ShopItems");
+            nodeHadCombat = false;
+
+            var leftWagon = shopRoom != null ? shopRoom.transform.Find("Shop_CaravanLeft") : null;
+            var rightWagon = shopRoom != null ? shopRoom.transform.Find("Shop_CaravanRight") : null;
+            leftWagonPos = leftWagon != null ? leftWagon.position + new Vector3(3.4f, 0f, 0f) : new Vector3(11.1f, 1.9f, 0f);
+            rightWagonPos = rightWagon != null ? rightWagon.position + new Vector3(-2.5f, 0f, 0f) : new Vector3(26.5f, 2.08f, 0f);
+            rightBubblePos = rightWagonPos + new Vector3(0f, 3.5f, 0f);
+            shopAvailable = true;
+
+            if (root != null)
+            {
+                root.ResetStage1Shop();
+                root.EnsureStage1ShopOffers(CurrentNode != null ? CurrentNode.seed : 1);
+            }
+
+            var picks = PickFiveShopOffers();
+            int count = shopStandPoints != null ? shopStandPoints.Length : 0;
+            for (int i = 0; i < count; i++)
+            {
+                var stTf = shopStandPoints[i];
+                if (stTf == null) continue;
+                var pos = stTf.position;
+                ShopOffer offer = i < picks.Count ? picks[i] : null;
+                SpriteRenderer iconSr = null;
+                if (offer != null)
+                {
+                    var iconGo = new GameObject($"Shop_Item_{i + 1}");
+                    iconGo.transform.SetParent(shopRoot.transform, false);
+                    iconGo.transform.position = pos + new Vector3(0.35f, 0.75f, -0.02f);
+                    iconSr = iconGo.AddComponent<SpriteRenderer>();
+                    iconSr.sortingOrder = 12;
+                    if (offer.kind == "arrow")
+                    {
+                        var def = DB.Arrow(offer.arrowCode);
+                        iconSr.sprite = GetShopArrowSprite();
+                        iconSr.color = def != null ? def.tint : Color.white;
+                        iconGo.transform.localRotation = Quaternion.Euler(0f, 0f, 30f);
+                        iconGo.transform.localScale = new Vector3(1.1f, 1.1f, 1f);
+                    }
+                    else
+                    {
+                        iconSr.sprite = Art.Diamond;
+                        iconSr.color = offer.kind == "relic"
+                            ? DB.RarityColors[DB.Relics[offer.relicId].rarity]
+                            : (offer.kind == "heal" ? new Color(0.4f, 0.95f, 0.55f) : new Color(1f, 0.8f, 0.3f));
+                        iconGo.transform.localScale = new Vector3(0.55f, 0.55f, 1f);
+                    }
+                }
+                shopStands.Add(new ShopStandItem { pos = pos + new Vector3(0.35f, 0f, 0f), offer = offer, iconSr = iconSr });
+            }
+        }
+
         private void ClearShopProps()
         {
             shopAvailable = false;
+            bubbleTimer = 0f;
+            bubbleText = null;
+            shopStands.Clear();
             if (shopRoot != null)
             {
                 Destroy(shopRoot);
@@ -443,21 +586,103 @@ namespace Laurel
             EnsureShopSprites();
 
             shopRoot = new GameObject("Stage1_ShopProps");
-            float floorY = d.spawn.y;
-            float centerX = d.width * 0.5f;
-            const float propScale = 2.2f;
+            float floorY = d.spawn.y + 0.08f;
+            const float wagonScale = 2.2f;
+            const float standScale = 2.5f;
 
-            // 마차(shop_0), 의자(shop_1), 아이템 받침대(shop_2) 순서로 평지에 배치
-            var wagon = SpawnShopProp("Shop_Wagon", GetShopSprite(0), new Vector3(centerX - 3.6f, floorY, 0.05f), propScale, 2);
-            var chair = SpawnShopProp("Shop_Chair", GetShopSprite(1), new Vector3(centerX + 3.2f, floorY, 0.04f), propScale, 3);
-            var stand = SpawnShopProp("Shop_ItemStand", GetShopSprite(2), new Vector3(centerX + 5.2f, floorY, 0.03f), propScale, 4);
+            // 마차 두 개가 서로를 바라보도록 좌우에 배치 (caravan_0, caravan_2)
+            var leftWagon = SpawnShopProp("Shop_CaravanLeft", GetShopSprite(0), new Vector3(8f, floorY, 0.05f), wagonScale, 7, false);
+            var rightWagon = SpawnShopProp("Shop_CaravanRight", GetShopSprite(2), new Vector3(24.0f, floorY, 0.05f), wagonScale, 7, true);
 
-            shopInteractPos = stand != null ? stand.transform.position : (wagon != null ? wagon.transform.position : new Vector3(centerX, floorY, 0f));
+            leftWagonPos = leftWagon != null ? leftWagon.transform.position + new Vector3(3.4f, 0f, 0f) : new Vector3(11.4f, floorY, 0f);
+            rightWagonPos = rightWagon != null ? rightWagon.transform.position + new Vector3(-2.5f, 0f, 0f) : new Vector3(21.5f, floorY, 0f);
+            rightBubblePos = rightWagonPos + new Vector3(0f, 3.5f, 0f);
             shopAvailable = true;
-            if (root != null) root.ResetStage1Shop(); // 새 상점 노드 진입 시 품목 갱신
+
+            if (root != null)
+            {
+                root.ResetStage1Shop();
+                root.EnsureStage1ShopOffers(CurrentNode != null ? CurrentNode.seed : 1);
+            }
+
+            var picks = PickFiveShopOffers();
+            const float startX = 12.6f;
+            const float spacing = 2.1f;
+            for (int i = 0; i < 5; i++)
+            {
+                var pos = new Vector3(startX + i * spacing, floorY, 0.03f);
+                SpawnShopProp($"Shop_Stand_{i + 1}", GetShopSprite(1), pos, standScale, 8, false);
+
+                ShopOffer offer = i < picks.Count ? picks[i] : null;
+                SpriteRenderer iconSr = null;
+                if (offer != null)
+                {
+                    var iconGo = new GameObject($"Shop_Item_{i + 1}");
+                    iconGo.transform.SetParent(shopRoot.transform, false);
+                    iconGo.transform.position = pos + new Vector3(0.35f, 0.75f, -0.02f);
+                    iconSr = iconGo.AddComponent<SpriteRenderer>();
+                    iconSr.sortingOrder = 12;
+                    if (offer.kind == "arrow")
+                    {
+                        var def = DB.Arrow(offer.arrowCode);
+                        iconSr.sprite = GetShopArrowSprite();
+                        iconSr.color = def != null ? def.tint : Color.white;
+                        iconGo.transform.localRotation = Quaternion.Euler(0f, 0f, 30f);
+                        iconGo.transform.localScale = new Vector3(1.1f, 1.1f, 1f);
+                    }
+                    else
+                    {
+                        iconSr.sprite = Art.Diamond;
+                        iconSr.color = offer.kind == "relic"
+                            ? DB.RarityColors[DB.Relics[offer.relicId].rarity]
+                            : (offer.kind == "heal" ? new Color(0.4f, 0.95f, 0.55f) : new Color(1f, 0.8f, 0.3f));
+                        iconGo.transform.localScale = new Vector3(0.55f, 0.55f, 1f);
+                    }
+                }
+
+                shopStands.Add(new ShopStandItem
+                {
+                    pos = pos + new Vector3(0.35f, 0f, 0f),
+                    offer = offer,
+                    iconSr = iconSr
+                });
+            }
         }
 
-        private GameObject SpawnShopProp(string name, Sprite sprite, Vector3 pos, float scale, int sortingOrder)
+        private List<ShopOffer> PickFiveShopOffers()
+        {
+            var result = new List<ShopOffer>(5);
+            if (root == null || root.ShopOffers == null) return result;
+            int arrows = 0, relics = 0, consumables = 0;
+            foreach (var o in root.ShopOffers)
+            {
+                if (o.kind == "arrow" && arrows < 3) { result.Add(o); arrows++; }
+                else if (o.kind == "relic" && relics < 1) { result.Add(o); relics++; }
+                else if ((o.kind == "heal" || o.kind == "ambrosia") && consumables < 1) { result.Add(o); consumables++; }
+                if (result.Count >= 5) break;
+            }
+            return result;
+        }
+
+        private ShopStandItem FindNearestShopStand(Vector2 playerPos)
+        {
+            ShopStandItem best = null;
+            float bestDist = 1.45f;
+            for (int i = 0; i < shopStands.Count; i++)
+            {
+                var st = shopStands[i];
+                if (st.offer == null || st.offer.sold) continue;
+                float d = Vector2.Distance(playerPos, st.pos + Vector3.up * 0.5f);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = st;
+                }
+            }
+            return best;
+        }
+
+        private GameObject SpawnShopProp(string name, Sprite sprite, Vector3 pos, float scale, int sortingOrder, bool flipX)
         {
             var go = new GameObject(name);
             go.transform.SetParent(shopRoot.transform, false);
@@ -465,6 +690,7 @@ namespace Laurel
             go.transform.localScale = new Vector3(scale, scale, 1f);
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = sprite;
+            sr.flipX = flipX;
             sr.sortingOrder = sortingOrder;
             return go;
         }
@@ -475,11 +701,32 @@ namespace Laurel
             return null;
         }
 
+        private static Sprite GetShopArrowSprite()
+        {
+            if (shopArrowSprite != null) return shopArrowSprite;
+            var tex = new Texture2D(36, 8, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point };
+            var px = new Color32[36 * 8];
+            for (int y = 0; y < 8; y++)
+            {
+                for (int x = 0; x < 36; x++)
+                {
+                    bool body = y >= 2 && y <= 5 && x >= 1 && x <= 28;
+                    bool tip = x >= 27 && x <= 34 && Mathf.Abs(y - 3.5f) <= (35 - x) * 0.45f;
+                    bool fletch = x <= 5 && (y == 1 || y == 6);
+                    px[y * 36 + x] = (body || tip || fletch) ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
+                }
+            }
+            tex.SetPixels32(px);
+            tex.Apply();
+            shopArrowSprite = Sprite.Create(tex, new Rect(0, 0, 36, 8), new Vector2(0.5f, 0.5f), 32f, 0, SpriteMeshType.FullRect);
+            return shopArrowSprite;
+        }
+
         private void EnsureShopSprites()
         {
             if (shopSprites != null && shopSprites.Length >= 3 && shopSprites[0] != null) return;
 #if UNITY_EDITOR
-            var all = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/pjs/Sprites/shop.png");
+            var all = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/pjs/Sprites/caravan.png");
             var list = new List<Sprite>();
             if (all != null)
             {
@@ -489,6 +736,72 @@ namespace Laurel
                 if (list.Count > 0) shopSprites = list.ToArray();
             }
 #endif
+        }
+
+        private void ShowWagonBubble(string text)
+        {
+            bubbleText = text;
+            bubbleTimer = 3.2f;
+            bubbleElapsed = 0f;
+        }
+
+        private void DrawPixelSpeechBubble(Vector3 worldPos, string fullText, float elapsed, float remaining)
+        {
+            if (string.IsNullOrEmpty(fullText) || Camera.main == null) return;
+            Vector3 sc = Camera.main.WorldToScreenPoint(worldPos);
+            if (sc.z < 0f) return;
+
+            if (bubbleStyle == null)
+            {
+                bubbleStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 18,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter,
+                    wordWrap = false
+                };
+            }
+
+            int shownChars = Mathf.Clamp(Mathf.FloorToInt(elapsed * 36f), 1, fullText.Length);
+            string shown = fullText.Substring(0, shownChars);
+            float alpha = remaining < 0.35f ? Mathf.Clamp01(remaining / 0.35f) : 1f;
+
+            Vector2 textSize = bubbleStyle.CalcSize(new GUIContent(fullText));
+            float w = Mathf.Max(220f, Mathf.Ceil(textSize.x / 2f) * 2f + 36f);
+            float h = 48f;
+            float cx = Mathf.Round(sc.x);
+            float bottomY = Mathf.Round(Screen.height - sc.y);
+            float x = cx - w * 0.5f;
+            float y = bottomY - h - 12f;
+
+            var oldCol = GUI.color;
+            // 외곽 검정 픽셀 테두리
+            GUI.color = new Color(0.04f, 0.03f, 0.04f, alpha);
+            GUI.DrawTexture(new Rect(x - 4f, y - 4f, w + 8f, h + 8f), Texture2D.whiteTexture);
+            // 산나비풍 금빛/크림 픽셀 테두리
+            GUI.color = new Color(0.92f, 0.83f, 0.62f, alpha);
+            GUI.DrawTexture(new Rect(x - 2f, y - 2f, w + 4f, h + 4f), Texture2D.whiteTexture);
+            // 어두운 내부 배경
+            GUI.color = new Color(0.10f, 0.08f, 0.10f, 0.96f * alpha);
+            GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture);
+
+            // 픽셀 말풍선 꼬리 (계단식 픽셀)
+            GUI.color = new Color(0.04f, 0.03f, 0.04f, alpha);
+            GUI.DrawTexture(new Rect(cx - 8f, y + h + 2f, 16f, 4f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(cx - 5f, y + h + 6f, 10f, 4f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(cx - 2f, y + h + 10f, 4f, 4f), Texture2D.whiteTexture);
+
+            GUI.color = new Color(0.92f, 0.83f, 0.62f, alpha);
+            GUI.DrawTexture(new Rect(cx - 6f, y + h, 12f, 4f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(cx - 3f, y + h + 4f, 6f, 4f), Texture2D.whiteTexture);
+
+            GUI.color = new Color(0.10f, 0.08f, 0.10f, alpha);
+            GUI.DrawTexture(new Rect(cx - 4f, y + h - 2f, 8f, 4f), Texture2D.whiteTexture);
+
+            GUI.color = new Color(1f, 1f, 1f, alpha);
+            bubbleStyle.normal.textColor = new Color(0.98f, 0.94f, 0.84f, alpha);
+            GUI.Label(new Rect(x + 10f, y, w - 20f, h), shown, bubbleStyle);
+            GUI.color = oldCol;
         }
 
         private void DrawWorldPrompt(Vector3 worldPos, string msg)
@@ -503,6 +816,89 @@ namespace Laurel
             GUI.color = Color.white;
             promptStyle.normal.textColor = new Color(1f, 0.92f, 0.5f);
             GUI.Label(new Rect(sx - w * 0.5f, sy - 18f, w, 34f), msg, promptStyle);
+        }
+
+        private static string GetShopOfferDesc(ShopOffer o)
+        {
+            if (o == null) return "";
+            switch (o.kind)
+            {
+                case "arrow":
+                {
+                    var a = DB.Arrow(o.arrowCode);
+                    string sp = !string.IsNullOrEmpty(a.special) ? $"\n{a.special}" : "";
+                    return $"[{a.grade}] 피해 {a.DamageLabel}{sp}";
+                }
+                case "relic":
+                {
+                    var rd = DB.Relics[o.relicId];
+                    return $"[{rd.grade}] {rd.desc}";
+                }
+                case "heal":
+                    return $"체력 {DB.Balance.economy.healPotionAmount} 회복";
+                case "ambrosia":
+                    return $"이번 도전 최대 체력 +{DB.Balance.economy.ambrosiaMaxHp}";
+                default:
+                    return "보유 화살 1장 제거";
+            }
+        }
+
+        private void DrawShopStandParchment(ShopStandItem stand)
+        {
+            if (stand == null || stand.offer == null) return;
+            if (shopParchmentTex == null)
+                shopParchmentTex = Resources.Load<Texture2D>("LaurelUI/shop_parchment");
+
+            Vector3 sc = Camera.main.WorldToScreenPoint(stand.pos + Vector3.up * 1.9f);
+            if (sc.z < 0f) return;
+
+            if (shopTitleStyle == null)
+            {
+                shopTitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+                shopPriceStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+                shopDescStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, alignment = TextAnchor.UpperCenter, wordWrap = true };
+                shopHintStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            }
+
+            const float pw = 250f;
+            const float ph = 310f;
+            float px = Mathf.Clamp(sc.x - pw * 0.5f, 12f, Screen.width - pw - 12f);
+            float py = Mathf.Clamp((Screen.height - sc.y) - ph, 12f, Screen.height - ph - 12f);
+
+            var oldCol = GUI.color;
+            GUI.color = Color.white;
+            if (shopParchmentTex != null)
+            {
+                GUI.DrawTexture(new Rect(px, py, pw, ph), shopParchmentTex, ScaleMode.StretchToFill);
+            }
+            else
+            {
+                GUI.color = new Color(0.90f, 0.82f, 0.64f, 0.96f);
+                GUI.DrawTexture(new Rect(px, py, pw, ph), Texture2D.whiteTexture);
+                GUI.color = Color.white;
+            }
+
+            float tx = px + 38f;
+            float tw = pw - 76f;
+            bool canAfford = root != null && root.Run != null && root.Run.gold >= stand.offer.price;
+
+            shopTitleStyle.normal.textColor = new Color(0.18f, 0.11f, 0.05f);
+            GUI.Label(new Rect(tx, py + 58f, tw, 36f), stand.offer.Title, shopTitleStyle);
+
+            shopPriceStyle.normal.textColor = canAfford ? new Color(0.55f, 0.33f, 0.04f) : new Color(0.65f, 0.16f, 0.13f);
+            GUI.Label(new Rect(tx, py + 94f, tw, 24f), $"{stand.offer.price} G", shopPriceStyle);
+
+            GUI.color = new Color(0.35f, 0.23f, 0.12f, 0.45f);
+            GUI.DrawTexture(new Rect(tx + 8f, py + 123f, tw - 16f, 2f), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            shopDescStyle.normal.textColor = new Color(0.24f, 0.16f, 0.09f);
+            GUI.Label(new Rect(tx, py + 132f, tw, 110f), GetShopOfferDesc(stand.offer), shopDescStyle);
+
+            shopHintStyle.normal.textColor = canAfford ? new Color(0.28f, 0.16f, 0.05f) : new Color(0.65f, 0.16f, 0.13f);
+            GUI.Label(new Rect(tx, py + ph - 56f, tw, 28f), canAfford ? "[F] 구매" : "[F] 구매 (골드 부족)", shopHintStyle);
+
+            GUI.color = oldCol;
         }
 
         private void SetMapOpen(bool open, bool allowAdvance)
@@ -537,6 +933,12 @@ namespace Laurel
                 portalGlow.color = new Color(0.45f, 0.92f, 1f, p);
             }
 
+            if (bubbleTimer > 0f)
+            {
+                bubbleTimer -= Time.unscaledDeltaTime;
+                bubbleElapsed += Time.unscaledDeltaTime;
+            }
+
 #if ENABLE_INPUT_SYSTEM
             var k = Keyboard.current;
             if (k != null)
@@ -558,10 +960,25 @@ namespace Laurel
                     SetMapOpen(false, false);
                 }
                 else if (!MapOpen && shopAvailable && root != null && root.PlayerGO != null
-                    && Vector2.Distance(root.PlayerGO.transform.position, shopInteractPos + Vector3.up * 0.5f) <= 2.4f
-                    && (k.wKey.wasPressedThisFrame || k.fKey.wasPressedThisFrame))
+                    && (k.wKey.wasPressedThisFrame || k.fKey.wasPressedThisFrame)
+                    && (FindNearestShopStand(root.PlayerGO.transform.position) != null
+                        || Vector2.Distance(root.PlayerGO.transform.position, leftWagonPos + Vector3.up * 0.5f) <= 3.2f
+                        || Vector2.Distance(root.PlayerGO.transform.position, rightWagonPos + Vector3.up * 0.5f) <= 3.0f))
                 {
-                    root.OpenStage1Shop(CurrentNode.seed);
+                    var stand = FindNearestShopStand(root.PlayerGO.transform.position);
+                    if (stand != null)
+                    {
+                        if (root.Buy(stand.offer) && stand.iconSr != null)
+                            stand.iconSr.gameObject.SetActive(false);
+                    }
+                    else if (Vector2.Distance(root.PlayerGO.transform.position, leftWagonPos + Vector3.up * 0.5f) <= 3.2f)
+                    {
+                        ShowWagonBubble("거긴 내 짐밖에 없다..");
+                    }
+                    else if (Vector2.Distance(root.PlayerGO.transform.position, rightWagonPos + Vector3.up * 0.5f) <= 3.0f)
+                    {
+                        ShowWagonBubble("나한테 말걸지 말고, 물건이나 사라..");
+                    }
                 }
                 else if (!MapOpen && arrowChestAvailable && root != null && root.PlayerGO != null
                     && Vector2.Distance(root.PlayerGO.transform.position, arrowChestPos + Vector3.up * 0.5f) <= 2.1f
@@ -582,17 +999,8 @@ namespace Laurel
                     {
                         if (CurrentNode.type == NodeType.Boss)
                         {
-                            if (CountFieldArrows() > 0)
-                            {
-                                pendingNextNode = null;
-                                pendingBossClear = true;
-                                confirmArrowLossOpen = true;
-                                root?.Avatar?.SetInputEnabled(false);
-                            }
-                            else
-                            {
-                                CompleteStage1AndLoop();
-                            }
+                            if (CountFieldArrows() > 0) RemoveFieldArrows();
+                            CompleteStage1AndLoop();
                         }
                         else
                         {
@@ -623,11 +1031,29 @@ namespace Laurel
 
             if (!MapOpen && root != null && root.State == GameState.Node && root.PlayerGO != null && Camera.main != null)
             {
-                if (shopAvailable && Vector2.Distance(root.PlayerGO.transform.position, shopInteractPos + Vector3.up * 0.5f) <= 2.4f)
+                if (shopAvailable && bubbleTimer > 0f)
+                    DrawPixelSpeechBubble(rightBubblePos, bubbleText, bubbleElapsed, bubbleTimer);
+
+                if (shopAvailable)
                 {
-                    DrawWorldPrompt(shopInteractPos + Vector3.up * 1.9f, "[W / F] 상점 열기");
+                    var stand = FindNearestShopStand(root.PlayerGO.transform.position);
+                    if (stand != null)
+                    {
+                        DrawShopStandParchment(stand);
+                        return;
+                    }
+                    if (Vector2.Distance(root.PlayerGO.transform.position, leftWagonPos + Vector3.up * 0.5f) <= 3.2f)
+                    {
+                        DrawWorldPrompt(leftWagonPos + Vector3.up * 2.2f, "[F] 살펴보기");
+                        return;
+                    }
+                    if (Vector2.Distance(root.PlayerGO.transform.position, rightWagonPos + Vector3.up * 0.5f) <= 3.0f)
+                    {
+                        DrawWorldPrompt(rightWagonPos + Vector3.up * 2.2f, "[F] 말 걸기");
+                        return;
+                    }
                 }
-                else if (arrowChestAvailable && Vector2.Distance(root.PlayerGO.transform.position, arrowChestPos + Vector3.up * 0.5f) <= 2.2f)
+                if (arrowChestAvailable && Vector2.Distance(root.PlayerGO.transform.position, arrowChestPos + Vector3.up * 0.5f) <= 2.2f)
                 {
                     DrawWorldPrompt(arrowChestPos + Vector3.up * 1.9f, "[W / F] 화살 상자 열기");
                 }
@@ -719,13 +1145,7 @@ namespace Laurel
                     : (canPick ? new Color(1f, 0.96f, 0.8f, 1f) : Color.white);
                 GUI.color = tint;
                 var iconRect = new Rect(p.x - drawSize.x * 0.5f, p.y - drawSize.y * 0.5f, drawSize.x, drawSize.y);
-                if (n.type == NodeType.Shop)
-                {
-                    if (shopMapIcon == null) shopMapIcon = Resources.Load<Texture2D>("LaurelMap/shop");
-                    if (shopMapIcon != null) GUI.DrawTexture(iconRect, shopMapIcon, ScaleMode.ScaleToFit);
-                    else if (mapSheet != null) GUI.DrawTextureWithTexCoords(iconRect, mapSheet, NodeUv(n.type));
-                }
-                else if (mapSheet != null) GUI.DrawTextureWithTexCoords(iconRect, mapSheet, NodeUv(n.type));
+                if (mapSheet != null) GUI.DrawTextureWithTexCoords(iconRect, mapSheet, NodeUv(n.type));
                 GUI.color = Color.white;
 
                 labelStyle.normal.textColor = isCur
@@ -759,13 +1179,7 @@ namespace Laurel
         private void TryEnterNode(MapNode node)
         {
             if (node == null) return;
-            if (CountFieldArrows() > 0)
-            {
-                pendingNextNode = node;
-                pendingBossClear = false;
-                confirmArrowLossOpen = true;
-                return;
-            }
+            if (CountFieldArrows() > 0) RemoveFieldArrows();
             EnterNode(node);
         }
 
@@ -922,6 +1336,7 @@ namespace Laurel
                 case NodeType.Reward: return new Vector2(22f, 20f);
                 case NodeType.Elite: return new Vector2(22f, 21f);
                 case NodeType.Boss: return new Vector2(20f, 23f);
+                case NodeType.Shop: return new Vector2(22f, 21f);
                 default: return new Vector2(21f, 21f);
             }
         }
@@ -934,6 +1349,7 @@ namespace Laurel
                 case NodeType.Reward: return UvReward;
                 case NodeType.Elite: return UvElite;
                 case NodeType.Boss: return UvBoss;
+                case NodeType.Shop: return UvShop;
                 default: return UvCombat;
             }
         }

@@ -685,7 +685,7 @@ MonoBehaviour:
   idleSprite: {fileID: 8556205769247393312, guid: 089efa9aeb79b824b9cf993cc1b8eef5, type: 3}
   attackReadySprite: {fileID: 2959356640014975072, guid: 089efa9aeb79b824b9cf993cc1b8eef5, type: 3}
   attackSprite: {fileID: -1170246521911140212, guid: 089efa9aeb79b824b9cf993cc1b8eef5, type: 3}
-  maxHp: 200
+  maxHp: 100
   attackRange: 3.8
   attackDamage: 15
   attackReadyTime: 0.36
@@ -26061,7 +26061,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Laurel.PixelRenderEffect
   pixelSize: 3
   outlineThickness: 1
-  renderMode: 2
+  renderMode: 0
   subCam: {fileID: 2054295421}
 --- !u!1 &2054295420
 GameObject:
