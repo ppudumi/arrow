@@ -72,6 +72,43 @@ namespace Laurel
         [ContextMenu("같은 시드로 다시 생성 (Play 중)")]
         private void RegenerateSameSeed() { if (Application.isPlaying) Generate(lastSeed); }
 
+        /// <summary>상점 노드용: 랜덤 지형 타일 없이 짧은 평지와 양쪽 외벽만 만든다.</summary>
+        public void GenerateFlatShop(int width = 26, int height = 16)
+        {
+            Clear();
+            generationCount++;
+            int wall = settings != null ? Mathf.Max(1, settings.wallThickness) : 2;
+            const int floorY = 2;
+
+            var d = new RandomMapData { width = width, height = height, solid = new bool[width, height] };
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    bool isWall = x < wall || x >= width - wall;
+                    bool isFloor = y < floorY;
+                    d.solid[x, y] = isWall || isFloor;
+                }
+            }
+            d.spawn = new Vector2Int(wall + 2, floorY);
+            d.portal = new Vector2Int(width - wall - 3, floorY);
+            Data = d;
+            Paint(d);
+
+            ScenePortal.PlaceAtPortal(player, new Vector2(d.spawn.x + 0.5f, d.spawn.y));
+            if (player != null)
+            {
+                var ctrl = player.GetComponent<Procedural2D.ProceduralCharacterController>();
+                if (ctrl != null) ctrl.inputEnabled = true;
+            }
+            if (ceiling != null)
+            {
+                ceiling.transform.position = new Vector3(d.width * 0.5f, d.height + 1f, 0f);
+                ceiling.size = new Vector2(d.width + 20f, 2f);
+            }
+            LayoutBackdrop();
+        }
+
         /// <summary>이전 맵을 지우고 seed 로 새 맵을 만든다</summary>
         public void Generate(int seed)
         {

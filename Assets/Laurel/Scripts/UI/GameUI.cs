@@ -521,7 +521,11 @@ namespace Laurel
             float by = r.y + r.height - 80;
             if (Btn(new Rect(r.x + 30, by, 300, 56), $"리롤 ({G.RerollGoldCost} G)", run.gold >= G.RerollGoldCost)) G.RerollShop(false);
             if (Btn(new Rect(r.x + 350, by, 300, 56), $"리롤 (넥타르 {DB.Balance.economy.rerollNectar})", G.Profile.nectar >= DB.Balance.economy.rerollNectar)) G.RerollShop(true);
-            if (Btn(new Rect(r.x + r.width - 330, by - 4, 300, 60), "지도로", true, bigButton)) G.LeaveNode();
+            if (Btn(new Rect(r.x + r.width - 330, by - 4, 300, 60), G.InStage1 ? "닫기" : "지도로", true, bigButton))
+            {
+                if (G.InStage1) G.CloseStage1Shop();
+                else G.LeaveNode();
+            }
         }
 
         private void DrawRemoveList(Rect r)

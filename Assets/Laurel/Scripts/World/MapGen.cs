@@ -140,9 +140,10 @@ namespace Laurel
                     else
                     {
                         int roll = rng.Next(100);
-                        if (roll < 40) t = NodeType.Combat;
-                        else if (roll < 65) t = NodeType.Question;
-                        else if (roll < 82) t = NodeType.Reward;
+                        if (roll < 35) t = NodeType.Combat;
+                        else if (roll < 55) t = NodeType.Question;
+                        else if (roll < 72) t = NodeType.Reward;
+                        else if (roll < 86) t = NodeType.Shop;
                         else t = NodeType.Elite;
                     }
                     var n = new MapNode { id = map.nodes.Count, layer = L, index = i, type = t, seed = rng.Next(1, int.MaxValue) };

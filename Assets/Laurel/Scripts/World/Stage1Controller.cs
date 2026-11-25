@@ -20,6 +20,8 @@ namespace Laurel
         public MinotourEnemy minotourTemplate;
         public WarlockEnemy warlockTemplate;
         public Texture2D mapSheet;
+        [Tooltip("Assets/pjs/Sprites/shop.png 슬라이스: [0]마차, [1]의자, [2]아이템 받침대")]
+        public Sprite[] shopSprites;
 
         public MapData Map { get; private set; }
         public MapNode CurrentNode { get; private set; }
@@ -41,6 +43,10 @@ namespace Laurel
         private bool relicChestAvailable;
         private RewardData cachedArrowReward;
         private RewardData cachedRelicReward;
+        private GameObject shopRoot;
+        private Vector3 shopInteractPos;
+        private bool shopAvailable;
+        private Texture2D shopMapIcon;
         private bool canAdvanceFromMap;
         private bool nodeHadCombat;
         private string loadingText = "맵 생성 중...";
@@ -121,6 +127,7 @@ namespace Laurel
             SetMapOpen(false, false);
             PortalOpen = false;
             ClearSpawnedEnemies();
+            ClearShopProps();
 
             if (root != null && root.Avatar != null) root.Avatar.SetInputEnabled(false);
             if (root != null && root.PlayerGO != null) root.PlayerGO.SetActive(false);
@@ -132,7 +139,8 @@ namespace Laurel
             if (mapGenerator != null)
             {
                 if (root != null && root.PlayerGO != null) mapGenerator.player = root.PlayerGO.transform;
-                mapGenerator.Generate(node.seed);
+                if (node.type == NodeType.Shop) mapGenerator.GenerateFlatShop(26, 16);
+                else mapGenerator.Generate(node.seed);
                 var d = mapGenerator.Data;
                 if (d != null && root != null && root.Room != null)
                 {
@@ -213,6 +221,12 @@ namespace Laurel
         private void SpawnNodeEncounter(MapNode node, RandomMapData d)
         {
             nodeHadCombat = false;
+            if (node.type == NodeType.Shop)
+            {
+                SpawnShopProps(d);
+                OpenPortal();
+                return;
+            }
             if (node.type == NodeType.Reward)
             {
                 DropTable.SpawnDrops(new Vector2(d.spawn.x + 6f, d.spawn.y + 1.5f), 25, 30, 5);
@@ -413,6 +427,70 @@ namespace Laurel
             root.OpenStage1Reward(cachedRelicReward);
         }
 
+        private void ClearShopProps()
+        {
+            shopAvailable = false;
+            if (shopRoot != null)
+            {
+                Destroy(shopRoot);
+                shopRoot = null;
+            }
+        }
+
+        private void SpawnShopProps(RandomMapData d)
+        {
+            ClearShopProps();
+            EnsureShopSprites();
+
+            shopRoot = new GameObject("Stage1_ShopProps");
+            float floorY = d.spawn.y;
+            float centerX = d.width * 0.5f;
+            const float propScale = 2.2f;
+
+            // 마차(shop_0), 의자(shop_1), 아이템 받침대(shop_2) 순서로 평지에 배치
+            var wagon = SpawnShopProp("Shop_Wagon", GetShopSprite(0), new Vector3(centerX - 3.6f, floorY, 0.05f), propScale, 2);
+            var chair = SpawnShopProp("Shop_Chair", GetShopSprite(1), new Vector3(centerX + 3.2f, floorY, 0.04f), propScale, 3);
+            var stand = SpawnShopProp("Shop_ItemStand", GetShopSprite(2), new Vector3(centerX + 5.2f, floorY, 0.03f), propScale, 4);
+
+            shopInteractPos = stand != null ? stand.transform.position : (wagon != null ? wagon.transform.position : new Vector3(centerX, floorY, 0f));
+            shopAvailable = true;
+            if (root != null) root.ResetStage1Shop(); // 새 상점 노드 진입 시 품목 갱신
+        }
+
+        private GameObject SpawnShopProp(string name, Sprite sprite, Vector3 pos, float scale, int sortingOrder)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(shopRoot.transform, false);
+            go.transform.position = pos;
+            go.transform.localScale = new Vector3(scale, scale, 1f);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = sprite;
+            sr.sortingOrder = sortingOrder;
+            return go;
+        }
+
+        private Sprite GetShopSprite(int idx)
+        {
+            if (shopSprites != null && idx >= 0 && idx < shopSprites.Length) return shopSprites[idx];
+            return null;
+        }
+
+        private void EnsureShopSprites()
+        {
+            if (shopSprites != null && shopSprites.Length >= 3 && shopSprites[0] != null) return;
+#if UNITY_EDITOR
+            var all = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/pjs/Sprites/shop.png");
+            var list = new List<Sprite>();
+            if (all != null)
+            {
+                foreach (var obj in all)
+                    if (obj is Sprite sp) list.Add(sp);
+                list.Sort((a, b) => string.Compare(a.name, b.name, System.StringComparison.Ordinal));
+                if (list.Count > 0) shopSprites = list.ToArray();
+            }
+#endif
+        }
+
         private void DrawWorldPrompt(Vector3 worldPos, string msg)
         {
             Vector3 sc = Camera.main.WorldToScreenPoint(worldPos);
@@ -479,6 +557,12 @@ namespace Laurel
                 {
                     SetMapOpen(false, false);
                 }
+                else if (!MapOpen && shopAvailable && root != null && root.PlayerGO != null
+                    && Vector2.Distance(root.PlayerGO.transform.position, shopInteractPos + Vector3.up * 0.5f) <= 2.4f
+                    && (k.wKey.wasPressedThisFrame || k.fKey.wasPressedThisFrame))
+                {
+                    root.OpenStage1Shop(CurrentNode.seed);
+                }
                 else if (!MapOpen && arrowChestAvailable && root != null && root.PlayerGO != null
                     && Vector2.Distance(root.PlayerGO.transform.position, arrowChestPos + Vector3.up * 0.5f) <= 2.1f
                     && (k.wKey.wasPressedThisFrame || k.fKey.wasPressedThisFrame))
@@ -539,7 +623,11 @@ namespace Laurel
 
             if (!MapOpen && root != null && root.State == GameState.Node && root.PlayerGO != null && Camera.main != null)
             {
-                if (arrowChestAvailable && Vector2.Distance(root.PlayerGO.transform.position, arrowChestPos + Vector3.up * 0.5f) <= 2.2f)
+                if (shopAvailable && Vector2.Distance(root.PlayerGO.transform.position, shopInteractPos + Vector3.up * 0.5f) <= 2.4f)
+                {
+                    DrawWorldPrompt(shopInteractPos + Vector3.up * 1.9f, "[W / F] 상점 열기");
+                }
+                else if (arrowChestAvailable && Vector2.Distance(root.PlayerGO.transform.position, arrowChestPos + Vector3.up * 0.5f) <= 2.2f)
                 {
                     DrawWorldPrompt(arrowChestPos + Vector3.up * 1.9f, "[W / F] 화살 상자 열기");
                 }
@@ -631,7 +719,13 @@ namespace Laurel
                     : (canPick ? new Color(1f, 0.96f, 0.8f, 1f) : Color.white);
                 GUI.color = tint;
                 var iconRect = new Rect(p.x - drawSize.x * 0.5f, p.y - drawSize.y * 0.5f, drawSize.x, drawSize.y);
-                if (mapSheet != null) GUI.DrawTextureWithTexCoords(iconRect, mapSheet, NodeUv(n.type));
+                if (n.type == NodeType.Shop)
+                {
+                    if (shopMapIcon == null) shopMapIcon = Resources.Load<Texture2D>("LaurelMap/shop");
+                    if (shopMapIcon != null) GUI.DrawTexture(iconRect, shopMapIcon, ScaleMode.ScaleToFit);
+                    else if (mapSheet != null) GUI.DrawTextureWithTexCoords(iconRect, mapSheet, NodeUv(n.type));
+                }
+                else if (mapSheet != null) GUI.DrawTextureWithTexCoords(iconRect, mapSheet, NodeUv(n.type));
                 GUI.color = Color.white;
 
                 labelStyle.normal.textColor = isCur

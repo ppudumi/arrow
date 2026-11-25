@@ -909,6 +909,23 @@ namespace Laurel
 
         // ───────────── 상점·샘 ─────────────
 
+        public void ResetStage1Shop() => ShopOffers = null;
+
+        public void OpenStage1Shop(int seed)
+        {
+            if (Run == null) return;
+            if (ShopOffers == null)
+            {
+                var rng = new System.Random(seed ^ 0x5409);
+                ShopOffers = Loot.BuildShop(rng, Run);
+                ShopRerolls = 0;
+            }
+            ShopRemoveMode = false;
+            SetState(GameState.Shop);
+        }
+
+        public void CloseStage1Shop() => SetState(GameState.Node);
+
         public bool Buy(ShopOffer o)
         {
             if (Run == null || o.sold || Run.gold < o.price) { Sfx.Play("empty"); return false; }
