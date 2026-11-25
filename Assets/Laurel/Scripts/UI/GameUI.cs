@@ -12,7 +12,7 @@ namespace Laurel
         private Font font;
         private GUIStyle label, small, title, header, button, bigButton, box, center, tiny, rich;
         private Texture2D white;
-        private Texture2D statusPanelTex, statusCardTex;
+        private Texture2D statusPanelTex, statusCardTex, pausePanelTex, lobbyBarTex;
         private float scale = 1f;
         private float VW => Screen.width / scale;
         private const float VH = 1080f;
@@ -38,6 +38,8 @@ namespace Laurel
             white = Texture2D.whiteTexture;
             statusPanelTex = Resources.Load<Texture2D>("LaurelUI/status_panel_bg");
             statusCardTex = Resources.Load<Texture2D>("LaurelUI/status_card_frame");
+            pausePanelTex = Resources.Load<Texture2D>("LaurelUI/pause_panel_bg");
+            lobbyBarTex = Resources.Load<Texture2D>("LaurelUI/lobby_bar_bg");
             label = new GUIStyle(GUI.skin.label) { font = font, fontSize = 22, richText = true, wordWrap = true };
             label.normal.textColor = new Color(0.95f, 0.93f, 0.88f);
             small = new GUIStyle(label) { fontSize = 18 };
@@ -601,20 +603,24 @@ namespace Laurel
 
         private void DrawLobby()
         {
-            float y = 168;
-            var r = new Rect(VW * 0.5f - 640, y, 1280, 90);
-            Panel(r, 0.9f);
-            float bw = 240, gap = 12, x = r.x + 16;
-            if (Btn(new Rect(x, y + 14, bw, 62), "<b>출정</b> (1스테이지)", true, new GUIStyle(button) { fontSize = 26 })) { G.StartRun(); return; }
+            float y = 22f;
+            var r = new Rect(VW * 0.5f - 640f, y, 1280f, 104f);
+            if (lobbyBarTex != null) GUI.DrawTexture(r, lobbyBarTex, ScaleMode.StretchToFill);
+            else Panel(r, 0.9f);
+
+            float padX = 44f, btnY = r.y + 22f, btnH = 60f, bw = 228f, gap = 15f;
+            float x = r.x + padX;
+            if (StatusBtn(new Rect(x, btnY, bw, btnH), "출정 (1스테이지)")) { G.StartRun(); return; }
             x += bw + gap;
-            if (Btn(new Rect(x, y + 14, bw, 62), $"넥타르 강화 ({G.Profile.nectar})")) G.OpenPanel(GameState.NectarTree);
+            if (StatusBtn(new Rect(x, btnY, bw, btnH), $"넥타르 강화 ({G.Profile.nectar})")) G.OpenPanel(GameState.NectarTree);
             x += bw + gap;
-            if (Btn(new Rect(x, y + 14, bw, 62), "궁술 선택")) G.OpenPanel(GameState.ArcherySelect);
+            if (StatusBtn(new Rect(x, btnY, bw, btnH), "궁술 선택")) G.OpenPanel(GameState.ArcherySelect);
             x += bw + gap;
-            if (Btn(new Rect(x, y + 14, bw, 62), "기록")) G.OpenPanel(GameState.Records);
+            if (StatusBtn(new Rect(x, btnY, bw, btnH), "기록")) G.OpenPanel(GameState.Records);
             x += bw + gap;
-            if (Btn(new Rect(x, y + 14, bw - 20, 62), "타이틀로")) G.GoTitle();
-            Text(new Rect(r.x, y + 94, 1280, 36), "로비 수련장: 오른쪽 허수아비에게 고른 궁술 조합을 시험해 볼 수 있습니다.", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter }, new Color(0.85f, 0.8f, 0.7f));
+            if (StatusBtn(new Rect(x, btnY, 220f, btnH), "타이틀로")) G.GoTitle();
+
+            Text(new Rect(r.x, r.yMax + 6f, r.width, 32f), "로비 수련장: 오른쪽 허수아비에게 고른 궁술 조합을 시험해 볼 수 있습니다.", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter }, new Color(0.92f, 0.88f, 0.76f));
         }
 
         private void DrawNectarTree()
@@ -763,21 +769,34 @@ namespace Laurel
 
         private void DrawPause()
         {
-            Rect(new Rect(0, 0, VW, VH), new Color(0, 0, 0, 0.6f));
-            var r = new Rect(VW * 0.5f - 420, 220, 840, 600);
-            Panel(r, 0.96f);
-            Text(new Rect(r.x, r.y + 20, r.width, 60), "<b>일시정지</b>", new GUIStyle(header) { alignment = TextAnchor.MiddleCenter });
-            Text(new Rect(r.x + 40, r.y + 90, 760, 220),
-                "A / D 이동 · Space 점프 (보유 시 공중 Space 더블점프) · Shift 대쉬 (보유 시)\n좌클릭 발사 (궁술에 따라 연사·충전·찌르기) · R 회수 궁술 · 우클릭 / Q 버리기\n마우스 조준 · Esc 일시정지\n\n개발자 모드 F12 (F9 넥타르, F10 방 정리, F11 보스 해금)", small);
-            if (Btn(new Rect(r.x + 220, r.y + 330, 400, 66), "계속하기", true, bigButton)) G.SetPaused(false);
+            Rect(new Rect(0, 0, VW, VH), new Color(0, 0, 0, 0.72f));
+            var r = new Rect(VW * 0.5f - 440, 210, 880, 640);
+            if (pausePanelTex != null) GUI.DrawTexture(r, pausePanelTex, ScaleMode.StretchToFill);
+            else Panel(r, 0.96f);
+
+            float padX = 56f, padTop = 44f;
+            Text(new Rect(r.x + padX, r.y + padTop, r.width - padX * 2, 48), "<b><color=#F5D27A>일시정지</color></b>", new GUIStyle(header) { alignment = TextAnchor.MiddleCenter });
+
+            var infoRect = new Rect(r.x + padX, r.y + padTop + 58f, r.width - padX * 2, 230f);
+            if (statusCardTex != null) { var oc = GUI.color; GUI.color = new Color(0.92f, 0.9f, 0.88f, 0.96f); GUI.DrawTexture(infoRect, statusCardTex, ScaleMode.StretchToFill); GUI.color = oc; }
+            else Panel(infoRect, 0.75f);
+            Text(new Rect(infoRect.x + 28, infoRect.y + 22, infoRect.width - 56, infoRect.height - 44),
+                "<b><color=#F5D27A>조작 안내</color></b>\n" +
+                "A / D 이동 · Space 점프 (보유 시 공중 Space 더블점프) · Shift 대쉬 (보유 시)\n" +
+                "좌클릭 발사 (궁술에 따라 연사·충전·찌르기) · R 회수 궁술 · 우클릭 / Q 버리기\n" +
+                "마우스 조준 · Esc 일시정지\n\n" +
+                "<color=#B8AE9A>개발자 모드 F12 (F9 넥타르, F10 방 정리, F11 보스 해금)</color>", small);
+
+            float bx = r.center.x - 200f, by = infoRect.yMax + 24f;
+            if (StatusBtn(new Rect(bx, by, 400, 62), "계속하기")) G.SetPaused(false);
             if (G.InStage1)
             {
-                if (Btn(new Rect(r.x + 220, r.y + 410, 400, 60), "1스테이지 다시 시작")) G.AbandonRun();
+                if (StatusBtn(new Rect(bx, by + 76, 400, 56), "1스테이지 다시 시작")) G.AbandonRun();
                 return;
             }
             bool inRun = G.Run != null && !G.Run.isTutorial;
-            if (G.State != GameState.Lobby && Btn(new Rect(r.x + 220, r.y + 410, 400, 60), inRun ? "도전 포기 (사망 처리 → 로비)" : "튜토리얼 그만두기 (타이틀)")) G.AbandonRun();
-            if (Btn(new Rect(r.x + 220, r.y + 486, 400, 60), "타이틀로" + (inRun ? " (도전 포기)" : ""))) { if (inRun) G.AbandonRun(); G.GoTitle(); }
+            if (G.State != GameState.Lobby && StatusBtn(new Rect(bx, by + 76, 400, 56), inRun ? "도전 포기 (사망 처리 → 로비)" : "튜토리얼 그만두기 (타이틀)")) G.AbandonRun();
+            if (StatusBtn(new Rect(bx, by + 146, 400, 56), "타이틀로" + (inRun ? " (도전 포기)" : ""))) { if (inRun) G.AbandonRun(); G.GoTitle(); }
         }
 
         // ───────────── 플레이어 상태창 & 화살 슬롯 (Tab) ─────────────
