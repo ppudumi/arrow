@@ -5,6 +5,7 @@ Shader "Laurel/PixelOutline"
         _MainTex ("Texture", 2D) = "white" {}
         _OutlineColor ("Outline Color", Color) = (0, 0, 0, 1)
         _Thickness ("Outline Thickness", Float) = 1
+        _OutlineOnly ("Outline Only", Float) = 0
     }
     SubShader
     {
@@ -37,6 +38,7 @@ Shader "Laurel/PixelOutline"
             float4 _MainTex_TexelSize;
             fixed4 _OutlineColor;
             float _Thickness;
+            float _OutlineOnly;
 
             v2f vert(appdata v)
             {
@@ -49,7 +51,7 @@ Shader "Laurel/PixelOutline"
             fixed4 frag(v2f i) : SV_Target
             {
                 fixed4 c = tex2D(_MainTex, i.uv);
-                if (c.a > 0.1) return c;
+                if (c.a > 0.1) return _OutlineOnly > 0.5 ? fixed4(0, 0, 0, 0) : c;
 
                 int r = (int)round(_Thickness);
                 if (r <= 0) return fixed4(0, 0, 0, 0);

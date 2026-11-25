@@ -1,11 +1,20 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Laurel
 {
+    public enum PixelRenderMode
+    {
+        OutlineOnly = 0,
+        PlayerAndOutline = 1,
+        FullScene = 2
+    }
+
     /// <summary>
     /// URP 호환 픽셀 렌더링 효과 + 화면 우측 상단 드래그 슬라이더.
     /// 씬의 Main Camera 에 부착하고 자식 카메라(PixelRenderCam)를 연결해 사용한다.
     /// </summary>
+    [DefaultExecutionOrder(500)]
     public class PixelRenderEffect : MonoBehaviour
     {
         public const int MinPixelSize = 1;
@@ -14,11 +23,23 @@ namespace Laurel
         public const int MaxOutlineThickness = 4;
 
         public static bool IsPointerOverPixelSlider { get; private set; }
+        public static int GlobalPixelSize { get; private set; } = 3;
+        public static int GlobalOutlineThickness { get; private set; } = 1;
+        public static PixelRenderMode GlobalRenderMode { get; private set; } = PixelRenderMode.FullScene;
+        private static bool globalInitialized;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetGlobalState()
+        {
+            globalInitialized = false;
+            IsPointerOverPixelSlider = false;
+        }
 
         [Range(MinPixelSize, MaxPixelSize)]
         public int pixelSize = 3;
         [Range(MinOutlineThickness, MaxOutlineThickness)]
         public int outlineThickness = 1;
+        public PixelRenderMode renderMode = PixelRenderMode.FullScene;
         public Camera subCam;
 
         private const int PlayerOutlineRenderLayer = 31;
@@ -32,22 +53,59 @@ namespace Laurel
         private bool draggingPixel;
         private bool draggingOutline;
         private GUIStyle labelStyle;
+        private GUIStyle radioLabelStyle;
         private Material outlineMat;
         private readonly System.Collections.Generic.List<(Transform t, int layer)> savedLayers = new System.Collections.Generic.List<(Transform, int)>(16);
+        private readonly System.Collections.Generic.List<(Transform t, int layer)> mainCamHiddenLayers = new System.Collections.Generic.List<(Transform, int)>(16);
+
+        private void OnEnable()
+        {
+            RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
+            RenderPipelineManager.endCameraRendering += OnEndCameraRendering;
+        }
+
+        private void OnDisable()
+        {
+            RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
+            RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
+            RestoreMainCamHiddenLayers();
+        }
 
         private void Awake()
         {
             mainCam = GetComponent<Camera>();
             if (mainCam == null) { enabled = false; return; }
             savedCullingMask = mainCam.cullingMask;
+
+            if (!globalInitialized)
+            {
+                GlobalPixelSize = Mathf.Clamp(pixelSize, MinPixelSize, MaxPixelSize);
+                GlobalOutlineThickness = Mathf.Clamp(outlineThickness, MinOutlineThickness, MaxOutlineThickness);
+                GlobalRenderMode = renderMode;
+                globalInitialized = true;
+            }
+            else
+            {
+                pixelSize = GlobalPixelSize;
+                outlineThickness = GlobalOutlineThickness;
+                renderMode = GlobalRenderMode;
+            }
         }
 
         private void LateUpdate()
         {
             if (mainCam == null || subCam == null) return;
 
-            bool active = pixelSize > 1;
-            if (!active)
+            if (globalInitialized)
+            {
+                pixelSize = GlobalPixelSize;
+                outlineThickness = GlobalOutlineThickness;
+                renderMode = GlobalRenderMode;
+            }
+
+            bool needFullSceneRt = renderMode == PixelRenderMode.FullScene && pixelSize > 1;
+            bool needCharRt = renderMode != PixelRenderMode.FullScene || pixelSize > 1;
+            if (!needCharRt)
             {
                 if (subCam.enabled) subCam.enabled = false;
                 if (mainCam.cullingMask != savedCullingMask) mainCam.cullingMask = savedCullingMask;
@@ -78,15 +136,57 @@ namespace Laurel
 
             subCam.orthographic = mainCam.orthographic;
             subCam.orthographicSize = mainCam.orthographicSize;
-            subCam.backgroundColor = mainCam.backgroundColor;
-            subCam.clearFlags = mainCam.clearFlags;
-            subCam.cullingMask = savedCullingMask;
-            subCam.targetTexture = rt;
-            subCam.enabled = true;
+
+            if (needFullSceneRt)
+            {
+                subCam.backgroundColor = mainCam.backgroundColor;
+                subCam.clearFlags = mainCam.clearFlags;
+                subCam.cullingMask = savedCullingMask;
+                subCam.targetTexture = rt;
+                subCam.enabled = true;
+                mainCam.cullingMask = 0;
+            }
+            else
+            {
+                if (subCam.enabled) subCam.enabled = false;
+                mainCam.cullingMask = renderMode == PixelRenderMode.PlayerAndOutline
+                    ? savedCullingMask & ~(1 << PlayerOutlineRenderLayer)
+                    : savedCullingMask;
+            }
 
             RenderPlayerSilhouette();
+        }
 
-            mainCam.cullingMask = 0;
+        private void OnBeginCameraRendering(ScriptableRenderContext ctx, Camera cam)
+        {
+            if (cam != mainCam || renderMode != PixelRenderMode.PlayerAndOutline) return;
+            var playerGo = GameRoot.I != null ? GameRoot.I.PlayerGO : null;
+            if (playerGo == null || !playerGo.activeInHierarchy) return;
+
+            mainCamHiddenLayers.Clear();
+            var renderers = playerGo.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                var t = renderers[i].transform;
+                mainCamHiddenLayers.Add((t, t.gameObject.layer));
+                t.gameObject.layer = PlayerOutlineRenderLayer;
+            }
+        }
+
+        private void OnEndCameraRendering(ScriptableRenderContext ctx, Camera cam)
+        {
+            if (cam != mainCam) return;
+            RestoreMainCamHiddenLayers();
+        }
+
+        private void RestoreMainCamHiddenLayers()
+        {
+            for (int i = 0; i < mainCamHiddenLayers.Count; i++)
+            {
+                if (mainCamHiddenLayers[i].t != null)
+                    mainCamHiddenLayers[i].t.gameObject.layer = mainCamHiddenLayers[i].layer;
+            }
+            mainCamHiddenLayers.Clear();
         }
 
         private void RenderPlayerSilhouette()
@@ -101,8 +201,8 @@ namespace Laurel
                 charCam = go.AddComponent<Camera>();
                 charCam.enabled = false;
             }
-            charCam.orthographic = subCam.orthographic;
-            charCam.orthographicSize = subCam.orthographicSize;
+            charCam.orthographic = mainCam.orthographic;
+            charCam.orthographicSize = mainCam.orthographicSize;
             charCam.clearFlags = CameraClearFlags.SolidColor;
             charCam.backgroundColor = new Color(0f, 0f, 0f, 0f);
             charCam.cullingMask = 1 << PlayerOutlineRenderLayer;
@@ -127,10 +227,16 @@ namespace Laurel
         {
             GUI.depth = 100;
 
-            if (pixelSize > 1 && rt != null && Event.current.type == EventType.Repaint)
+            bool drawFullScene = renderMode == PixelRenderMode.FullScene && pixelSize > 1 && rt != null;
+            bool drawCharOverlay = (renderMode != PixelRenderMode.FullScene || pixelSize > 1)
+                && charRt != null && GameRoot.I != null && GameRoot.I.PlayerGO != null && GameRoot.I.PlayerGO.activeInHierarchy;
+
+            if (Event.current.type == EventType.Repaint)
             {
-                GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), rt, ScaleMode.StretchToFill, false);
-                if (charRt != null && GameRoot.I != null && GameRoot.I.PlayerGO != null && GameRoot.I.PlayerGO.activeInHierarchy)
+                if (drawFullScene)
+                    GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), rt, ScaleMode.StretchToFill, false);
+
+                if (drawCharOverlay)
                 {
                     if (outlineMat == null)
                     {
@@ -140,6 +246,7 @@ namespace Laurel
                     if (outlineMat != null)
                     {
                         outlineMat.SetFloat("_Thickness", outlineThickness);
+                        outlineMat.SetFloat("_OutlineOnly", renderMode == PixelRenderMode.OutlineOnly ? 1f : 0f);
                         Graphics.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), charRt, outlineMat);
                     }
                 }
@@ -162,7 +269,7 @@ namespace Laurel
             float oy = (Screen.height - VH * scale) * 0.5f;
             GUI.matrix = Matrix4x4.TRS(new Vector3(ox, oy, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
 
-            var panel = new Rect(VW - 296f, 24f, 272f, 132f);
+            var panel = new Rect(VW - 296f, 24f, 272f, 224f);
             GUI.color = new Color(0.08f, 0.07f, 0.06f, 0.9f);
             GUI.DrawTexture(panel, Texture2D.whiteTexture);
             GUI.color = new Color(0.85f, 0.68f, 0.3f, 0.95f);
@@ -171,16 +278,69 @@ namespace Laurel
 
             if (labelStyle == null)
                 labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            if (radioLabelStyle == null)
+                radioLabelStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Normal, alignment = TextAnchor.MiddleLeft };
 
             string pixelTxt = pixelSize <= 1 ? "픽셀 크기  원본 (1x)" : $"픽셀 크기  {pixelSize}x";
-            pixelSize = DrawIntSlider(panel.x, panel.y + 6f, panel.width, pixelTxt, pixelSize, MinPixelSize, MaxPixelSize, ref draggingPixel);
+            int nextPixel = DrawIntSlider(panel.x, panel.y + 6f, panel.width, pixelTxt, pixelSize, MinPixelSize, MaxPixelSize, ref draggingPixel);
+            if (nextPixel != pixelSize)
+            {
+                pixelSize = nextPixel;
+                GlobalPixelSize = nextPixel;
+            }
 
             string outlineTxt = outlineThickness <= 0 ? "윤곽 두께  끔 (0px)" : $"윤곽 두께  {outlineThickness}px";
-            outlineThickness = DrawIntSlider(panel.x, panel.y + 68f, panel.width, outlineTxt, outlineThickness, MinOutlineThickness, MaxOutlineThickness, ref draggingOutline);
+            int nextOutline = DrawIntSlider(panel.x, panel.y + 68f, panel.width, outlineTxt, outlineThickness, MinOutlineThickness, MaxOutlineThickness, ref draggingOutline);
+            if (nextOutline != outlineThickness)
+            {
+                outlineThickness = nextOutline;
+                GlobalOutlineThickness = nextOutline;
+            }
+
+            GUI.color = new Color(0.32f, 0.28f, 0.22f, 0.8f);
+            GUI.DrawTexture(new Rect(panel.x + 12f, panel.y + 126f, panel.width - 24f, 1f), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            DrawRadioOption(panel.x, panel.y + 132f, panel.width, "플레이어의 윤곽선만", PixelRenderMode.OutlineOnly);
+            DrawRadioOption(panel.x, panel.y + 160f, panel.width, "플레이어 + 윤곽선", PixelRenderMode.PlayerAndOutline);
+            DrawRadioOption(panel.x, panel.y + 188f, panel.width, "기존 상태 유지", PixelRenderMode.FullScene);
 
             Vector2 mp = Event.current.mousePosition;
             IsPointerOverPixelSlider = panel.Contains(mp) || draggingPixel || draggingOutline;
             GUI.matrix = prev;
+        }
+
+        private void DrawRadioOption(float x, float y, float width, string labelText, PixelRenderMode option)
+        {
+            var row = new Rect(x + 12f, y, width - 24f, 26f);
+            bool selected = renderMode == option;
+
+            var outer = new Rect(row.x + 2f, row.y + 5f, 16f, 16f);
+            GUI.color = selected ? new Color(0.85f, 0.68f, 0.3f, 1f) : new Color(0.45f, 0.42f, 0.38f, 1f);
+            GUI.DrawTexture(outer, Texture2D.whiteTexture);
+
+            var innerBg = new Rect(outer.x + 2f, outer.y + 2f, 12f, 12f);
+            GUI.color = new Color(0.12f, 0.1f, 0.09f, 1f);
+            GUI.DrawTexture(innerBg, Texture2D.whiteTexture);
+
+            if (selected)
+            {
+                var dot = new Rect(outer.x + 4f, outer.y + 4f, 8f, 8f);
+                GUI.color = new Color(0.45f, 0.92f, 0.65f, 1f);
+                GUI.DrawTexture(dot, Texture2D.whiteTexture);
+            }
+
+            radioLabelStyle.normal.textColor = selected ? new Color(1f, 0.95f, 0.82f) : new Color(0.75f, 0.72f, 0.66f);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(row.x + 26f, row.y, row.width - 26f, row.height), labelText, radioLabelStyle);
+
+            Event e = Event.current;
+            if (e.type == EventType.MouseDown && e.button == 0 && row.Contains(e.mousePosition))
+            {
+                renderMode = option;
+                GlobalRenderMode = option;
+                e.Use();
+            }
         }
 
         private int DrawIntSlider(float x, float y, float width, string labelText, int value, int minVal, int maxVal, ref bool isDragging)
