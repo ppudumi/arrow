@@ -463,7 +463,7 @@ namespace Laurel
                 var d = b.Card.Def;
                 float cx = slotX + cellW * 0.5f;
                 float cy = slotY + cellH * 0.5f;
-                Color baseCol = d.code == 0 ? new Color(0.88f, 0.82f, 0.68f, 1f) : d.tint;
+                Color baseCol = (d.code == 0 || d.code == 1) ? new Color(0.88f, 0.82f, 0.68f, 1f) : d.tint;
                 Color tipCol = Color.Lerp(baseCol, Color.white, 0.35f);
                 Color edgeCol = new Color(0.05f, 0.04f, 0.04f, 0.92f);
 
@@ -541,13 +541,39 @@ namespace Laurel
             OutlinedText(new Rect(slot.x + 6f, slot.y + 3f, 52f, 18f), keyHint, new GUIStyle(tiny) { fontSize = 12, fontStyle = FontStyle.Bold }, new Color(0.75f, 0.92f, 1f));
             OutlinedText(new Rect(slot.xMax - 54f, slot.y + 3f, 48f, 18f), "보조무기", new GUIStyle(tiny) { fontSize = 11, alignment = TextAnchor.UpperRight }, new Color(0.7f, 0.7f, 0.7f));
 
-            var tex = LoadToolIcon(ArcheryArmoryDisplays.RetrievalResourcePath(style));
+            var tex = LoadToolIcon(RetrievalResourcePath(style));
             if (tex != null)
             {
                 GUI.DrawTexture(new Rect(slot.x + (slot.width - 44f) * 0.5f, slot.y + 20f, 44f, 44f), tex, ScaleMode.ScaleToFit);
             }
-            string shortName = ArcheryArmoryDisplays.RetrievalShortName(style);
+            string shortName = RetrievalShortName(style);
             OutlinedText(new Rect(slot.x + 4f, slot.yMax - 24f, slot.width - 8f, 20f), shortName, new GUIStyle(tiny) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }, Color.white);
+        }
+
+        private static string RetrievalResourcePath(RetrievalStyle s)
+        {
+            switch (s)
+            {
+                case RetrievalStyle.Orpheus: return "LaurelFx/orpheus-lyre";
+                case RetrievalStyle.Ares: return "LaurelFx/retrieval-ares";
+                case RetrievalStyle.Demeter: return "LaurelFx/retrieval-demeter";
+                case RetrievalStyle.Hades: return "LaurelFx/retrieval-hades";
+                case RetrievalStyle.Zeus: return "LaurelFx/retrieval-zeus";
+                default: return "LaurelFx/retrieval-basic";
+            }
+        }
+
+        private static string RetrievalShortName(RetrievalStyle s)
+        {
+            switch (s)
+            {
+                case RetrievalStyle.Orpheus: return "오르페우스";
+                case RetrievalStyle.Ares: return "아레스";
+                case RetrievalStyle.Demeter: return "데메테르";
+                case RetrievalStyle.Hades: return "하데스";
+                case RetrievalStyle.Zeus: return "제우스";
+                default: return "기본";
+            }
         }
 
         private void DrawQuiverSlot(Rect slot)

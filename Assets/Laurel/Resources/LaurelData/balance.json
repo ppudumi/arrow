@@ -1,8 +1,8 @@
 {
   "note": "공통 수치. 엑셀 값: 기본 체력 100, 공격력 1, 궁술별 기본 간격, 헤르메스/오디세우스/회수 수치. 나머지는 개발상 임시값(Docs/Laurel_Design_Decisions.md 참고).",
 
-  "player": { "maxHp": 100, "attack": 1, "defense": 0, "attackSpeed": 0, "moveSpeedMul": 1.0, "iframes": 0.9, "startGold": 30, "startArrows": [0, 0, 0, 0, 0, 0], "quiverMax": 30 },
-  "tutorial": { "maxHp": 300, "attack": 6, "defense": 3, "attackSpeed": 0.5, "moveSpeedMul": 1.1, "arrows": [0, 0, 0, 0, 0, 0, 0, 0], "launch": "Apollo", "retrieval": "Orpheus", "doubleJump": true, "dash": true },
+  "player": { "maxHp": 100, "attack": 1, "defense": 0, "attackSpeed": 0, "moveSpeedMul": 1.0, "iframes": 0.9, "startGold": 30, "startArrows": [1, 1, 1, 1, 1, 1], "quiverMax": 30 },
+  "tutorial": { "maxHp": 300, "attack": 6, "defense": 3, "attackSpeed": 0.5, "moveSpeedMul": 1.1, "arrows": [1, 1, 1, 1, 1, 1, 1, 1], "launch": "Apollo", "retrieval": "Orpheus", "doubleJump": true, "dash": true },
 
   "archery": {
     "referenceDrawSeconds": 1.0, "minInterval": 0.1, "arrowSpeed": 41.6, "straightMaxRange": 32, "fallGravity": 30,

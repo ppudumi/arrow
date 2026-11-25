@@ -12,6 +12,7 @@ namespace Laurel
         public int code;
         public string name;
         public string grade;
+        public string theme;
         public bool gradeFilled;
         public float damage;
         public bool damageFilled;
@@ -20,6 +21,8 @@ namespace Laurel
         public bool drawFilled;
         public float weight = 1f;
         public bool weightFilled;
+        public float speed = 6f;
+        public string speedText;
         public string effect = "none";
         public float p1, p2, p3;
         public int variantOf = -1;
@@ -248,6 +251,7 @@ namespace Laurel
 
         public static int RarityIndex(string grade)
         {
+            if (grade == "저주") return 5;
             for (int i = 0; i < RarityNames.Length; i++) if (RarityNames[i] == grade) return i;
             return 0;
         }
@@ -358,7 +362,14 @@ namespace Laurel
             foreach (var e in LoadErrors) Debug.LogError("[Laurel] " + e);
         }
 
-        public static ArrowDef Arrow(int code) => Arrows.TryGetValue(code, out var a) ? a : Arrows[0];
+        public static ArrowDef Arrow(int code)
+        {
+            if (Arrows.TryGetValue(code, out var a)) return a;
+            if (Arrows.TryGetValue(1, out var first)) return first;
+            if (Arrows.TryGetValue(0, out var zero)) return zero;
+            foreach (var kv in Arrows) return kv.Value;
+            return null;
+        }
         public static StageDef Stage(int index) => Stages[Mathf.Clamp(index - 1, 0, Stages.Count - 1)];
 
         public static Color Hex(string hex)

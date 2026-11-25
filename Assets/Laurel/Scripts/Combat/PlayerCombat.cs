@@ -442,7 +442,7 @@ namespace Laurel
 
             // 사용 시 비용·소모
             if (card.Def.effect == "blood") Avatar?.SpendHp(card.Def.p1 > 0 ? card.Def.p1 : 2f, "혈 화살");
-            if (card.Def.effect == "bomb" || card.Def.effect == "sacrifice" || card.baseCode == 41) consumeOnFlightEnd.Add(body);
+            if (card.Def.effect == "bomb" || card.Def.effect == "sacrifice" || card.Def.effect == "pebble") consumeOnFlightEnd.Add(body);
 
             if (form.effect == "hitscan")
             {
@@ -547,7 +547,7 @@ namespace Laurel
             var shot = MakeShot(body, copy, null);
             Stats.shots++;
             if (body.Card.Def.effect == "blood") Avatar?.SpendHp(body.Card.Def.p1 > 0 ? body.Card.Def.p1 : 2f, "혈 화살");
-            if (body.Card.Def.effect == "bomb" || body.Card.Def.effect == "sacrifice" || body.Card.baseCode == 41) consumeOnFlightEnd.Add(body);
+            if (body.Card.Def.effect == "bomb" || body.Card.Def.effect == "sacrifice" || body.Card.Def.effect == "pebble") consumeOnFlightEnd.Add(body);
             body.PlaceInstant(point, dir, shot);
             OnArrowHitEnemy(body, enemy, part, point, HitSource.Thrust);
             SpawnOnFire(body, shot, dir, 0f);

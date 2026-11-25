@@ -132,25 +132,31 @@ namespace Laurel
             room = r;
             lobbyMode = isLobby;
 
-            var subAnchor = FindAnchor("sub_weapon_pos", "보조무기위치", "보조무기 위치");
-            Vector3 defaultSub = isLobby ? new Vector3(r.InnerBounds.xMin + 8.0f, r.InnerBounds.yMin, 0f) : new Vector3(-56.95f, -1.93f, 0f);
-            Vector3 subOrigin = subAnchor != null ? subAnchor.position : defaultSub;
-            SpawnRetrievalRack(subOrigin);
+            if (isLobby)
+            {
+                var subAnchor = FindAnchor("sub_weapon_pos", "보조무기위치", "보조무기 위치");
+                Vector3 subOrigin = subAnchor != null ? subAnchor.position : new Vector3(r.InnerBounds.xMin + 8.0f, r.InnerBounds.yMin, 0f);
+                SpawnRetrievalRack(subOrigin);
 
-            var quiverAnchor = FindAnchor("quiver_pos", "화살통 위치", "화살통위치");
-            Vector3 defaultQuiver = isLobby ? new Vector3(r.InnerBounds.xMin + 1.8f, r.InnerBounds.yMin, 0f) : new Vector3(-56.91f, -7.91f, 0f);
-            Vector3 quiverOrigin = quiverAnchor != null ? quiverAnchor.position : defaultQuiver;
-            SpawnQuiverRack(quiverOrigin);
+                var quiverAnchor = FindAnchor("quiver_pos", "화살통 위치", "화살통위치");
+                Vector3 quiverOrigin = quiverAnchor != null ? quiverAnchor.position : new Vector3(r.InnerBounds.xMin + 1.8f, r.InnerBounds.yMin, 0f);
+                SpawnQuiverRack(quiverOrigin);
+                return;
+            }
 
-            if (isLobby) return;
+            SpawnRetrievalRack(new Vector3(-88f, -7.91f, 0f));
+            SpawnQuiverRack(new Vector3(-96f, -7.91f, 0f));
+            SpawnArrowRack(new Vector3(-98f, 3.66f, 0f));
 
-            var arrowAnchor = FindAnchor("arrow_pos", "arrows_pos", "화살위치", "화살 위치");
-            Vector3 arrowOrigin = arrowAnchor != null ? arrowAnchor.position : new Vector3(-44f, 1.5f, 0f);
-            SpawnArrowRack(arrowOrigin);
-
-            var relicAnchor = FindAnchor("relic_pos", "relics_pos", "유물위치", "유물 위치");
-            Vector3 relicOrigin = relicAnchor != null ? relicAnchor.position : new Vector3(-44f, -3.5f, 0f);
-            SpawnRelicPedestals(relicOrigin, 5);
+            if (CameraRig.I != null)
+            {
+                var b = CameraRig.I.bounds;
+                float xMin = Mathf.Min(b.xMin, -102f);
+                float xMax = Mathf.Max(b.xMax, 29.5f);
+                float yMin = Mathf.Min(b.yMin, -16f);
+                float yMax = Mathf.Max(b.yMax, 24f);
+                CameraRig.I.bounds = Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+            }
         }
 
         private void SpawnRetrievalRack(Vector3 origin)
@@ -177,15 +183,29 @@ namespace Laurel
 
         private void SpawnArrowRack(Vector3 origin)
         {
-            int[] codes = { 0, 5, 12 }; // 기본화살, 독화살, 폭탄화살
-            float spacing = 1.75f;
-            for (int i = 0; i < codes.Length; i++)
+            var arrows = new List<ArrowDef>();
+            foreach (var kv in DB.Arrows)
             {
-                int code = codes[i];
-                var def = DB.Arrow(code);
-                var pos = new Vector3(origin.x + i * spacing, origin.y, 0f);
-                Color tint = code == 0 ? new Color(0.92f, 0.87f, 0.75f, 1f) : def.tint;
-                CreatePedestal(PedestalKind.Arrow, RetrievalStyle.Basic, QuiverType.Basic, code, pos, GetArrowDisplaySprite(), tint);
+                if (kv.Value != null && kv.Value.variantOf < 0)
+                    arrows.Add(kv.Value);
+            }
+            arrows.Sort((a, b) => a.code.CompareTo(b.code));
+
+            const float startX = -98f;
+            const float maxX = -42f;
+            const float spacing = 1.75f;
+            int perRow = Mathf.Max(1, Mathf.FloorToInt((maxX - startX) / spacing) + 1);
+            float[] rowOffsetsY = { 0f, 6f, 13f };
+
+            for (int i = 0; i < arrows.Count; i++)
+            {
+                var def = arrows[i];
+                int row = i / perRow;
+                int col = i % perRow;
+                float yOff = row < rowOffsetsY.Length ? rowOffsetsY[row] : row * 6f;
+                var pos = new Vector3(startX + col * spacing, origin.y + yOff, 0f);
+                Color tint = (def.code == 0 || def.code == 1) ? new Color(0.92f, 0.87f, 0.75f, 1f) : def.tint;
+                CreatePedestal(PedestalKind.Arrow, RetrievalStyle.Basic, QuiverType.Basic, def.code, pos, GetArrowDisplaySprite(), tint);
             }
         }
 
@@ -204,9 +224,6 @@ namespace Laurel
             var go = new GameObject($"Display_{kind}_{rStyle}_{qType}_{arrowCode}");
             go.transform.SetParent(transform, false);
             go.transform.position = new Vector3(pos.x, pos.y, -0.04f);
-
-            var baseSr = Art.Quad(go.transform, "Stand", Art.Square, new Color(0.28f, 0.22f, 0.18f, 0.95f), new Vector2(0.95f, 0.22f), 4, new Vector3(0f, 0.11f, 0f));
-            Art.Quad(go.transform, "StandTop", Art.Square, new Color(0.56f, 0.46f, 0.32f, 1f), new Vector2(1.05f, 0.08f), 5, new Vector3(0f, 0.24f, 0f));
 
             SpriteRenderer iconSr = null;
             if (sprite != null)
@@ -229,7 +246,7 @@ namespace Laurel
                 arrowCode = arrowCode,
                 worldPos = pos,
                 iconSr = iconSr,
-                baseSr = baseSr,
+                baseSr = null,
                 baseY = 0.85f
             });
         }
@@ -258,19 +275,6 @@ namespace Laurel
                 if (inSafeRoom && !wasInSafeRoom)
                 {
                     room.ClearEnemiesAndDrops();
-                }
-                if (CameraRig.I != null && CameraRig.I.Cam != null)
-                {
-                    if (inSafeRoom)
-                    {
-                        float aspect = Mathf.Max(0.5f, CameraRig.I.Cam.aspect);
-                        float ortho = Mathf.Max(10f, 18f / aspect);
-                        CameraRig.I.SetRoomLock(new Vector2(-44f, -1.5f), ortho);
-                    }
-                    else if (wasInSafeRoom)
-                    {
-                        CameraRig.I.ClearRoomLock();
-                    }
                 }
                 wasInSafeRoom = inSafeRoom;
             }

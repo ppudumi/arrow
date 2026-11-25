@@ -32,7 +32,7 @@ namespace Laurel
         {
             if (arrowIcons.TryGetValue(d.code, out var cached) && cached != null) return cached;
             Color32 tip, shaft, shaftDark;
-            if (d.code == 0) { tip = BasicTip; shaft = BasicShaft; shaftDark = BasicShaftDark; }
+            if (d.code == 0 || d.code == 1) { tip = BasicTip; shaft = BasicShaft; shaftDark = BasicShaftDark; }
             else
             {
                 Color t = d.tint;
