@@ -180,12 +180,14 @@ namespace Laurel
 
         private void DrawTitle()
         {
-            Rect(new Rect(0, 0, VW, VH), new Color(0.07f, 0.07f, 0.11f));
-            for (int i = 0; i < 18; i++)
-            {
-                float x = (i * 137.5f + Time.time * 6f) % VW;
-                Rect(new Rect(x, 700 + Mathf.Sin(i + Time.time * 0.5f) * 30f, 3, 380), new Color(0.9f, 0.75f, 0.35f, 0.06f));
-            }
+            Rect(new Rect(0, 0, VW, VH), new Color(0.06f, 0.025f, 0.03f));
+            DrawHellfireBottomEffect();
+
+            // 타이틀 로고 뒤 은은한 불꽃·금빛 후광
+            float pulse = 0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 2.1f);
+            Rect(new Rect(VW * 0.5f - 360f, 155f, 720f, 180f), new Color(0.85f, 0.30f, 0.05f, 0.08f * pulse));
+            Rect(new Rect(VW * 0.5f - 260f, 175f, 520f, 140f), new Color(1.0f, 0.65f, 0.18f, 0.07f * pulse));
+
             if (G.titleSprite != null && G.titleSprite.texture != null)
             {
                 var tex = G.titleSprite.texture;
@@ -195,14 +197,16 @@ namespace Laurel
                 float logoH = logoW * (tr.height / Mathf.Max(1f, tr.width));
                 GUI.DrawTextureWithTexCoords(new Rect(VW * 0.5f - logoW * 0.5f, 170f, logoW, logoH), tex, uv);
             }
-            Text(new Rect(0, 355, VW, 50), "월계수가 된 님프와 저주받은 궁술의 신", center, new Color(0.85f, 0.8f, 0.7f));
+            Text(new Rect(0, 355, VW, 50), "월계수가 된 님프와 저주받은 궁술의 신", center, new Color(0.95f, 0.84f, 0.66f));
             float bx = VW * 0.5f - 200;
             if (G.ConfirmNewGame)
             {
-                Panel(new Rect(bx - 60, 450, 520, 260));
-                Text(new Rect(bx - 40, 470, 480, 120), "저장된 진행(넥타르·강화·스킬)이 모두 지워집니다.\n새 게임을 시작할까요?", center);
-                if (Btn(new Rect(bx - 20, 610, 200, 70), "새로 시작")) { G.ConfirmNewGame = false; G.NewGame(); }
-                if (Btn(new Rect(bx + 220, 610, 200, 70), "취소")) G.ConfirmNewGame = false;
+                var cr = new Rect(bx - 60, 440, 520, 270);
+                if (pausePanelTex != null) GUI.DrawTexture(cr, pausePanelTex, ScaleMode.StretchToFill);
+                else Panel(cr);
+                Text(new Rect(cr.x + 40, cr.y + 42, cr.width - 80, 110), "저장된 진행(넥타르·강화·스킬)이 모두 지워집니다.\n새 게임을 시작할까요?", center);
+                if (StatusBtn(new Rect(cr.x + 50, cr.y + 168, 195, 58), "새로 시작")) { G.ConfirmNewGame = false; G.NewGame(); }
+                if (StatusBtn(new Rect(cr.x + 275, cr.y + 168, 195, 58), "취소")) G.ConfirmNewGame = false;
                 return;
             }
             float y = 450;
@@ -221,8 +225,8 @@ namespace Laurel
             if (TextBtn(new Rect(bx, y, 400, 60), "아처리 테스트", 32)) G.OpenArcheryTest();
             y += 74;
             if (TextBtn(new Rect(bx, y, 400, 56), "종료", 30)) Application.Quit();
-            Text(new Rect(20, VH - 80, VW - 40, 70), $"저장 위치: {SaveStore.FilePath}" + (SaveStore.LastLoadSource == "backup" ? "  (백업에서 복구됨)" : ""), tiny, new Color(0.6f, 0.6f, 0.6f));
-            Text(new Rect(VW - 520, VH - 50, 500, 40), "조작: A/D 이동 · Space 점프 · Shift 대쉬 · 좌클릭 발사 · R 회수 · 우클릭/Q 버리기 · Esc 일시정지", tiny, new Color(0.7f, 0.7f, 0.7f));
+            Text(new Rect(20, VH - 80, VW - 40, 70), $"저장 위치: {SaveStore.FilePath}" + (SaveStore.LastLoadSource == "backup" ? "  (백업에서 복구됨)" : ""), tiny, new Color(0.88f, 0.8f, 0.68f, 0.85f));
+            Text(new Rect(VW - 520, VH - 50, 500, 40), "조작: A/D 이동 · Space 점프 · Shift 대쉬 · 좌클릭 발사 · R 회수 · 우클릭/Q 버리기 · Esc 일시정지", tiny, new Color(0.92f, 0.84f, 0.72f, 0.9f));
         }
 
         // ───────────── 대화 ─────────────
@@ -590,13 +594,85 @@ namespace Laurel
 
         private void DrawDeath()
         {
-            Rect(new Rect(0, 0, VW, VH), new Color(0.1f, 0.03f, 0.04f));
+            Rect(new Rect(0, 0, VW, VH), new Color(0.09f, 0.025f, 0.03f));
+            DrawHellfireBottomEffect();
             Text(new Rect(0, 180, VW, 100), "<color=#E06060>아폴론이 쓰러졌다</color>", title);
             Text(new Rect(0, 300, VW, 50), $"원인: {G.LastDeathCause} · {G.LastRunStage}스테이지", center);
             Text(new Rect(VW * 0.5f - 520, 380, 1040, 250),
                 "<b>초기화</b>: 돈 · 화살 · 유물 · 도전 중 얻은 능력치와 일시 효과\n" +
                 $"<b>유지</b>: 넥타르 <b>{G.Profile.nectar}</b> (이번 도전 +{G.LastRunNectar}) · 넥타르 강화 · 보스 해금 자격 · 구매한 스킬\n\n다음 도전은 1스테이지 처음부터 시작합니다.", center);
             if (Btn(new Rect(VW * 0.5f - 200, 700, 400, 80), "로비로", true, bigButton)) G.GoLobby();
+        }
+
+        private void DrawHellfireBottomEffect()
+        {
+            float t = Time.unscaledTime;
+            float pulse = 0.88f + 0.12f * Mathf.Sin(t * 3.1f);
+
+            // 1. 하단 전체를 덮는 다층 지옥불 열기 그라데이션
+            const int glowLayers = 14;
+            float glowMaxH = 340f;
+            for (int i = 0; i < glowLayers; i++)
+            {
+                float u = i / (float)(glowLayers - 1); // 0=위쪽, 1=맨 아래
+                float layerY = VH - glowMaxH * (1f - u);
+                float layerH = glowMaxH / glowLayers + 2f;
+                float a = Mathf.Pow(u, 1.85f) * 0.58f * pulse;
+                Color c = Color.Lerp(new Color(0.55f, 0.06f, 0.02f, a), new Color(0.96f, 0.34f, 0.04f, a), u * u);
+                Rect(new Rect(0f, layerY, VW, layerH), c);
+            }
+
+            // 2. 화면 하단 전체에서 일렁이며 솟아오르는 픽셀 불길 기둥
+            const int cols = 56;
+            float colW = VW / cols;
+            for (int i = 0; i < cols; i++)
+            {
+                float seed = (i * 1.37f) % 6.28318f;
+                float wave1 = Mathf.Sin(t * 4.4f + seed * 1.9f);
+                float wave2 = Mathf.Sin(t * 7.3f - seed * 2.7f);
+                float h = (78f + 46f * (0.5f + 0.5f * wave1) + 24f * (0.5f + 0.5f * wave2)) * pulse;
+                float x = i * colW + wave2 * 4f;
+
+                // 바깥 붉은 불길
+                Rect(new Rect(x - 2f, VH - h, colW + 4f, h), new Color(0.82f, 0.14f, 0.03f, 0.42f));
+                // 중간 주황 불길
+                float midH = h * (0.58f + 0.14f * wave1);
+                Rect(new Rect(x + 2f, VH - midH, Mathf.Max(4f, colW - 4f), midH), new Color(0.98f, 0.42f, 0.06f, 0.52f));
+                // 하단 황금빛 열기 코어
+                float coreH = h * (0.28f + 0.08f * wave2);
+                Rect(new Rect(x + 5f, VH - coreH, Mathf.Max(2f, colW - 10f), coreH), new Color(1f, 0.78f, 0.22f, 0.58f));
+            }
+
+            // 3. 위로 치솟는 아지랑이 열기 줄기
+            for (int i = 0; i < 24; i++)
+            {
+                float phase = (i * 0.417f) % 1f;
+                float speed = 0.18f + (i % 4) * 0.045f;
+                float prog = (t * speed + phase) % 1f;
+                float baseX = ((i * 193 + 47) % (int)VW);
+                float sway = Mathf.Sin(t * 2.8f + i * 1.7f) * 26f;
+                float y = VH - prog * 420f;
+                float alpha = (1f - prog) * 0.09f;
+                Rect(new Rect(baseX + sway, y, 22f + (i % 3) * 14f, 70f), new Color(1f, 0.45f, 0.12f, alpha));
+            }
+
+            // 4. 하단 전체에서 날아오르는 불티(불꽃 입자)
+            const int sparks = 68;
+            for (int i = 0; i < sparks; i++)
+            {
+                float speed = 0.24f + (i % 7) * 0.055f;
+                float offset = (i * 0.137f) % 1f;
+                float prog = (t * speed + offset) % 1f;
+                float baseX = ((i * 131 + 29) % (int)VW);
+                float drift = Mathf.Sin(t * (2.2f + (i % 5) * 0.4f) + i) * 32f;
+                float sy = VH + 8f - prog * (340f + (i % 5) * 55f);
+                float size = Mathf.Lerp(7f + (i % 3) * 2f, 2f, prog);
+                float alpha = Mathf.Sin(prog * Mathf.PI) * 0.95f;
+                Color sparkCol = prog < 0.35f
+                    ? new Color(1f, 0.88f, 0.35f, alpha)
+                    : Color.Lerp(new Color(1f, 0.45f, 0.08f, alpha), new Color(0.75f, 0.12f, 0.04f, alpha), (prog - 0.35f) / 0.65f);
+                Rect(new Rect(baseX + drift, sy, size, size), sparkCol);
+            }
         }
 
         // ───────────── 로비 ─────────────

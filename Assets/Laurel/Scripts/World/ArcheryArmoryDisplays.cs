@@ -39,7 +39,8 @@ namespace Laurel
         private readonly List<Pedestal> pedestals = new List<Pedestal>();
         private Pedestal nearestAvailable;
         private bool wasInSafeRoom;
-        private GUIStyle promptTitleStyle, promptDescStyle;
+        private GUIStyle promptTitleStyle, promptSubStyle, promptDescStyle, promptHintStyle;
+        private Texture2D parchmentTex;
         private static Sprite arrowDisplaySprite;
 
         public static void SpawnInScene(Room room)
@@ -368,49 +369,90 @@ namespace Laurel
 
             if (promptTitleStyle == null)
             {
-                promptTitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
-                promptDescStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+                promptTitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+                promptSubStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+                promptDescStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, alignment = TextAnchor.UpperCenter, wordWrap = true };
+                promptHintStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             }
+            if (parchmentTex == null)
+                parchmentTex = Resources.Load<Texture2D>("LaurelUI/shop_parchment");
 
             if (nearestAvailable == null) return;
             Vector3 screen = cam.WorldToScreenPoint(nearestAvailable.worldPos + Vector3.up * 1.85f);
             if (screen.z < 0f) return;
 
             {
-                float sx = screen.x;
-                float sy = Screen.height - screen.y;
-
                 string title;
+                string sub;
                 string desc;
+                string hint;
+                bool available = true;
+
                 if (nearestAvailable.kind == PedestalKind.Quiver)
                 {
-                    title = $"[F] {QuiverStats.Name(nearestAvailable.quiver)}";
+                    title = QuiverStats.Name(nearestAvailable.quiver);
+                    sub = "화살통";
                     desc = QuiverStats.Desc(nearestAvailable.quiver);
+                    hint = "[F] 선택";
                 }
                 else if (nearestAvailable.kind == PedestalKind.Retrieval)
                 {
                     bool unlocked = !lobbyMode || GameRoot.I.Profile == null || GameRoot.I.Profile.StyleUnlocked("retrieval", nearestAvailable.retrieval.ToString());
-                    title = unlocked ? $"[F] {StyleNames.Retrieval(nearestAvailable.retrieval)}" : $"{StyleNames.Retrieval(nearestAvailable.retrieval)} (잠김)";
+                    available = unlocked;
+                    title = StyleNames.Retrieval(nearestAvailable.retrieval);
+                    sub = unlocked ? "회수 방식" : "잠김";
                     desc = unlocked ? StyleNames.RetrievalDesc(nearestAvailable.retrieval) : "로비 넥타르 강화에서 해금할 수 있습니다";
+                    hint = unlocked ? "[F] 선택" : "해금 필요";
                 }
                 else
                 {
                     var d = DB.Arrow(nearestAvailable.arrowCode);
                     bool canTake = GameRoot.I.Combat != null && GameRoot.I.Combat.HasQuiverSpace;
-                    title = canTake ? $"[F] {d.name} 획득" : $"{d.name} (화살통 가득 참)";
-                    desc = d.code == 5 ? "적중 시 0.3초마다 3회 독 피해" : (d.code == 12 ? "쏘고 터지면 사라짐 (회수 불가)" : d.special);
+                    available = canTake;
+                    title = d.name;
+                    sub = $"[{d.grade}] 피해 {d.DamageLabel}";
+                    desc = d.code == 5 ? "적중 시 0.3초마다 3회 독 피해" : (d.code == 12 ? "쏘고 터지면 사라짐 (회수 불가)" : (string.IsNullOrEmpty(d.special) ? "특수 효과 없음" : d.special));
+                    hint = canTake ? "[F] 획득" : "화살통 가득 참";
                 }
 
-                float w = 310f, h = 64f;
-                var r = new Rect(sx - w * 0.5f, sy - h, w, h);
-                GUI.color = new Color(0.08f, 0.08f, 0.12f, 0.88f);
-                GUI.DrawTexture(r, Texture2D.whiteTexture);
+                const float pw = 250f;
+                const float ph = 310f;
+                float px = Mathf.Clamp(screen.x - pw * 0.5f, 12f, Screen.width - pw - 12f);
+                float py = Mathf.Clamp((Screen.height - screen.y) - ph, 12f, Screen.height - ph - 12f);
+
+                var oldCol = GUI.color;
+                GUI.color = Color.white;
+                if (parchmentTex != null)
+                {
+                    GUI.DrawTexture(new Rect(px, py, pw, ph), parchmentTex, ScaleMode.StretchToFill);
+                }
+                else
+                {
+                    GUI.color = new Color(0.90f, 0.82f, 0.64f, 0.96f);
+                    GUI.DrawTexture(new Rect(px, py, pw, ph), Texture2D.whiteTexture);
+                    GUI.color = Color.white;
+                }
+
+                float tx = px + 38f;
+                float tw = pw - 76f;
+
+                promptTitleStyle.normal.textColor = new Color(0.18f, 0.11f, 0.05f);
+                GUI.Label(new Rect(tx, py + 58f, tw, 36f), title, promptTitleStyle);
+
+                promptSubStyle.normal.textColor = available ? new Color(0.55f, 0.33f, 0.04f) : new Color(0.65f, 0.16f, 0.13f);
+                GUI.Label(new Rect(tx, py + 94f, tw, 24f), sub, promptSubStyle);
+
+                GUI.color = new Color(0.35f, 0.23f, 0.12f, 0.45f);
+                GUI.DrawTexture(new Rect(tx + 8f, py + 123f, tw - 16f, 2f), Texture2D.whiteTexture);
                 GUI.color = Color.white;
 
-                promptTitleStyle.normal.textColor = new Color(1f, 0.9f, 0.45f);
-                GUI.Label(new Rect(r.x + 6f, r.y + 4f, r.width - 12f, 24f), title, promptTitleStyle);
-                promptDescStyle.normal.textColor = new Color(0.92f, 0.92f, 0.92f);
-                GUI.Label(new Rect(r.x + 8f, r.y + 26f, r.width - 16f, 34f), desc, promptDescStyle);
+                promptDescStyle.normal.textColor = new Color(0.24f, 0.16f, 0.09f);
+                GUI.Label(new Rect(tx, py + 132f, tw, 110f), desc, promptDescStyle);
+
+                promptHintStyle.normal.textColor = available ? new Color(0.28f, 0.16f, 0.05f) : new Color(0.65f, 0.16f, 0.13f);
+                GUI.Label(new Rect(tx, py + ph - 56f, tw, 28f), hint, promptHintStyle);
+
+                GUI.color = oldCol;
             }
         }
     }
