@@ -112,6 +112,9 @@ namespace Laurel
             Polyline(pts, color, width, life);
         }
 
+        private static Material sharedLineMat;
+        private static Material GetSharedLineMat() => sharedLineMat != null ? sharedLineMat : (sharedLineMat = new Material(Shader.Find("Sprites/Default")));
+
         /// <summary>중심에서 바깥으로 퍼지며 사라지는 원형 파동 이펙트를 생성합니다.</summary>
         public static void WaveRing(Vector2 center, float scaleMul = 1f, float duration = 0.45f, Color? color = null)
         {
@@ -122,7 +125,7 @@ namespace Laurel
             lr.loop = true;
             const int segs = 40;
             lr.positionCount = segs;
-            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.sharedMaterial = GetSharedLineMat();
             lr.sortingOrder = 35;
             for (int i = 0; i < segs; i++)
             {

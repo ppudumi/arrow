@@ -44,6 +44,26 @@ namespace Laurel
         private SpriteRenderer sr;
         private TrailRenderer trail;
         private ParticleSystem mythicFirePs;
+        private static Material sharedTrailMat;
+        private static Material sharedFireParticleMat;
+
+        private static Material GetSharedTrailMat()
+        {
+            if (sharedTrailMat == null)
+                sharedTrailMat = new Material(Shader.Find("Sprites/Default"));
+            return sharedTrailMat;
+        }
+
+        private static Material GetSharedFireParticleMat()
+        {
+            if (sharedFireParticleMat == null)
+            {
+                sharedFireParticleMat = new Material(Shader.Find("Sprites/Default"));
+                if (Art.Soft != null && Art.Soft.texture != null)
+                    sharedFireParticleMat.mainTexture = Art.Soft.texture;
+            }
+            return sharedFireParticleMat;
+        }
         private Vector2 velocity;
         private float gravity;
         private float traveled, maxRange;
@@ -73,7 +93,7 @@ namespace Laurel
             sr.sortingOrder = 20;
 
             trail = gameObject.AddComponent<TrailRenderer>();
-            trail.material = new Material(Shader.Find("Sprites/Default"));
+            trail.sharedMaterial = GetSharedTrailMat();
             trail.sortingOrder = 19;
             trail.time = 0.16f;
             trail.minVertexDistance = 0.05f;
@@ -176,9 +196,7 @@ namespace Laurel
             sol.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.15f));
 
             var psr = psGo.GetComponent<ParticleSystemRenderer>();
-            var mat = new Material(Shader.Find("Sprites/Default"));
-            if (Art.Soft != null && Art.Soft.texture != null) mat.mainTexture = Art.Soft.texture;
-            psr.material = mat;
+            psr.sharedMaterial = GetSharedFireParticleMat();
             psr.sortingOrder = sortingOrder;
 
             return ps;

@@ -200,6 +200,11 @@ namespace Procedural2D
         private Vector3 baseVisualScale = Vector3.one;
         private Vector2 squashScale = Vector2.one;
         private float jumpStretchTimer = 0f;
+        private bool isDiving = false;
+        private float diveLandTimer = 0f;
+        private float nextDiveGhostTime = 0f;
+        private const float diveSpeed = 36f;
+        private static readonly Color diveGhostColor = new Color(1f, 0.22f, 0.16f, 0.78f);
 
         /// <summary>
         /// 현재 공중제비(360도 점프 회전) 중인지 여부
@@ -269,6 +274,17 @@ namespace Procedural2D
             if (!dashUnlocked) dashPressed = false;
 
             cachedInputX = inputX;
+
+            // 0. X키 수직 하강 (공중일 때)
+            if (inputEnabled && GetDiveInput() && !isDiving && !IsStandingOnGround())
+            {
+                StartDive();
+            }
+            if (isDiving && Time.time >= nextDiveGhostTime)
+            {
+                nextDiveGhostTime = Time.time + ghostInterval;
+                SpawnGhostTrail(diveGhostColor);
+            }
 
             // 1. 쉬프트 초고속 대시 트리거
             if (dashPressed && !isDashing && Time.time >= nextDashAllowedTime)
@@ -340,6 +356,22 @@ namespace Procedural2D
             bool wasGrounded = isGrounded;
             bool groundNow = vel.y <= 0.05f && IsStandingOnGround();
             isGrounded = groundNow;
+
+            if (isDiving)
+            {
+                if (isGrounded)
+                {
+                    isDiving = false;
+                    diveLandTimer = 0.14f;
+                    rb.linearVelocity = Vector2.zero;
+                    SpawnDiveImpactFx();
+                }
+                else
+                {
+                    rb.linearVelocity = new Vector2(0f, -diveSpeed);
+                    return;
+                }
+            }
 
             if (isGrounded)
             {
@@ -438,6 +470,7 @@ namespace Procedural2D
         {
             if (isClimbing) StopClimb(false);
             if (isDashing) isDashing = false;
+            isDiving = false;
             isGrounded = false;
             coyoteTimer = 0f;
             moveLockVx = knockbackVelocity.x;
@@ -638,23 +671,62 @@ namespace Procedural2D
             UpdateSquashStretch();
         }
 
+        private void StartDive()
+        {
+            if (isDashing) CancelDash();
+            if (isClimbing) StopClimb(false);
+            isSpinning = false;
+            if (visualTransform != null) visualTransform.localRotation = Quaternion.identity;
+            isDiving = true;
+            jumpStretchTimer = 0f;
+            nextDiveGhostTime = Time.time + ghostInterval;
+            if (rb != null) rb.linearVelocity = new Vector2(0f, -diveSpeed);
+            SpawnGhostTrail(diveGhostColor);
+            Laurel.Sfx.Play("dash", 0.45f, 1.35f);
+        }
+
+        private void SpawnDiveImpactFx()
+        {
+            Vector2 footPos = new Vector2(transform.position.x, bodyCollider != null ? bodyCollider.bounds.min.y : transform.position.y - 0.8f);
+            // 흙 파편 (무겁게 튀어오르는 짙은 흙 조각)
+            Laurel.Fx.Burst(footPos + Vector2.up * 0.1f, new Color(0.42f, 0.28f, 0.16f, 0.95f), 16, 8.5f, 0.16f, 0.48f, 22f);
+            // 흙먼지 (낮고 넓게 퍼지는 먼지 구름)
+            Laurel.Fx.Burst(footPos + Vector2.up * 0.15f, new Color(0.76f, 0.66f, 0.50f, 0.72f), 14, 5.2f, 0.28f, 0.55f, 2.5f);
+            // 주변 충격파 이펙트 (이중 파동 링 + 카메라 흔들림)
+            Laurel.Fx.WaveRing(footPos + Vector2.up * 0.08f, 1.2f, 0.28f, new Color(0.95f, 0.85f, 0.65f, 0.9f));
+            Laurel.Fx.WaveRing(footPos + Vector2.up * 0.08f, 0.73f, 0.20f, new Color(1f, 0.68f, 0.32f, 0.85f));
+            Laurel.CameraRig.Shake(0.16f);
+            Laurel.Sfx.Play("hit", 0.65f, 0.65f);
+        }
+
         private void UpdateSquashStretch()
         {
             if (visualTransform == null) return;
             float dt = Time.deltaTime;
             if (jumpStretchTimer > 0f) jumpStretchTimer = Mathf.Max(0f, jumpStretchTimer - dt);
+            if (diveLandTimer > 0f) diveLandTimer = Mathf.Max(0f, diveLandTimer - dt);
 
             Vector2 target = Vector2.one;
             float speed = 12f;
-            if (jumpStretchTimer > 0f)
+            if (isDiving)
+            {
+                target = new Vector2(0.74f, 1.32f);
+                speed = 26f;
+            }
+            else if (diveLandTimer > 0f)
+            {
+                target = new Vector2(1.30f, 0.74f);
+                speed = 28f;
+            }
+            else if (jumpStretchTimer > 0f)
             {
                 target = new Vector2(0.86f, 1.18f);
                 speed = 22f;
             }
             else if (isDashing)
             {
-                target = new Vector2(1.18f, 0.86f);
-                speed = 20f;
+                target = new Vector2(1.36f, 0.72f);
+                speed = 24f;
             }
 
             squashScale = Vector2.Lerp(squashScale, target, 1f - Mathf.Exp(-speed * dt));
@@ -666,9 +738,13 @@ namespace Procedural2D
             );
         }
 
-        private void SpawnGhostTrail()
+        private SpriteRenderer[] cachedGhostSourceRenderers;
+        private int cachedGhostChildCount = -1;
+
+        private void SpawnGhostTrail(Color? colorOverride = null)
         {
             if (visualTransform == null) return;
+            Color col = colorOverride ?? ghostColor;
 
             // 잔상 루트 컨테이너 생성
             GameObject ghostRoot = new GameObject("Ghost_Afterimage");
@@ -676,10 +752,15 @@ namespace Procedural2D
             ghostRoot.transform.rotation = visualTransform.rotation;
             ghostRoot.transform.localScale = visualTransform.lossyScale;
 
-            SpriteRenderer[] sourceRenderers = visualTransform.GetComponentsInChildren<SpriteRenderer>();
-            List<SpriteRenderer> ghostRenderers = new List<SpriteRenderer>();
+            int cc = visualTransform.childCount;
+            if (cachedGhostSourceRenderers == null || cachedGhostChildCount != cc)
+            {
+                cachedGhostSourceRenderers = visualTransform.GetComponentsInChildren<SpriteRenderer>();
+                cachedGhostChildCount = cc;
+            }
+            List<SpriteRenderer> ghostRenderers = new List<SpriteRenderer>(cachedGhostSourceRenderers.Length);
 
-            foreach (var sr in sourceRenderers)
+            foreach (var sr in cachedGhostSourceRenderers)
             {
                 if (sr == null || !sr.enabled || sr.sprite == null) continue;
 
@@ -691,14 +772,14 @@ namespace Procedural2D
 
                 SpriteRenderer ghostSr = part.AddComponent<SpriteRenderer>();
                 ghostSr.sprite = sr.sprite;
-                ghostSr.color = ghostColor;
+                ghostSr.color = col;
                 ghostSr.sortingLayerID = sr.sortingLayerID;
                 ghostSr.sortingOrder = sr.sortingOrder - 1;
 
                 ghostRenderers.Add(ghostSr);
             }
 
-            StartCoroutine(FadeAndDestroyGhost(ghostRoot, ghostRenderers, ghostColor, ghostDuration));
+            StartCoroutine(FadeAndDestroyGhost(ghostRoot, ghostRenderers, col, ghostDuration));
         }
 
         private IEnumerator FadeAndDestroyGhost(GameObject ghost, List<SpriteRenderer> renderers, Color startColor, float duration)
@@ -993,6 +1074,16 @@ namespace Procedural2D
             return 0f;
 #else
             return Input.GetAxisRaw("Horizontal");
+#endif
+        }
+
+        private bool GetDiveInput()
+        {
+#if ENABLE_INPUT_SYSTEM
+            var k = Keyboard.current;
+            return k != null && k.xKey.wasPressedThisFrame;
+#else
+            return Input.GetKeyDown(KeyCode.X);
 #endif
         }
 

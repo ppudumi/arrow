@@ -139,7 +139,7 @@ namespace Laurel
 
             Art.Quad(barRoot, "Bg", Art.Square, new Color(0.08f, 0.08f, 0.08f, 0.85f),
                 new Vector2(hpBarSize.x + 0.08f, hpBarSize.y + 0.08f), 15, Vector3.zero);
-            hpTrailSr = Art.Quad(barRoot, "TrailFill", Art.Square, new Color(1f, 0.84f, 0.18f, 1f),
+            hpTrailSr = Art.Quad(barRoot, "TrailFill", Art.Square, new Color(1f, 0.92f, 0.25f, 1f),
                 hpBarSize, 16, Vector3.zero);
             hpFillSr = Art.Quad(barRoot, "Fill", Art.Square, new Color(0.92f, 0.22f, 0.22f, 1f),
                 hpBarSize, 17, Vector3.zero);

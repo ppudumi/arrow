@@ -55,20 +55,13 @@ namespace Laurel
         private GUIStyle labelStyle;
         private GUIStyle radioLabelStyle;
         private Material outlineMat;
-        private readonly System.Collections.Generic.List<(Transform t, int layer)> savedLayers = new System.Collections.Generic.List<(Transform, int)>(16);
-        private readonly System.Collections.Generic.List<(Transform t, int layer)> mainCamHiddenLayers = new System.Collections.Generic.List<(Transform, int)>(16);
-
-        private void OnEnable()
-        {
-            RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
-            RenderPipelineManager.endCameraRendering += OnEndCameraRendering;
-        }
+        private GameObject cachedPlayerGo;
+        private Renderer[] cachedRenderers;
+        private int cachedChildCount = -1;
 
         private void OnDisable()
         {
-            RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
-            RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
-            RestoreMainCamHiddenLayers();
+            RestorePlayerLayers();
         }
 
         private void Awake()
@@ -114,18 +107,22 @@ namespace Laurel
 
             int wantW = Mathf.Max(64, Screen.width / pixelSize);
             int wantH = Mathf.Max(36, Screen.height / pixelSize);
-            if (rt == null || rtW != wantW || rtH != wantH)
+            if (!needFullSceneRt && rt != null) { rt.Release(); rt = null; }
+            if (charRt == null || rtW != wantW || rtH != wantH || (needFullSceneRt && rt == null))
             {
-                if (rt != null) rt.Release();
-                if (charRt != null) charRt.Release();
+                if (rt != null) { rt.Release(); rt = null; }
+                if (charRt != null) { charRt.Release(); charRt = null; }
                 rtW = wantW;
                 rtH = wantH;
-                rt = new RenderTexture(rtW, rtH, 24, RenderTextureFormat.Default)
+                if (needFullSceneRt)
                 {
-                    filterMode = FilterMode.Point,
-                    wrapMode = TextureWrapMode.Clamp
-                };
-                rt.Create();
+                    rt = new RenderTexture(rtW, rtH, 24, RenderTextureFormat.Default)
+                    {
+                        filterMode = FilterMode.Point,
+                        wrapMode = TextureWrapMode.Clamp
+                    };
+                    rt.Create();
+                }
                 charRt = new RenderTexture(rtW, rtH, 16, RenderTextureFormat.ARGB32)
                 {
                     filterMode = FilterMode.Point,
@@ -157,36 +154,34 @@ namespace Laurel
             RenderPlayerSilhouette();
         }
 
-        private void OnBeginCameraRendering(ScriptableRenderContext ctx, Camera cam)
+        private void EnsurePlayerRendererCache(GameObject playerGo)
         {
-            if (cam != mainCam || renderMode != PixelRenderMode.PlayerAndOutline) return;
-            var playerGo = GameRoot.I != null ? GameRoot.I.PlayerGO : null;
-            if (playerGo == null || !playerGo.activeInHierarchy) return;
-
-            mainCamHiddenLayers.Clear();
-            var renderers = playerGo.GetComponentsInChildren<Renderer>(true);
-            for (int i = 0; i < renderers.Length; i++)
+            if (playerGo == null) return;
+            int childCount = playerGo.transform.childCount;
+            if (cachedPlayerGo == playerGo && cachedRenderers != null && cachedChildCount == childCount) return;
+            cachedPlayerGo = playerGo;
+            cachedChildCount = childCount;
+            cachedRenderers = playerGo.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < cachedRenderers.Length; i++)
             {
-                var t = renderers[i].transform;
-                mainCamHiddenLayers.Add((t, t.gameObject.layer));
-                t.gameObject.layer = PlayerOutlineRenderLayer;
+                var r = cachedRenderers[i];
+                if (r != null && r.gameObject != playerGo)
+                    r.gameObject.layer = PlayerOutlineRenderLayer;
             }
         }
 
-        private void OnEndCameraRendering(ScriptableRenderContext ctx, Camera cam)
+        private void RestorePlayerLayers()
         {
-            if (cam != mainCam) return;
-            RestoreMainCamHiddenLayers();
-        }
-
-        private void RestoreMainCamHiddenLayers()
-        {
-            for (int i = 0; i < mainCamHiddenLayers.Count; i++)
+            if (cachedRenderers == null) return;
+            for (int i = 0; i < cachedRenderers.Length; i++)
             {
-                if (mainCamHiddenLayers[i].t != null)
-                    mainCamHiddenLayers[i].t.gameObject.layer = mainCamHiddenLayers[i].layer;
+                var r = cachedRenderers[i];
+                if (r != null && r.gameObject != cachedPlayerGo)
+                    r.gameObject.layer = 0;
             }
-            mainCamHiddenLayers.Clear();
+            cachedRenderers = null;
+            cachedPlayerGo = null;
+            cachedChildCount = -1;
         }
 
         private void RenderPlayerSilhouette()
@@ -208,19 +203,44 @@ namespace Laurel
             charCam.cullingMask = 1 << PlayerOutlineRenderLayer;
             charCam.targetTexture = charRt;
 
-            savedLayers.Clear();
-            var renderers = playerGo.GetComponentsInChildren<Renderer>(true);
-            for (int i = 0; i < renderers.Length; i++)
-            {
-                var t = renderers[i].transform;
-                savedLayers.Add((t, t.gameObject.layer));
-                t.gameObject.layer = PlayerOutlineRenderLayer;
-            }
+            EnsurePlayerRendererCache(playerGo);
             charCam.Render();
-            for (int i = 0; i < savedLayers.Count; i++)
+        }
+
+        private bool TryGetPlayerScreenRect(out Rect guiRect, out Rect uvRect)
+        {
+            guiRect = default;
+            uvRect = default;
+            if (mainCam == null || cachedRenderers == null || cachedRenderers.Length == 0) return false;
+
+            bool hasBounds = false;
+            Bounds combined = default;
+            for (int i = 0; i < cachedRenderers.Length; i++)
             {
-                if (savedLayers[i].t != null) savedLayers[i].t.gameObject.layer = savedLayers[i].layer;
+                var r = cachedRenderers[i];
+                if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                if (!hasBounds) { combined = r.bounds; hasBounds = true; }
+                else combined.Encapsulate(r.bounds);
             }
+            if (!hasBounds) return false;
+
+            Vector3 sMin = mainCam.WorldToScreenPoint(new Vector3(combined.min.x, combined.min.y, combined.center.z));
+            Vector3 sMax = mainCam.WorldToScreenPoint(new Vector3(combined.max.x, combined.max.y, combined.center.z));
+            if (sMin.z < 0f && sMax.z < 0f) return false;
+
+            float pad = (outlineThickness + 2) * Mathf.Max(1, pixelSize) + 28f;
+            float x0 = Mathf.Clamp(Mathf.Min(sMin.x, sMax.x) - pad, 0f, Screen.width);
+            float x1 = Mathf.Clamp(Mathf.Max(sMin.x, sMax.x) + pad, 0f, Screen.width);
+            float y0 = Mathf.Clamp(Mathf.Min(sMin.y, sMax.y) - pad, 0f, Screen.height);
+            float y1 = Mathf.Clamp(Mathf.Max(sMin.y, sMax.y) + pad, 0f, Screen.height);
+
+            float w = x1 - x0;
+            float h = y1 - y0;
+            if (w <= 1f || h <= 1f) return false;
+
+            guiRect = new Rect(x0, Screen.height - y1, w, h);
+            uvRect = new Rect(x0 / Screen.width, y0 / Screen.height, w / Screen.width, h / Screen.height);
+            return true;
         }
 
         private void OnGUI()
@@ -243,16 +263,16 @@ namespace Laurel
                         var sh = Resources.Load<Shader>("LaurelFx/PixelOutline") ?? Shader.Find("Laurel/PixelOutline");
                         if (sh != null) outlineMat = new Material(sh);
                     }
-                    if (outlineMat != null)
+                    if (outlineMat != null && TryGetPlayerScreenRect(out var guiRect, out var uvRect))
                     {
                         outlineMat.SetFloat("_Thickness", outlineThickness);
                         outlineMat.SetFloat("_OutlineOnly", renderMode == PixelRenderMode.OutlineOnly ? 1f : 0f);
-                        Graphics.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), charRt, outlineMat);
+                        Graphics.DrawTexture(guiRect, charRt, uvRect, 0, 0, 0, 0, outlineMat);
                     }
                 }
             }
 
-            if (GameRoot.I == null || (!GameRoot.I.InArcheryTest && !GameRoot.I.InStage1))
+            if (GameRoot.I == null || (!GameRoot.I.InArcheryTest && !GameRoot.I.InStage1 && GameRoot.I.State != GameState.Lobby))
             {
                 IsPointerOverPixelSlider = false;
                 draggingPixel = false;

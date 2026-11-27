@@ -264,17 +264,16 @@ namespace Laurel
                 }
             }
             GUI.DrawTexture(fr, flaskGlass);
-            var hpStyle = new GUIStyle(label) { fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+            EnsureHudStyles();
             float cy = fr.y + (FlaskCy / (float)FlaskPx) * s;
-            OutlinedText(new Rect(fr.x + (FlaskCx / (float)FlaskPx) * s - 80, cy - 18, 160, 36), $"{av.Hp:0} / {av.MaxHp:0}", hpStyle, Color.white);
+            OutlinedText(new Rect(fr.x + (FlaskCx / (float)FlaskPx) * s - 80, cy - 18, 160, 36), $"{av.Hp:0} / {av.MaxHp:0}", hudHpStyle, Color.white);
 
             // 2) 골드 · 넥타르 (체력 오른쪽 가로 배치)
-            var numStyle = new GUIStyle(label) { fontSize = 30, fontStyle = FontStyle.Bold, wordWrap = false, alignment = TextAnchor.MiddleLeft };
             float x = fr.xMax + 18f;
             int gold = G.Run != null ? G.Run.gold : 0;
-            x = DrawCurrency(x, cy, goldIcon, gold.ToString(), numStyle, new Color(1f, 0.9f, 0.55f));
+            x = DrawCurrency(x, cy, goldIcon, gold.ToString(), hudNumStyle, new Color(1f, 0.9f, 0.55f));
             x += 26f;
-            DrawCurrency(x, cy, nectarIcon, G.Profile.nectar.ToString(), numStyle, new Color(0.86f, 0.76f, 1f));
+            DrawCurrency(x, cy, nectarIcon, G.Profile.nectar.ToString(), hudNumStyle, new Color(0.86f, 0.76f, 1f));
 
             // 3) 퀘스트 패널 (CurrentQuest().Count > 0 일 때만 표시) + 화살 현황 큐 슬롯
             float topY = fr.yMax + 12f;
@@ -312,17 +311,16 @@ namespace Laurel
             if (av == null) return;
             InitHudArt();
 
+            EnsureHudStyles();
             // 1) 맵 이름 (패널 없음)
             string mapName = CurrentMapName(out string sub);
             if (mapName.Length > 0)
             {
-                var nameStyle = new GUIStyle(label) { fontSize = 28, fontStyle = FontStyle.Bold, wordWrap = false };
-                OutlinedText(new Rect(HudX, MapNameY, 700, 38), mapName, nameStyle, new Color(1f, 0.93f, 0.75f));
+                OutlinedText(new Rect(HudX, MapNameY, 700, 38), mapName, hudMapNameStyle, new Color(1f, 0.93f, 0.75f));
                 if (sub.Length > 0)
                 {
-                    var subStyle = new GUIStyle(label) { fontSize = 18, wordWrap = false };
-                    float nw = nameStyle.CalcSize(new GUIContent(mapName)).x;
-                    OutlinedText(new Rect(HudX + nw + 14, MapNameY + 8, 500, 28), sub, subStyle, new Color(0.9f, 0.87f, 0.8f), 1f);
+                    float nw = hudMapNameStyle.CalcSize(new GUIContent(mapName)).x;
+                    OutlinedText(new Rect(HudX + nw + 14, MapNameY + 8, 500, 28), sub, hudMapSubStyle, new Color(0.9f, 0.87f, 0.8f), 1f);
                 }
             }
 
@@ -345,17 +343,15 @@ namespace Laurel
                 }
             }
             GUI.DrawTexture(fr, flaskGlass);
-            var hpStyle = new GUIStyle(label) { fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
             float cy = fr.y + (FlaskCy / (float)FlaskPx) * s;
-            OutlinedText(new Rect(fr.x + (FlaskCx / (float)FlaskPx) * s - 80, cy - 18, 160, 36), $"{av.Hp:0} / {av.MaxHp:0}", hpStyle, Color.white);
+            OutlinedText(new Rect(fr.x + (FlaskCx / (float)FlaskPx) * s - 80, cy - 18, 160, 36), $"{av.Hp:0} / {av.MaxHp:0}", hudHpStyle, Color.white);
 
             // 3) 골드 · 넥타르 (체력 오른쪽 가로 배치, 같은 픽셀 배율)
-            var numStyle = new GUIStyle(label) { fontSize = 30, fontStyle = FontStyle.Bold, wordWrap = false, alignment = TextAnchor.MiddleLeft };
             float x = fr.xMax + 18f;
             int gold = G.Run != null ? G.Run.gold : 0;
-            x = DrawCurrency(x, cy, goldIcon, gold.ToString(), numStyle, new Color(1f, 0.9f, 0.55f));
+            x = DrawCurrency(x, cy, goldIcon, gold.ToString(), hudNumStyle, new Color(1f, 0.9f, 0.55f));
             x += 26f;
-            DrawCurrency(x, cy, nectarIcon, G.Profile.nectar.ToString(), numStyle, new Color(0.86f, 0.76f, 1f));
+            DrawCurrency(x, cy, nectarIcon, G.Profile.nectar.ToString(), hudNumStyle, new Color(0.86f, 0.76f, 1f));
 
             // 4) 퀘스트 (목표가 없으면 숨김)
             float qy = fr.yMax + 10f;
@@ -488,10 +484,10 @@ namespace Laurel
             DrawRetrievalSlot(subSlot);
             DrawQuiverSlot(quivSlot);
 
+            EnsureHudStyles();
             var r = new Rect(20f, VH - 114f, 152f, 90f);
             Panel(r, 0.82f);
-            var lvStyle = new GUIStyle(label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            OutlinedText(new Rect(r.x + 12f, r.y + 16f, r.width - 24f, 30f), $"LV. {G.DisplayLevel}", lvStyle, new Color(0.55f, 0.96f, 1f));
+            OutlinedText(new Rect(r.x + 12f, r.y + 16f, r.width - 24f, 30f), $"LV. {G.DisplayLevel}", hudLvStyle, new Color(0.55f, 0.96f, 1f));
             Bar(new Rect(r.x + 12f, r.y + 52f, r.width - 24f, 10f), G.DisplayExpInLevel / 100f, new Color(0.35f, 0.92f, 1f), new Color(0.08f, 0.1f, 0.14f, 0.9f));
 
             // 옆 아이템 슬롯
@@ -499,7 +495,7 @@ namespace Laurel
             Panel(slot, 0.86f);
             var item = G.Combat != null ? G.Combat.EquippedItem : null;
             string keyLabel = item != null ? item.KeyHint : "E";
-            OutlinedText(new Rect(slot.x + 6f, slot.y + 4f, 24f, 20f), keyLabel, new GUIStyle(tiny) { fontSize = 14, fontStyle = FontStyle.Bold }, new Color(0.95f, 0.9f, 0.65f));
+            OutlinedText(new Rect(slot.x + 6f, slot.y + 4f, 24f, 20f), keyLabel, hudSlotKeyStyle, new Color(0.95f, 0.9f, 0.65f));
 
             if (item is BombItem)
             {
@@ -507,19 +503,39 @@ namespace Laurel
                 var iconBody = new Rect(slot.x + 18f, slot.y + 30f, 40f, 26f);
                 Rect(iconBody, ScreenColor(new Color(0.24f, 0.04f, 0.06f, 1f)));
                 Rect(new Rect(iconBody.xMax - 12f, iconBody.y + 5f, 9f, 7f), ScreenColor(new Color(0.95f, 0.18f, 0.14f, 1f)));
-                OutlinedText(new Rect(slot.x + 4f, slot.yMax - 26f, slot.width - 8f, 22f), item.Name, new GUIStyle(tiny) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }, Color.white);
+                OutlinedText(new Rect(slot.x + 4f, slot.yMax - 26f, slot.width - 8f, 22f), item.Name, hudSlotNameStyle, Color.white);
             }
             else if (item != null)
             {
-                OutlinedText(new Rect(slot.x + 4f, slot.y + 32f, slot.width - 8f, 26f), item.Name, new GUIStyle(tiny) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }, Color.white);
+                OutlinedText(new Rect(slot.x + 4f, slot.y + 32f, slot.width - 8f, 26f), item.Name, hudSlotNameStyle, Color.white);
             }
             else
             {
-                OutlinedText(new Rect(slot.x + 4f, slot.y + 34f, slot.width - 8f, 24f), "비어있음", new GUIStyle(tiny) { fontSize = 13, alignment = TextAnchor.MiddleCenter }, new Color(0.6f, 0.6f, 0.6f));
+                OutlinedText(new Rect(slot.x + 4f, slot.y + 34f, slot.width - 8f, 24f), "비어있음", hudSlotEmptyStyle, new Color(0.6f, 0.6f, 0.6f));
             }
         }
 
         private readonly Dictionary<string, Texture2D> toolIconCache = new Dictionary<string, Texture2D>();
+
+        private GUIStyle hudHpStyle, hudNumStyle, hudMapNameStyle, hudMapSubStyle, hudLvStyle;
+        private GUIStyle hudSlotKeyStyle, hudSlotNameStyle, hudSlotEmptyStyle;
+        private GUIStyle hudMiniLeftStyle, hudMiniRightStyle, hudMiniBottomStyle;
+
+        private void EnsureHudStyles()
+        {
+            if (hudHpStyle != null) return;
+            hudHpStyle = new GUIStyle(label) { fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+            hudNumStyle = new GUIStyle(label) { fontSize = 30, fontStyle = FontStyle.Bold, wordWrap = false, alignment = TextAnchor.MiddleLeft };
+            hudMapNameStyle = new GUIStyle(label) { fontSize = 28, fontStyle = FontStyle.Bold, wordWrap = false };
+            hudMapSubStyle = new GUIStyle(label) { fontSize = 18, wordWrap = false };
+            hudLvStyle = new GUIStyle(label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            hudSlotKeyStyle = new GUIStyle(tiny) { fontSize = 14, fontStyle = FontStyle.Bold };
+            hudSlotNameStyle = new GUIStyle(tiny) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            hudSlotEmptyStyle = new GUIStyle(tiny) { fontSize = 13, alignment = TextAnchor.MiddleCenter };
+            hudMiniLeftStyle = new GUIStyle(tiny) { fontSize = 12, fontStyle = FontStyle.Bold };
+            hudMiniRightStyle = new GUIStyle(tiny) { fontSize = 11, alignment = TextAnchor.UpperRight };
+            hudMiniBottomStyle = new GUIStyle(tiny) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        }
 
         private Texture2D LoadToolIcon(string resourcePath)
         {
@@ -536,8 +552,8 @@ namespace Laurel
             Panel(slot, 0.86f);
             var style = G.Combat != null ? G.Combat.RetrievalType : RetrievalStyle.Orpheus;
             string keyHint = (style == RetrievalStyle.Orpheus || style == RetrievalStyle.Demeter || style == RetrievalStyle.Zeus) ? "R" : "패시브";
-            OutlinedText(new Rect(slot.x + 6f, slot.y + 3f, 52f, 18f), keyHint, new GUIStyle(tiny) { fontSize = 12, fontStyle = FontStyle.Bold }, new Color(0.75f, 0.92f, 1f));
-            OutlinedText(new Rect(slot.xMax - 54f, slot.y + 3f, 48f, 18f), "보조무기", new GUIStyle(tiny) { fontSize = 11, alignment = TextAnchor.UpperRight }, new Color(0.7f, 0.7f, 0.7f));
+            OutlinedText(new Rect(slot.x + 6f, slot.y + 3f, 52f, 18f), keyHint, hudMiniLeftStyle, new Color(0.75f, 0.92f, 1f));
+            OutlinedText(new Rect(slot.xMax - 54f, slot.y + 3f, 48f, 18f), "보조무기", hudMiniRightStyle, new Color(0.7f, 0.7f, 0.7f));
 
             var tex = LoadToolIcon(RetrievalResourcePath(style));
             if (tex != null)
@@ -545,7 +561,7 @@ namespace Laurel
                 GUI.DrawTexture(new Rect(slot.x + (slot.width - 44f) * 0.5f, slot.y + 20f, 44f, 44f), tex, ScaleMode.ScaleToFit);
             }
             string shortName = RetrievalShortName(style);
-            OutlinedText(new Rect(slot.x + 4f, slot.yMax - 24f, slot.width - 8f, 20f), shortName, new GUIStyle(tiny) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }, Color.white);
+            OutlinedText(new Rect(slot.x + 4f, slot.yMax - 24f, slot.width - 8f, 20f), shortName, hudMiniBottomStyle, Color.white);
         }
 
         private static string RetrievalResourcePath(RetrievalStyle s)
@@ -579,15 +595,15 @@ namespace Laurel
             Panel(slot, 0.86f);
             var q = G.CurrentQuiver;
             string capLabel = $"{QuiverStats.ArrowCount(q)}발";
-            OutlinedText(new Rect(slot.x + 6f, slot.y + 3f, 44f, 18f), capLabel, new GUIStyle(tiny) { fontSize = 12, fontStyle = FontStyle.Bold }, new Color(1f, 0.88f, 0.45f));
-            OutlinedText(new Rect(slot.xMax - 50f, slot.y + 3f, 44f, 18f), "화살통", new GUIStyle(tiny) { fontSize = 11, alignment = TextAnchor.UpperRight }, new Color(0.7f, 0.7f, 0.7f));
+            OutlinedText(new Rect(slot.x + 6f, slot.y + 3f, 44f, 18f), capLabel, hudMiniLeftStyle, new Color(1f, 0.88f, 0.45f));
+            OutlinedText(new Rect(slot.xMax - 50f, slot.y + 3f, 44f, 18f), "화살통", hudMiniRightStyle, new Color(0.7f, 0.7f, 0.7f));
 
             var tex = LoadToolIcon(QuiverStats.ResourcePath(q));
             if (tex != null)
             {
                 GUI.DrawTexture(new Rect(slot.x + (slot.width - 44f) * 0.5f, slot.y + 20f, 44f, 44f), tex, ScaleMode.ScaleToFit);
             }
-            OutlinedText(new Rect(slot.x + 4f, slot.yMax - 24f, slot.width - 8f, 20f), QuiverStats.ShortName(q), new GUIStyle(tiny) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }, Color.white);
+            OutlinedText(new Rect(slot.x + 4f, slot.yMax - 24f, slot.width - 8f, 20f), QuiverStats.ShortName(q), hudMiniBottomStyle, Color.white);
         }
 
         // ── 양피지 퀘스트 패널 ──
