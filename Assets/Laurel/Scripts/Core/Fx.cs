@@ -91,10 +91,8 @@ namespace Laurel
         public static void HitFlashAndSmoke(Vector2 pos, Color accentColor)
         {
             if (I == null) return;
-            // 1. 큼직한 번쩍임 (밝은 코어 섬광 + X자 히트 스파크 + 이중 파동)
+            // 1. 큼직한 번쩍임 (밝은 코어 섬광 + X자 히트 스파크)
             Burst(pos, new Color(1f, 0.98f, 0.86f, 1f), 10, 9.5f, 0.34f, 0.20f, 3.5f);
-            WaveRing(pos, 1.85f, 0.22f, new Color(1f, 0.95f, 0.72f, 0.95f));
-            WaveRing(pos, 1.35f, 0.16f, new Color(accentColor.r, accentColor.g, accentColor.b, 0.9f));
 
             float r = 0.85f;
             float ang = Random.Range(-0.25f, 0.25f);
@@ -116,13 +114,13 @@ namespace Laurel
             var lr = go.AddComponent<LineRenderer>();
             lr.useWorldSpace = true;
             lr.positionCount = 2;
-            lr.SetPosition(0, (Vector3)(center - d * 3.6f));
-            lr.SetPosition(1, (Vector3)(center + d * 4.6f));
+            lr.SetPosition(0, (Vector3)(center - d * 40f));
+            lr.SetPosition(1, (Vector3)(center + d * 40f));
             lr.sharedMaterial = GetSharedLineMat();
             lr.sortingOrder = 70;
             lr.numCapVertices = 2;
-            lr.startWidth = 0.44f;
-            lr.endWidth = 0.44f;
+            lr.startWidth = 0.26f;
+            lr.endWidth = 0.26f;
             lr.startColor = Color.white;
             lr.endColor = Color.white;
             go.AddComponent<KillStrikeLineAnim>();
@@ -132,8 +130,8 @@ namespace Laurel
         {
             private LineRenderer lr;
             private float elapsed;
-            private const float RedPhase = 0.20f;
-            private const float BlackFadePhase = 0.25f;
+            private const float RedPhase = 0.08f;
+            private const float BlackFadePhase = 0.12f;
 
             private void Awake() => lr = GetComponent<LineRenderer>();
 
@@ -147,13 +145,13 @@ namespace Laurel
                 {
                     float u = elapsed / RedPhase;
                     c = Color.Lerp(Color.white, new Color(0.95f, 0.08f, 0.08f, 1f), u);
-                    w = Mathf.Lerp(0.44f, 0.38f, u);
+                    w = Mathf.Lerp(0.26f, 0.22f, u);
                 }
                 else
                 {
                     float u = Mathf.Clamp01((elapsed - RedPhase) / BlackFadePhase);
                     c = Color.Lerp(new Color(0.95f, 0.08f, 0.08f, 1f), new Color(0.02f, 0.01f, 0.01f, 0f), u);
-                    w = Mathf.Lerp(0.38f, 0.05f, u);
+                    w = Mathf.Lerp(0.22f, 0.03f, u);
                     if (u >= 1f) { Destroy(gameObject); return; }
                 }
                 lr.startColor = c;
