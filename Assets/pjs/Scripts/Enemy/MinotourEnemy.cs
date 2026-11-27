@@ -373,7 +373,7 @@ namespace pjs
             {
                 case State.Idle:
                     velocity.x = Mathf.MoveTowards(velocity.x, 0f, 30f * dt);
-                    if (player != null && (hasDetectedPlayer || Vector2.Distance(player.position, transform.position) <= aggroRange))
+                    if (!hasDetectedPlayer && player != null && Vector2.Distance(player.position, transform.position) <= aggroRange)
                     {
                         hasDetectedPlayer = true;
                         ChooseNextAction();
@@ -411,8 +411,7 @@ namespace pjs
                     if (!attackHitDealt) TryDamagePlayer(attackDamage, 2.8f, 2.0f, true);
                     if (stateTimer <= 0f)
                     {
-                        if (hasDetectedPlayer) ChooseNextAction();
-                        else EnterState(State.Idle);
+                        EnterState(State.Idle);
                     }
                     break;
 

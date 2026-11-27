@@ -197,6 +197,9 @@ namespace Procedural2D
         private bool jumpCutQueued = false;
         private float cachedInputX = 0f;
         private bool prevJumpHeld = false;
+        private Vector3 baseVisualScale = Vector3.one;
+        private Vector2 squashScale = Vector2.one;
+        private float jumpStretchTimer = 0f;
 
         /// <summary>
         /// 현재 공중제비(360도 점프 회전) 중인지 여부
@@ -225,6 +228,11 @@ namespace Procedural2D
             rb = GetComponent<Rigidbody2D>();
             aimCtrl = GetComponent<Procedural2DAim>();
             if (visualTransform == null) visualTransform = transform.Find("Visual");
+            if (visualTransform != null)
+            {
+                Vector3 ls = visualTransform.localScale;
+                baseVisualScale = new Vector3(Mathf.Abs(ls.x), Mathf.Abs(ls.y), ls.z);
+            }
             if (bodyTransform != null) initialBodyLocalPos = bodyTransform.localPosition;
             remainingJumps = maxJumps;
             baseGravityScale = rb.gravityScale;
@@ -360,12 +368,14 @@ namespace Procedural2D
                     coyoteTimer = 0f;
                     jumpBufferTimer = 0f;
                     remainingJumps = maxJumps - 1;
+                    jumpStretchTimer = 0.11f;
                 }
                 else if (remainingJumps > 0)
                 {
                     vel.y = secondJumpForce;
                     jumpBufferTimer = 0f;
                     remainingJumps--;
+                    jumpStretchTimer = 0.11f;
                     StartDoubleJumpSpin(cachedInputX);
                 }
             }
@@ -623,6 +633,39 @@ namespace Procedural2D
             }
         }
 
+        private void LateUpdate()
+        {
+            UpdateSquashStretch();
+        }
+
+        private void UpdateSquashStretch()
+        {
+            if (visualTransform == null) return;
+            float dt = Time.deltaTime;
+            if (jumpStretchTimer > 0f) jumpStretchTimer = Mathf.Max(0f, jumpStretchTimer - dt);
+
+            Vector2 target = Vector2.one;
+            float speed = 12f;
+            if (jumpStretchTimer > 0f)
+            {
+                target = new Vector2(0.86f, 1.18f);
+                speed = 22f;
+            }
+            else if (isDashing)
+            {
+                target = new Vector2(1.18f, 0.86f);
+                speed = 20f;
+            }
+
+            squashScale = Vector2.Lerp(squashScale, target, 1f - Mathf.Exp(-speed * dt));
+            float sign = visualTransform.localScale.x < 0f ? -1f : 1f;
+            visualTransform.localScale = new Vector3(
+                sign * baseVisualScale.x * squashScale.x,
+                baseVisualScale.y * squashScale.y,
+                baseVisualScale.z
+            );
+        }
+
         private void SpawnGhostTrail()
         {
             if (visualTransform == null) return;
@@ -785,6 +828,7 @@ namespace Procedural2D
             rb.gravityScale = baseGravityScale;
             rb.linearVelocity = new Vector2(dir * wallJumpPush, wallJumpForce);
             moveLockTimer = wallJumpLockTime; moveLockVx = dir * wallJumpPush; moveLockIsMinimum = true;
+            jumpStretchTimer = 0.11f;
             isGrounded = false;
             remainingJumps = maxJumps - 1;
             topAssistTimer = 0f;

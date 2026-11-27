@@ -433,15 +433,25 @@ namespace Laurel
             if (hover) card.y -= CardPixel * 2f; // 살짝 떠오름
 
             var oldColor = GUI.color;
-            if (!selectable) GUI.color = new Color(0.72f, 0.7f, 0.68f, 1f);
-            if (hover)
+            var glow = Art.Soft.texture;
+            if (glow != null)
             {
-                // 뒤쪽 은은한 금빛
-                var glow = Art.Soft.texture;
-                GUI.color = new Color(1f, 0.82f, 0.45f, 0.35f);
-                GUI.DrawTexture(new Rect(card.x - size.x * 0.25f, card.y - size.y * 0.15f, size.x * 1.5f, size.y * 1.3f), glow);
-                GUI.color = oldColor;
+                Color rCol = DB.RarityColors[Mathf.Clamp(d.rarity, 0, DB.RarityColors.Length - 1)];
+                float pulse = d.rarity >= 2 ? (0.9f + 0.1f * Mathf.Sin(Time.unscaledTime * (2.2f + d.rarity * 0.5f))) : 1f;
+                float selMul = selectable ? 1f : 0.45f;
+                float baseAlpha = (0.24f + d.rarity * 0.06f) * selMul * pulse;
+                float glowPadX = size.x * (hover ? 0.28f : 0.20f);
+                float glowPadY = size.y * (hover ? 0.18f : 0.13f);
+                GUI.color = new Color(rCol.r, rCol.g, rCol.b, baseAlpha + (hover ? 0.22f : 0f));
+                GUI.DrawTexture(new Rect(card.x - glowPadX, card.y - glowPadY, size.x + glowPadX * 2f, size.y + glowPadY * 2f), glow);
+                if (hover || d.rarity >= 2)
+                {
+                    float innerAlpha = (hover ? 0.28f : 0.14f + (d.rarity - 2) * 0.04f) * selMul * pulse;
+                    GUI.color = new Color(rCol.r, rCol.g, rCol.b, innerAlpha);
+                    GUI.DrawTexture(new Rect(card.x - glowPadX * 0.5f, card.y - glowPadY * 0.5f, size.x + glowPadX, size.y + glowPadY), glow);
+                }
             }
+            GUI.color = selectable ? oldColor : new Color(0.72f, 0.7f, 0.68f, 1f);
             GUI.DrawTexture(card, ArrowCardArt.Frame);
             // 윗 장식 화살촉 보석 = 화살 고유색
             var gc = GUI.color;

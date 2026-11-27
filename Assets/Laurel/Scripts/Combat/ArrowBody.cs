@@ -43,6 +43,7 @@ namespace Laurel
         private PlayerCombat owner;
         private SpriteRenderer sr;
         private TrailRenderer trail;
+        private ParticleSystem mythicFirePs;
         private Vector2 velocity;
         private float gravity;
         private float traveled, maxRange;
@@ -95,17 +96,92 @@ namespace Laurel
             sr.color = def.tint;
             float s = Mathf.Lerp(0.85f, 1.25f, Mathf.InverseLerp(0.5f, 1.5f, def.weight));
             bool dash = Shot != null && Shot.isDashAttack;
+            bool isMythic = def != null && def.rarity == 4;
             if (Art.ArrowSprite == null) transform.localScale = new Vector3(0.9f * s, 0.25f * s, 1f);
             else transform.localScale = new Vector3(s, s, 1f);
             if (trail != null)
             {
-                Color cStart = dash ? new Color(0.25f, 0.85f, 1f, 0.9f) : def.tint;
-                if (!dash) cStart.a = 0.85f;
-                Color cEnd = new Color(cStart.r, cStart.g, cStart.b, 0f);
+                Color cStart = dash
+                    ? new Color(0.25f, 0.85f, 1f, 0.9f)
+                    : (isMythic ? new Color(1f, 0.22f, 0.08f, 0.95f) : def.tint);
+                if (!dash && !isMythic) cStart.a = 0.85f;
+                Color cEnd = isMythic && !dash
+                    ? new Color(0.75f, 0.04f, 0.02f, 0f)
+                    : new Color(cStart.r, cStart.g, cStart.b, 0f);
                 trail.startColor = cStart;
                 trail.endColor = cEnd;
-                trail.widthMultiplier = 1f;
+                trail.time = isMythic && !dash ? 0.24f : 0.16f;
+                trail.widthMultiplier = isMythic && !dash ? 1.6f : 1f;
             }
+            if (isMythic && mythicFirePs == null)
+            {
+                mythicFirePs = AttachMythicFireParticles(transform, 21, 1f);
+            }
+            if (mythicFirePs != null)
+            {
+                var em = mythicFirePs.emission;
+                em.enabled = isMythic && State != ArrowState.InQuiver && State != ArrowState.Consumed;
+            }
+        }
+
+        /// <summary>신화 등급 화살용 붉은 화염 파티클을 대상 트랜스폼에 부착한다.</summary>
+        public static ParticleSystem AttachMythicFireParticles(Transform parent, int sortingOrder = 21, float scale = 1f)
+        {
+            var psGo = new GameObject("MythicFireFx");
+            psGo.transform.SetParent(parent, false);
+            psGo.transform.localPosition = Vector3.zero;
+
+            var ps = psGo.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.loop = true;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.20f, 0.38f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.35f * scale, 1.05f * scale);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.14f * scale, 0.28f * scale);
+            main.gravityModifier = -0.35f;
+            main.maxParticles = 64;
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(1f, 0.40f, 0.10f, 0.95f),
+                new Color(0.92f, 0.08f, 0.05f, 0.95f)
+            );
+
+            var emission = ps.emission;
+            emission.rateOverTime = 26f;
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Circle;
+            shape.radius = 0.14f * scale;
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            var grad = new Gradient();
+            grad.SetKeys(
+                new[]
+                {
+                    new GradientColorKey(new Color(1f, 0.55f, 0.15f), 0f),
+                    new GradientColorKey(new Color(0.95f, 0.14f, 0.05f), 0.45f),
+                    new GradientColorKey(new Color(0.45f, 0.03f, 0.02f), 1f)
+                },
+                new[]
+                {
+                    new GradientAlphaKey(0.95f, 0f),
+                    new GradientAlphaKey(0.65f, 0.55f),
+                    new GradientAlphaKey(0f, 1f)
+                }
+            );
+            col.color = grad;
+
+            var sol = ps.sizeOverLifetime;
+            sol.enabled = true;
+            sol.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.15f));
+
+            var psr = psGo.GetComponent<ParticleSystemRenderer>();
+            var mat = new Material(Shader.Find("Sprites/Default"));
+            if (Art.Soft != null && Art.Soft.texture != null) mat.mainTexture = Art.Soft.texture;
+            psr.material = mat;
+            psr.sortingOrder = sortingOrder;
+
+            return ps;
         }
 
         private void SetState(ArrowState s)
@@ -117,6 +193,14 @@ namespace Laurel
             {
                 trail.emitting = s == ArrowState.Flying || s == ArrowState.Returning;
                 if (s == ArrowState.InQuiver || s == ArrowState.Consumed) trail.Clear();
+            }
+            if (mythicFirePs != null)
+            {
+                bool active = s != ArrowState.InQuiver && s != ArrowState.Consumed;
+                var em = mythicFirePs.emission;
+                em.enabled = active;
+                em.rateOverTime = (s == ArrowState.Flying || s == ArrowState.Returning) ? 42f : 18f;
+                if (!active) mythicFirePs.Clear();
             }
         }
 

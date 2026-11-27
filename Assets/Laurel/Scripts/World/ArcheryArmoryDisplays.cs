@@ -237,6 +237,23 @@ namespace Laurel
                 iconSr.sprite = sprite;
                 iconSr.color = tint;
                 iconSr.sortingOrder = 12;
+
+                if (kind == PedestalKind.Arrow)
+                {
+                    var def = DB.Arrow(arrowCode);
+                    if (def != null && def.rarity == 4)
+                    {
+                        var glowGo = new GameObject("MythicGlow");
+                        glowGo.transform.SetParent(iconGo.transform, false);
+                        glowGo.transform.localScale = Vector3.one * 1.4f;
+                        var glowSr = glowGo.AddComponent<SpriteRenderer>();
+                        glowSr.sprite = Art.Soft;
+                        glowSr.color = new Color(1f, 0.22f, 0.08f, 0.42f);
+                        glowSr.sortingOrder = 11;
+
+                        ArrowBody.AttachMythicFireParticles(iconGo.transform, 13, 0.9f);
+                    }
+                }
             }
 
             pedestals.Add(new Pedestal
