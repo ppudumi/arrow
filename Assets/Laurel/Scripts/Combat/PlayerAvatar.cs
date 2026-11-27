@@ -93,7 +93,7 @@ namespace Laurel
             DamageTakenTotal += final;
             iframes = DB.Balance.player.iframes;
             DamagePopup.Spawn(transform.position + Vector3.up * 1.4f, Mathf.Max(1, Mathf.RoundToInt(final)), false, new Color(1f, 0.35f, 0.35f, 1f));
-            Fx.Burst(transform.position, new Color(1f, 0.3f, 0.3f), 8, 5f, 0.15f, 0.35f);
+            Fx.HitFlashAndSmoke(transform.position, new Color(1f, 0.35f, 0.35f, 1f));
             Sfx.Play("hurt", 0.8f);
             CameraRig.Shake(0.18f);
             if (Body != null) Body.linearVelocity = new Vector2(Body.linearVelocity.x, Mathf.Max(Body.linearVelocity.y, 6f));

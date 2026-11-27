@@ -66,6 +66,103 @@ namespace Laurel
             }
         }
 
+        /// <summary>지정 방향(dir) 부채꼴로 흩어지는 먼지 파티클을 생성합니다.</summary>
+        public static void DirectionalDust(Vector2 pos, Vector2 dir, Color color, int count = 8, float spreadDeg = 44f, float speed = 4.6f, float size = 0.24f, float life = 0.34f, float gravity = -0.8f)
+        {
+            if (I == null) return;
+            Vector2 baseDir = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.left;
+            float baseAngle = Mathf.Atan2(baseDir.y, baseDir.x) * Mathf.Rad2Deg;
+            for (int i = 0; i < count; i++)
+            {
+                if (I.particles.Count > 400) break;
+                var sr = I.particlePool.Count > 0 ? I.particlePool.Pop() : MakeParticle();
+                sr.gameObject.SetActive(true);
+                sr.transform.position = pos + Random.insideUnitCircle * 0.14f;
+                sr.color = color;
+                float s = size * Random.Range(0.65f, 1.35f);
+                sr.transform.localScale = new Vector3(s, s, 1f);
+                float ang = (baseAngle + Random.Range(-spreadDeg, spreadDeg)) * Mathf.Deg2Rad;
+                Vector2 v = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * (speed * Random.Range(0.45f, 1.15f));
+                I.particles.Add(new Particle { sr = sr, vel = v, life = life * Random.Range(0.75f, 1.15f), maxLife = life, gravity = gravity, startScale = s });
+            }
+        }
+
+        /// <summary>피격 시 큼직하고 번쩍이는 섬광·파동과 함께 연기를 피워 올린다.</summary>
+        public static void HitFlashAndSmoke(Vector2 pos, Color accentColor)
+        {
+            if (I == null) return;
+            // 1. 큼직한 번쩍임 (밝은 코어 섬광 + X자 히트 스파크 + 이중 파동)
+            Burst(pos, new Color(1f, 0.98f, 0.86f, 1f), 10, 9.5f, 0.34f, 0.20f, 3.5f);
+            WaveRing(pos, 1.85f, 0.22f, new Color(1f, 0.95f, 0.72f, 0.95f));
+            WaveRing(pos, 1.35f, 0.16f, new Color(accentColor.r, accentColor.g, accentColor.b, 0.9f));
+
+            float r = 0.85f;
+            float ang = Random.Range(-0.25f, 0.25f);
+            Vector2 d1 = new Vector2(Mathf.Cos(ang + 0.785f), Mathf.Sin(ang + 0.785f)) * r;
+            Vector2 d2 = new Vector2(Mathf.Cos(ang - 0.785f), Mathf.Sin(ang - 0.785f)) * r;
+            Polyline(new[] { (Vector3)(pos - d1), (Vector3)(pos + d1) }, new Color(1f, 0.98f, 0.85f, 0.95f), 0.22f, 0.10f, 65);
+            Polyline(new[] { (Vector3)(pos - d2), (Vector3)(pos + d2) }, new Color(accentColor.r, accentColor.g, accentColor.b, 0.95f), 0.18f, 0.10f, 65);
+
+            // 2. 피격 연기
+            DirectionalDust(pos, Vector2.up, new Color(0.84f, 0.84f, 0.88f, 0.58f), 8, 120f, 3.6f, 0.32f, 0.48f, -1.5f);
+        }
+
+        /// <summary>피격으로 적이 사망했을 때 맞은 방향으로 굵은 하얀 직선(0.2초 만에 빨개진 뒤 까매지며 소멸)을 생성한다.</summary>
+        public static void KillStrikeLine(Vector2 center, Vector2 dir)
+        {
+            if (I == null) return;
+            Vector2 d = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.right;
+            var go = new GameObject("KillStrikeLine");
+            var lr = go.AddComponent<LineRenderer>();
+            lr.useWorldSpace = true;
+            lr.positionCount = 2;
+            lr.SetPosition(0, (Vector3)(center - d * 3.6f));
+            lr.SetPosition(1, (Vector3)(center + d * 4.6f));
+            lr.sharedMaterial = GetSharedLineMat();
+            lr.sortingOrder = 70;
+            lr.numCapVertices = 2;
+            lr.startWidth = 0.44f;
+            lr.endWidth = 0.44f;
+            lr.startColor = Color.white;
+            lr.endColor = Color.white;
+            go.AddComponent<KillStrikeLineAnim>();
+        }
+
+        private class KillStrikeLineAnim : MonoBehaviour
+        {
+            private LineRenderer lr;
+            private float elapsed;
+            private const float RedPhase = 0.20f;
+            private const float BlackFadePhase = 0.25f;
+
+            private void Awake() => lr = GetComponent<LineRenderer>();
+
+            private void Update()
+            {
+                if (lr == null) { Destroy(gameObject); return; }
+                elapsed += Time.deltaTime;
+                Color c;
+                float w;
+                if (elapsed <= RedPhase)
+                {
+                    float u = elapsed / RedPhase;
+                    c = Color.Lerp(Color.white, new Color(0.95f, 0.08f, 0.08f, 1f), u);
+                    w = Mathf.Lerp(0.44f, 0.38f, u);
+                }
+                else
+                {
+                    float u = Mathf.Clamp01((elapsed - RedPhase) / BlackFadePhase);
+                    c = Color.Lerp(new Color(0.95f, 0.08f, 0.08f, 1f), new Color(0.02f, 0.01f, 0.01f, 0f), u);
+                    w = Mathf.Lerp(0.38f, 0.05f, u);
+                    if (u >= 1f) { Destroy(gameObject); return; }
+                }
+                lr.startColor = c;
+                lr.endColor = c;
+                lr.startWidth = w;
+                lr.endWidth = w;
+            }
+        }
+
         private static SpriteRenderer MakeParticle()
         {
             var sr = Art.Quad(I.transform, "p", Art.Square, Color.white, Vector2.one * 0.2f, 60);

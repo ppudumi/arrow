@@ -478,6 +478,7 @@ namespace Laurel
                 Fx.Text(Center + Vector3.up * 0.8f, "재앙!", new Color(0.7f, 0.3f, 1f), 20, 0.6f);
             }
             if (Status != null) amount *= Status.DamageTakenMul;
+            Fx.HitFlashAndSmoke(Center, color);
 
             Hp = Mathf.Max(0f, Hp - amount);
             UpdateHpBar();

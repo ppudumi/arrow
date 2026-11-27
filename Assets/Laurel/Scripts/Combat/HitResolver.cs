@@ -55,6 +55,7 @@ namespace Laurel
             {
                 warlock.MarkHitPoint(point, dir);
             }
+            bool wasAlive = enemy.IsAlive;
             enemy.TakeDamage(dmg, form.name, form.tint, true);
             c.Stats.hitsLanded++;
             Fx.Burst(point, form.tint, 5, 4f, 0.12f, 0.3f);
@@ -63,6 +64,7 @@ namespace Laurel
             ApplyOnHit(c, form, enemy, point, dir, card, dmg, false, shot);
 
             outcome.killed = !enemy.IsAlive;
+            if (wasAlive && outcome.killed) Fx.KillStrikeLine(point, dir);
 
             // 카드 상태 변화
             switch (form.effect)
@@ -122,9 +124,11 @@ namespace Laurel
             float dmg = p.damage + c.FocusBonus(enemy);
             enemy.lastArrowForm = p.form;
             enemy.lastArrowDamage = p.damage;
+            bool wasAlive = enemy.IsAlive;
             enemy.TakeDamage(dmg, p.label, p.form.tint, true);
             c.Stats.phantomHits++;
             ApplyOnHit(c, p.form, enemy, point, dir, null, dmg, true, null);
+            if (wasAlive && !enemy.IsAlive) Fx.KillStrikeLine(point, dir);
         }
 
         /// <summary>화살 종류별 적중 효과</summary>

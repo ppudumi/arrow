@@ -348,6 +348,10 @@ namespace Laurel
         public void PlayFireFeedback(Vector2 direction)
         {
             if (Aim != null) Aim.PlayShotRecoil(direction);
+            Vector2 backDir = direction.sqrMagnitude > 0.0001f
+                ? -direction.normalized
+                : (Aim != null && Aim.IsFacingRight ? Vector2.left : Vector2.right);
+            Fx.DirectionalDust(PlayerCenter + backDir * 0.35f, backDir, new Color(0.95f, 0.96f, 0.98f, 0.72f), 9, 44f, 4.6f, 0.24f, 0.34f, -0.8f);
             Sfx.Play("shoot", 0.6f);
         }
 

@@ -82,6 +82,7 @@ namespace Laurel
         private float waxPeakY;
         private float oilAccum;
         private float dashGhostTimer;
+        private float smokeTimer;
         private readonly HashSet<Enemy> grazed = new HashSet<Enemy>();
 
         public void Setup(PlayerCombat combat, ArrowCard card)
@@ -260,6 +261,7 @@ namespace Laurel
             formChanges = 0;
             oilAccum = 0f;
             dashGhostTimer = 0f;
+            smokeTimer = 0f;
         }
 
         /// <summary>찌르기·즉발(헤르메스 화살)처럼 날아가지 않고 바로 적중 지점에 놓일 때</summary>
@@ -433,6 +435,16 @@ namespace Laurel
 
         public void SimulateFrame(float dt, Vector2 playerPos)
         {
+            if (State == ArrowState.Flying || State == ArrowState.Returning)
+            {
+                smokeTimer -= dt;
+                if (smokeTimer <= 0f)
+                {
+                    smokeTimer = 0.028f;
+                    Vector2 backDir = LastDirection.sqrMagnitude > 0.0001f ? -LastDirection.normalized : Vector2.left;
+                    Fx.DirectionalDust((Vector2)transform.position + backDir * 0.12f, backDir, new Color(0.88f, 0.88f, 0.92f, 0.42f), 1, 22f, 1.4f, 0.22f, 0.34f, -0.7f);
+                }
+            }
             switch (State)
             {
                 case ArrowState.Stuck:

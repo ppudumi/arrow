@@ -380,6 +380,7 @@ namespace Laurel
             Color popColor = frenzy ? new Color(0.45f, 0.88f, 1f, 1f) : color;
             int dmgInt = Mathf.Max(1, Mathf.RoundToInt(amount));
             DamagePopup.Spawn(Center + Vector3.up * (halfSize.y + 0.2f), dmgInt, frenzy, popColor);
+            Fx.HitFlashAndSmoke(Center, popColor);
             if (isArrowHit && Status.resonanceDamage > 0f && Room != null)
             {
                 float rd = Status.resonanceDamage;

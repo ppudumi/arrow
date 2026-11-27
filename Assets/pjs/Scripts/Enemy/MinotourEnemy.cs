@@ -765,6 +765,7 @@ namespace pjs
 
             Hp = Mathf.Max(0f, Hp - amount);
             UpdateHpBar();
+            Fx.HitFlashAndSmoke(Center, color);
             flashT = 0f;
 
             int dmgInt = Mathf.Max(1, Mathf.RoundToInt(amount));
